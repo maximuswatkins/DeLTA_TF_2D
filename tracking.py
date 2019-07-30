@@ -1,0 +1,37 @@
+from data import saveResult_track, predictCompilefromseg_track
+from model import unet_track
+from os import listdir
+
+# Files:
+images_folder = 'C:\\DeepLearning\\data\\segmentation\\img\\'
+segmentation_folder = 'C:\\DeepLearning\\data\\segmentation\\output\\'
+save_folder = 'C:\\DeepLearning\\data\\tracking\\output\\'
+model_file= 'unet_moma_track.hdf5'
+unprocessed = listdir(images_folder)
+
+# Parameters:
+target_size = (256, 32)
+input_size = target_size + (4,)
+process_size = 512 # This is the number of frames to consider _BEFORE_ each sample has been subdivided into cell-specific tracking samples
+
+# Load up model:
+model = unet_track(input_size = input_size)
+model.load_weights(model_file)
+
+# Process
+while(unprocessed):
+    # Pop out filenames
+    ps = min(process_size,len(unprocessed))
+    to_process = unprocessed[0:ps]
+    del unprocessed[0:ps]
+    
+    # Get data:
+    inputs, seg_filenames = predictCompilefromseg_track(images_folder, segmentation_folder,
+                                                        files_list = to_process, 
+                                                        target_size = target_size)
+    
+    # Predict:
+    results = model.predict(inputs,verbose=1)
+    
+    # Save (use the filenames list from the data compiler)
+    saveResult_track(save_folder,results, files_list = seg_filenames)
