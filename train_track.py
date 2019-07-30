@@ -2,14 +2,17 @@ from model import unet_track
 from data import trainGenerator_track, estimateClassweights
 from tensorflow.keras.callbacks import ModelCheckpoint
 
+# Files:
+DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
+training_set = DeLTA_data + 'mother_machine/training/tracking_set/train/'
+model_file = DeLTA_data + 'mother_machine/models/unet_moma_track.hdf5'
+
 # Parameters:
-data_folder = 'data/tracking_set/train/'
 target_size = (256, 32)
 input_size = target_size + (4,)
 batch_size = 5
 epochs = 400
 steps_per_epoch = 250
-model_file = 'unet_moma_track.hdf5'
 
 #Data generator:
 data_gen_args = dict(
@@ -22,12 +25,12 @@ data_gen_args = dict(
                     illumination_voodoo=True)
 
 myGene = trainGenerator_track(batch_size,
-                             data_folder + 'img/',
-                             data_folder + 'seg/',
-                             data_folder + 'previmg/',
-                             data_folder + 'segall/',
-                             data_folder + 'mother/',
-                             data_folder + 'daughter/',
+                             training_set + 'img/',
+                             training_set + 'seg/',
+                             training_set + 'previmg/',
+                             training_set + 'segall/',
+                             training_set + 'mother/',
+                             training_set + 'daughter/',
                              data_gen_args,
                              target_size = target_size)
 

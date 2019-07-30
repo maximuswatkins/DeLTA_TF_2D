@@ -3,9 +3,10 @@ from model import unet_seg
 from os import listdir
 
 # Files:
-inputs_folder = 'C:\\DeepLearning\\data\\segmentation\\img\\'
-save_folder = 'C:\\DeepLearning\\data\\segmentation\\output\\'
-model_file= 'unet_moma_seg.hdf5'
+DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
+inputs_folder = DeLTA_data + 'mother_machine/evaluation/preprocessed/img/'
+outputs_folder = DeLTA_data + 'mother_machine/evaluation/seg_output/'
+model_file = DeLTA_data + 'mother_machine/models/unet_moma_seg.hdf5'
 unprocessed = listdir(inputs_folder)
 
 # Parameters:
@@ -32,4 +33,4 @@ while(unprocessed):
     results[:,:,:,0] = postprocess(results[:,:,:,0])
     
     # Save to disk:
-    saveResult_seg(save_folder,results, files_list = to_process)
+    saveResult_seg(outputs_folder,results, files_list = to_process)

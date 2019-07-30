@@ -3,10 +3,11 @@ from model import unet_track
 from os import listdir
 
 # Files:
-images_folder = 'C:\\DeepLearning\\data\\segmentation\\img\\'
-segmentation_folder = 'C:\\DeepLearning\\data\\segmentation\\output\\'
-save_folder = 'C:\\DeepLearning\\data\\tracking\\output\\'
-model_file= 'unet_moma_track.hdf5'
+DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
+images_folder = DeLTA_data + 'mother_machine/evaluation/preprocessed/img/'
+segmentation_folder = DeLTA_data + 'mother_machine/evaluation/seg_output/'
+outputs_folder = DeLTA_data + 'mother_machine/evaluation/track_output/'
+model_file = DeLTA_data + 'mother_machine/models/unet_moma_track.hdf5'
 unprocessed = listdir(images_folder)
 
 # Parameters:
@@ -34,4 +35,4 @@ while(unprocessed):
     results = model.predict(inputs,verbose=1)
     
     # Save (use the filenames list from the data compiler)
-    saveResult_track(save_folder,results, files_list = seg_filenames)
+    saveResult_track(outputs_folder,results, files_list = seg_filenames)
