@@ -3,6 +3,7 @@ DeLTA (Deep Learning for Time-lapse Analysis) is a deep learning-based image pro
 
 See the manuscript on bioRxiv: [https://www.biorxiv.org/content/10.1101/720615v1](https://www.biorxiv.org/content/10.1101/720615v1)
 
+##### Overview
 Our pipeline is centered around two [U-Net](https://arxiv.org/abs/1505.04597) neural networks that are used sequentially:
 1. To perform semantic binary segmentation of our cells as in the original U-Net paper.
 2. To track cells from one movie frame to the next, and to identify cell divisions and mother/daughter cells.
