@@ -19,7 +19,7 @@ Finally we provide datasets for training and evaluation, both for E. coli and ye
 While this code can run on CPU, we recommend running it on GPU for faster processing. To do so you will need [an nvidia gpu with a cuda compute capability of 3.5 or higher](https://developer.nvidia.com/cuda-gpus). Make sure you update your gpu drivers ([from the nvidia website](https://www.nvidia.com/Download/index.aspx?lang=en-us))
 
 ### Tensorflow 2.0 - GPU (recommended)
-We recommend installing tensorflow 2.0 (GPU)  with [anaconda](https://www.anaconda.com/distribution/). See [here](https://towardsdatascience.com/tensorflow-gpu-installation-made-easy-use-conda-instead-of-pip-52e5249374bc) for more details.
+We recommend installing tensorflow 2.0 (GPU)  with [anaconda](https://www.anaconda.com/distribution/). Anaconda is easy to install, and will allow you to setup environments that are not in conflict with each other and will streamline the installation process. See [here](https://towardsdatascience.com/tensorflow-gpu-installation-made-easy-use-conda-instead-of-pip-52e5249374bc) for more details.
 
     (base)$ conda create --name tf_gpu python=3.6 tensorflow-gpu
 The code should work with python >= 3.6, but just to be on the safe side we recommend you use the python=3.6 option when creating the tf_gpu environment. You can name your environment tf_gpu or whatever you like.
