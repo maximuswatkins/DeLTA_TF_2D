@@ -38,6 +38,7 @@ def pixelwise_weighted_binary_crossentropy(y_true, y_pred):
     neg_abs_logits = math_ops.select(cond, -y_pred, y_pred)
     entropy = math_ops.add(relu_logits - y_pred * seg, math_ops.log1p(math_ops.exp(neg_abs_logits)), name=None)
     
+    # This is essentially the only part that is different from the Keras code:
     return K.mean(math_ops.multiply(weight, entropy), axis=-1)
 
 

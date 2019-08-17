@@ -23,12 +23,22 @@ else:
 # UTILITIES:
 
 def binarizerange(i):
+    '''
+    This function will binarize a numpy array by thresholding it in the middle
+    of its range
+    '''
     newi = i
     newi[i > (np.amin(i)+np.amax(i))/2] = 1
     newi[i <= (np.amin(i)+np.amax(i))/2] = 0
     return newi
 
 def readreshape(filename, target_size = (256,32), binarize = False, order = 1):
+    '''
+    This function will read an image from the filename provided
+    Resize it to target_size (defaults to 256x32) (order of the rezize op can 
+    be specified)
+    Binarize it with binarizerange() if binarize == True (defaults to False)
+    '''
     i = io.imread(filename,as_gray = True)
     i = trans.resize(i, target_size, anti_aliasing=True, order=order)
     if binarize:
@@ -37,6 +47,14 @@ def readreshape(filename, target_size = (256,32), binarize = False, order = 1):
     return i
 
 def data_augmentation(images_input, aug_par, order=0):
+    '''
+    This function performs the data augmentation operations specified in the 
+    aug_par dictionary on the images input list of images (numpy arrays)
+    
+    The order to use for the operations can be specified as a scalar value to 
+    apply to all images, or as a list of the same length as the images list to 
+    apply different orders to each image.
+    '''
     
     #processing inputs / initializing variables::
     output = list(images_input)
@@ -115,6 +133,11 @@ def data_augmentation(images_input, aug_par, order=0):
     return output
 
 def zoomshift(I,zoomlevel,shiftX,shiftY, order=0):
+    '''
+    This function applies a zooming/scaling operation on the image, shifts it, 
+    and then crops it back to its original size
+    '''
+    
     oldshape = I.shape
     I = trans.rescale(I,zoomlevel,mode='edge',multichannel=False, order=order)
     shiftX = shiftX * I.shape[0]
@@ -125,6 +148,9 @@ def zoomshift(I,zoomlevel,shiftX,shiftY, order=0):
     return I
     
 def shift(image, vector, order=0):
+    '''
+    Thsi function performs the shifting operation used in zoomshift() above
+    '''
     transform = trans.AffineTransform(translation=vector)
     shifted = trans.warp(image, transform, mode='edge',order=order)
 
@@ -210,9 +236,26 @@ def trainGenerator_seg(batch_size,
                     preload = False,
                     seed = 1):
     '''
-    So I turned the data compiler into a generator. I do the transformations/augmentation
-    myself because I wasn't entirely happy with the ImageDataGenerator output
+    This function is a generator for training the segmentation U-Net.
+    
+    It compiles a numpy array of batch_size images of single moma chambers 
+    read from the img_path folder, and resizes them to target_size if necessary
+    It also compiles two numpy arrays, one for the segmentation output to train 
+    over (read from mask_path) and one for the weights maps (form weight_path)
+    
+    The images are modified on the fly with the data_augmentation() function 
+    (see above). Parameters are provided with the augment_params dictionary
+    
+    If preload == True, all the images from the 3 folders are preloaded into 
+    memory and then only the augmentation operations are performed when the 
+    generator is called. This doesn't seem to make much of a difference in our 
+    case, but it could be useful on some other configs (HDD vs SSD for example)
+    
+    Note that corresponding images must have the same names in the different 
+    folders.
+    
     '''
+    
     preload_mask = []
     preload_img = []
     preload_weight = []
@@ -266,6 +309,15 @@ def trainGenerator_seg(batch_size,
 
 
 def saveResult_seg(save_path,npyfile, files_list = []):
+    '''
+    This function simply saves an array of output images (npyfile) 
+    from the segmentation U-Net to the save_path repository.
+    
+    A list of filenames can be specified with files_list. 
+    If no filenames are specified, the files will be written as 
+    "%d_predict.png", with %d being the image index in the array
+    '''
+    
     for i,item in enumerate(npyfile):
         img = item[:,:,0]
         if files_list:
@@ -278,6 +330,17 @@ def saveResult_seg(save_path,npyfile, files_list = []):
 
 
 def predictGenerator_seg(files_path, files_list = [], target_size = (256,32)):
+    '''
+    This function is a generator for predicting segmentation on new image files 
+    once the segmentation U-Net has been trained.
+    
+    Images are loaded from the files_path folder. If a list of filenames 
+    files_list is specified, it will read only those images, otherwise it will 
+    go through the entire folder.
+    
+    Images are resized to target_size upon loading.
+    '''
+    
     if not files_list:
         files_list = os.listdir(files_path)
     for index, fname in enumerate(files_list):
@@ -307,6 +370,37 @@ def trainGenerator_track(batch_size,
                     augment_params = {},
                     target_size = (256,32),
                     seed = 1):
+    '''
+    This function is a generator for training the tracking U-Net.
+    
+    It compiles a numpy array of batch_size x4 images. 
+    The first one, loaded from img_path, is an image of the moma chamber at 
+    the current timepoint.
+    The second one is the binary segmentation mask read from the seg_path 
+    folder of a single cell that we want to track at the previous timepoint 
+    (referred to as the "seed" image in the paper).
+    The third one is the image of the moma chamber at the previous timepoint, 
+    read from the previmg_path folder. 
+    And finally the fourth one is the segmentation of all cells in the chamber
+    from the current timepoint, read from the segall_path folder.
+    Note that the order of the images is not exactly the same as described in 
+    the paper.
+    
+    It also compiles three numpy arrays to train over, one for the 
+    "tracking"/"mother" one-hot encoded mask output, read from the mother_path 
+    folder, one for the potential "daughter" one-hot encoded mask output, read 
+    from the daugher_path folder and a third one for the "background" one-hot 
+    encoded mask, that is generated from teh first two.
+    
+    The images are modified on the fly with the data_augmentation() function 
+    (see above). Parameters are provided with the augment_params dictionary
+    
+    Note that corresponding images must have the same names in the different 
+    folders.
+    
+    We did not implement preloading for this training generator as we did in 
+    the segmentation one.
+    '''
     
     # Initialize variables and arrays:
     image_name_arr = glob.glob(os.path.join(img_path,"*.png"))
@@ -362,6 +456,17 @@ def trainGenerator_track(batch_size,
             
             
 def predictGenerator_track(test_path,files_list = [],target_size = (256,32)):
+    '''
+    This function is a generator for predicting tracking on new image files 
+    once the tracking U-Net has been trained.
+    
+    Images are loaded from subfolders in the test_path folder (following the 
+    same nomenclature as in trainGenerator_track())
+    If a list of filenames files_list is specified, it will read only those 
+    images, otherwise it will go through the entire folder.
+    
+    Images are resized to target_size upon loading.
+    '''
     
     if not files_list:
         files_list = os.listdir(test_path)
@@ -380,9 +485,30 @@ def predictGenerator_track(test_path,files_list = [],target_size = (256,32)):
 def predictCompilefromseg_track(img_path,seg_path, files_list = [],
                                   target_size = (256,32)):
     ''' 
-    This function generates input data of the same for as predictGenerator_track()
-    But it does it firectly from the segmentation results out of the segmentation
-    version of this U-Net
+    This function compiles an inputs array for tracking prediction with the 
+    tracking U-Net, directly from segmentation produced by the segmentation 
+    U-Net.
+    
+    Original single chamber images are loaded from the img_path folder, 
+    and segmentation outputs from the seg_path subfolder.
+    
+    For each timepoint, the image for the current frame and previous frame are 
+    loaded, and the segmentation masks from the segmentation U-Nets are loaded,
+    for the current and previous time point. This requires filenames to be 
+    written following the nomenclature "Position##_Chamber##_Frame###.png" as in
+    our sample dataset.
+    
+    The "seed" images are generated by creating single-cell segementation masks
+    from the previous time point segmentation masks. Each cell will be 
+    processed sequentially, from top to bottom. A filenames list seg_name_list
+    is also compiled and returned for saving tracking predictions to disk after 
+    running the tracking U-Net. The filenames follow the previous nomenclature,
+    but add the _Cell## suffix to specify which cell from the previous 
+    timepoint was used as "seed":
+        "Position##_Chamber##_Frame###_Cell##.png"
+    Again, the seed cells are numbered from the top of the image to the bottom.
+    With this naming convention, the lineage can then be reconstructed form the
+    tracking output images.
     '''
     
     img_arr = []
@@ -455,6 +581,15 @@ def estimateClassweights(gene, num_samples = 30):
 
 
 def saveResult_track(save_path,npyfile, files_list = None, num_class = 2):
+    '''
+    This function simply saves an array of output images (npyfile) 
+    from the tracking U-Net to the save_path repository.
+    
+    A list of filenames can be specified with files_list. 
+    If no filenames are specified, the files will be written as "%d_mother.png"
+    and "%d_daughter.png", with %d being the image index in the array
+    '''
+    
     mothers = npyfile[:,:,:,0]
     daughters = npyfile[:,:,:,1]
     for i,mother in enumerate(mothers):
@@ -473,28 +608,3 @@ def saveResult_track(save_path,npyfile, files_list = None, num_class = 2):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             io.imsave(filenameDa,(daughter*255).astype(np.uint8))
-
-
-       
-# simultaneous SEGMENTATION + TRACKING:
-        
-def predictGenerator_segtrack(test_path,files_list = [],target_size = (256,32)):
-    '''
-    This is the same as the predict generator for tracking, except that it is
-    feeding the 'seg' images instead of the 'segall' ones. In effect, this 
-    removes the current segmentation from the inputs
-    '''
-    
-    if not files_list:
-        files_list = os.listdir(test_path)
-    for index, item in enumerate(files_list):
-            img = readreshape(os.path.join(test_path + 'img/',os.path.basename(item)), target_size = target_size, order = 1)
-            seg = readreshape(os.path.join(test_path + 'seg/',os.path.basename(item)), target_size = target_size, binarize = True, order = 0)
-            previmg = readreshape(os.path.join(test_path + 'previmg/',os.path.basename(item)), target_size = target_size, order = 1)
-            # Hacky:
-            segall = readreshape(os.path.join(test_path + 'seg/',os.path.basename(item)), target_size = target_size, binarize = True, order = 0)
-            
-            inputs_arr = np.concatenate((img,seg,previmg,segall),axis=-1)
-            inputs_arr = np.reshape(inputs_arr,(1,)+inputs_arr.shape) # Tensorflow needs one extra single dimension (so that it is a 4D tensor)
-            
-            yield inputs_arr
