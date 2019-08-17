@@ -53,7 +53,7 @@ If you want to use random elastic deformations as described in [Ronneberger et a
 Note: On Windows, you might need to [install c++ support for Visual Studio](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation)
 
 ## Example datasets
-You can create your own datasets for your setup using our [suite of Matlab scripts and GUIs](https://gitlab.com/dunloplab/delta-interfacing), however we recommend you check out how data is formatted in our example datasets:
+You can create your own datasets for your setup using our [suite of Matlab scripts and GUIs](https://gitlab.com/dunloplab/delta-interfacing), however we recommend you check out how data is formatted in our example datasets first:
 [DeLTA_data (google drive, 12GB zip file)](https://drive.google.com/drive/u/0/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP) [Note that unzipping this archive takes a long time and fails on some linux systems.]
 
 Once unzipped, you should update the DeLTA_data folder path on line 6 of `train_seg.py`, `train_track.py`, `segmentation.py` and `tracking.py`.
@@ -69,7 +69,7 @@ The typical workflow of DeLTA is:
 
 
 ### Training
-You can test training with the datasets we provide with the `train_seg.py` function for segmentation and the `train_track.py` function for tracking. You can run them from within an IDE like spyder or from the shell.
+You can test training with the datasets we provide with the `train_seg.py` script for segmentation and the `train_track.py` script for tracking. You can run them from within an IDE like spyder or from the shell.
 
 ### Prediction
 Once your two models are trained, you can run predictions on larger datasets using the `segmentation.py` and `tracking.py` scripts sequentially. 
