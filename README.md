@@ -1,6 +1,5 @@
 # DeLTA
-[![Documentation Status](https://readthedocs.org/projects/delta/badge/?version=latest)](https://delta.readthedocs.io/en/latest/?badge=latest)
-      
+
 DeLTA (Deep Learning for Time-lapse Analysis) is a deep learning-based image processing pipeline for segmenting and tracking single cells in time-lapse microscopy movies.
 
 See the manuscript on bioRxiv: [https://www.biorxiv.org/content/10.1101/720615v1](https://www.biorxiv.org/content/10.1101/720615v1)
