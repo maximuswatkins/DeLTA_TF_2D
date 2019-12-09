@@ -32,7 +32,7 @@ def binarizerange(i):
     newi[i <= (np.amin(i)+np.amax(i))/2] = 0
     return newi
 
-def readreshape(filename, target_size = (256,32), binarize = False, order = 1):
+def readreshape(filename, target_size = (256,32), binarize = False, order = 1, rangescale = False):
     '''
     This function will read an image from the filename provided
     Resize it to target_size (defaults to 256x32) (order of the rezize op can 
@@ -44,6 +44,8 @@ def readreshape(filename, target_size = (256,32), binarize = False, order = 1):
     if binarize:
         i = binarizerange(i)
     i = np.reshape(i,i.shape + (1,) )
+    if rangescale:
+        i = (i-np.min(i))/np.ptp(i)
     return i
 
 def data_augmentation(images_input, aug_par, order=0):
