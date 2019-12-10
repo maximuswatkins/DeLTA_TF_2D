@@ -5,11 +5,13 @@ import numpy as np
 import tensorflow as tf
 import os, glob, re, random, warnings, copy, importlib
 import skimage.io as io
+import skimage.external.tifffile as tiflib
 import skimage.util as util
 import skimage.transform as trans
 from skimage.measure import label
 from skimage.morphology import square, binary_opening, medial_axis
 from scipy import interpolate
+import pims
 
 # Try to import elastic deformations, issue warning if not found:
 if importlib.util.find_spec("elasticdeform") is None:
@@ -32,14 +34,19 @@ def binarizerange(i):
     newi[i <= (np.amin(i)+np.amax(i))/2] = 0
     return newi
 
-def readreshape(filename, target_size = (256,32), binarize = False, order = 1, rangescale = False):
+def readreshape(filename, target_size = (256,32), binarize = False, order = 1, rangescale = True, img_num=None):
     '''
-    This function will read an image from the filename provided
+    This function will read an image from the filename provided (you can also pass a PIMS reader as filename)
     Resize it to target_size (defaults to 256x32) (order of the rezize op can 
     be specified)
     Binarize it with binarizerange() if binarize == True (defaults to False)
     '''
-    i = io.imread(filename,as_gray = True)
+    
+    if filename.__class__ is str:
+        i = pims.open(filename)[img_num]
+    else:
+        i = filename[img_num]
+        
     i = trans.resize(i, target_size, anti_aliasing=True, order=order)
     if binarize:
         i = binarizerange(i)
@@ -269,8 +276,9 @@ def trainGenerator_seg(batch_size,
     if preload:
         for filename in image_name_arr:
             preload_img.append(readreshape(filename, target_size = target_size, order = 1))
-            preload_mask.append(readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0))
-            preload_weight.append(readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0))
+            preload_mask.append(readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False))
+            if weight_path is not None:
+                preload_weight.append(readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0), rangescale = False)
     
     # Reset the pseudo-random generator:
     random.seed(a=seed)
@@ -293,11 +301,18 @@ def trainGenerator_seg(batch_size,
                 # Read images:
                 filename = image_name_arr[index]
                 img = readreshape(filename, target_size = target_size, order = 1)
-                mask = readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0)
-                weight = readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0)
+                mask = readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False)
+                if weight_path is not None:
+                    weight = readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0, rangescale = False)
+                else:
+                    weight = []
+                    
 
             # Data augmentation:
-            [img, mask, weight] = data_augmentation([img, mask, weight], augment_params, order=[1,0,0])
+            if weight_path is not None:
+                [img, mask, weight] = data_augmentation([img, mask, weight], augment_params, order=[1,0,0])
+            else:
+                [img, mask] = data_augmentation([img, mask], augment_params, order=[1,0])
             
             # Append to output list:
             image_arr.append(img)
@@ -306,11 +321,14 @@ def trainGenerator_seg(batch_size,
 
         # Concatenate masks and weights: (gets unstacked by the loss function)
         image_arr = np.array(image_arr)
-        mask_wei_arr = np.concatenate((mask_arr,weight_arr),axis=-1)
+        if weight_path is not None:
+            mask_wei_arr = np.concatenate((mask_arr,weight_arr),axis=-1)
+        else:
+            mask_wei_arr = np.array(mask_arr)
         yield (image_arr, mask_wei_arr)
 
 
-def saveResult_seg(save_path,npyfile, files_list = []):
+def saveResult_seg(save_path,npyfile, files_list = [], multipage=False):
     '''
     This function simply saves an array of output images (npyfile) 
     from the segmentation U-Net to the save_path repository.
@@ -318,17 +336,23 @@ def saveResult_seg(save_path,npyfile, files_list = []):
     A list of filenames can be specified with files_list. 
     If no filenames are specified, the files will be written as 
     "%d_predict.png", with %d being the image index in the array
+    
+    warning: multipage will append to the end of an existing file
     '''
     
     for i,item in enumerate(npyfile):
         img = item[:,:,0]
-        if files_list:
-            filename = os.path.join(save_path,files_list[i])
+        if multipage:
+            filename = os.path.join(save_path,files_list[0])
+            io.imsave(filename,(img*255).astype(np.uint8),plugin='tifffile',append=True)
         else:
-            filename = os.path.join(save_path,"%d_predict.png"%i)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            io.imsave(filename,(img*255).astype(np.uint8))
+            if files_list:
+                filename = os.path.join(save_path,files_list[i])
+            else:
+                filename = os.path.join(save_path,"%d_predict.png"%i)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                io.imsave(filename,(img*255).astype(np.uint8))
 
 
 def predictGenerator_seg(files_path, files_list = [], target_size = (256,32)):
@@ -343,12 +367,26 @@ def predictGenerator_seg(files_path, files_list = [], target_size = (256,32)):
     Images are resized to target_size upon loading.
     '''
     
+    
     if not files_list:
         files_list = os.listdir(files_path)
-    for index, fname in enumerate(files_list):
-        img = readreshape(os.path.join(files_path,fname),target_size=target_size,order=1)
-        img = np.reshape(img,(1,)+img.shape) # Tensorflow needs one extra single dimension (so that it is a 4D tensor)
-        yield img
+    frames_per_file = []
+    for index, fname in enumerate(files_list): 
+            frames_per_file.append(len(pims.open(os.path.join(files_path,fname))))
+
+        
+    def generator(files_path, files_list, target_size):
+        for index, fname in enumerate(files_list):
+            reader = pims.open(os.path.join(files_path,fname))
+            for f in range(len(reader)):
+                img = readreshape(reader,target_size=target_size,order=1,
+                                  img_num=f)
+                img = np.reshape(img,(1,)+img.shape) # Tensorflow needs one extra single dimension (so that it is a 4D tensor)
+                yield img
+                
+    mygen = generator(files_path, files_list, target_size)
+    return [mygen,frames_per_file]
+    
 
         
         
@@ -428,12 +466,12 @@ def trainGenerator_track(batch_size,
             
             # Read images:
             img = readreshape(filename, target_size = target_size, order = 1)
-            seg = readreshape(os.path.join(seg_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0)
+            seg = readreshape(os.path.join(seg_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False)
             previmg = readreshape(os.path.join(previmg_path,os.path.basename(filename)), target_size = target_size, order = 1)
-            segall = readreshape(os.path.join(segall_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0)
+            segall = readreshape(os.path.join(segall_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False)
 
-            mother = readreshape(os.path.join(mother_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0)
-            daughter = readreshape(os.path.join(daughter_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0)
+            mother = readreshape(os.path.join(mother_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False)
+            daughter = readreshape(os.path.join(daughter_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False)
             
             # Create the "background" image: (necessary for categorical cross-entropy)
             bkgd = 1 - (mother + daughter)
@@ -474,9 +512,9 @@ def predictGenerator_track(test_path,files_list = [],target_size = (256,32)):
         files_list = os.listdir(test_path)
     for index, item in enumerate(files_list):
             img = readreshape(os.path.join(test_path + 'img/',os.path.basename(item)), target_size = target_size, order = 1)
-            seg = readreshape(os.path.join(test_path + 'seg/',os.path.basename(item)), target_size = target_size, binarize = True, order = 0)
+            seg = readreshape(os.path.join(test_path + 'seg/',os.path.basename(item)), target_size = target_size, binarize = True, order = 0, rangescale = False)
             previmg = readreshape(os.path.join(test_path + 'previmg/',os.path.basename(item)), target_size = target_size, order = 1)
-            segall = readreshape(os.path.join(test_path + 'segall/',os.path.basename(item)), target_size = target_size, binarize = True, order = 0)
+            segall = readreshape(os.path.join(test_path + 'segall/',os.path.basename(item)), target_size = target_size, binarize = True, order = 0, rangescale = False)
             
             inputs_arr = np.concatenate((img,seg,previmg,segall),axis=-1)
             inputs_arr = np.reshape(inputs_arr,(1,)+inputs_arr.shape) # Tensorflow needs one extra single dimension (so that it is a 4D tensor)
@@ -531,9 +569,9 @@ def predictCompilefromseg_track(img_path,seg_path, files_list = [],
                                 '_Chamber' + str(cha).zfill(2) + \
                                 '_Frame' + str(fra-1).zfill(3) + '.png'
                 img = readreshape(os.path.join(img_path,filename), target_size = target_size, order = 1)
-                segall = readreshape(os.path.join(seg_path,filename), target_size = target_size, order = 0, binarize = True)
+                segall = readreshape(os.path.join(seg_path,filename), target_size = target_size, order = 0, binarize = True, rangescale = False)
                 previmg = readreshape(os.path.join(img_path,prevframename), target_size = target_size, order = 1)
-                prevsegall = readreshape(os.path.join(seg_path,prevframename), target_size = target_size, order = 0, binarize = True)
+                prevsegall = readreshape(os.path.join(seg_path,prevframename), target_size = target_size, order = 0, binarize = True, rangescale = False)
                 
                 lblimg,lblnb = label(prevsegall[:,:,0],connectivity=1,return_num=True)
                 
