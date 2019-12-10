@@ -30,7 +30,7 @@ def pixelwise_weighted_binary_crossentropy(y_true, y_pred):
 
     epsilon = tf.convert_to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
     y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
-    y_pred = tf.log(y_pred / (1 - y_pred))
+    y_pred = tf.math.log(y_pred / (1 - y_pred))
 
     zeros = array_ops.zeros_like(y_pred, dtype=y_pred.dtype)
     cond = (y_pred >= zeros)
