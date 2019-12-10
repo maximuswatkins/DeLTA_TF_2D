@@ -30,7 +30,7 @@ def pixelwise_weighted_binary_crossentropy(y_true, y_pred):
 
     epsilon = tf.convert_to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
     y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
-    y_pred = tf.log(y_pred / (1 - y_pred))
+    y_pred = tf.math.log(y_pred / (1 - y_pred))
 
     zeros = array_ops.zeros_like(y_pred, dtype=y_pred.dtype)
     cond = (y_pred >= zeros)
@@ -158,6 +158,19 @@ def unet_track(pretrained_weights = None, input_size = (256,32,4), class_weights
     model = unet(input_size = input_size, final_activation = 'softmax', output_classes = 3)
     
     model.compile(optimizer=Adam(lr = 1e-4), loss=class_weighted_categorical_crossentropy(class_weights), metrics = ['categorical_accuracy'])
+
+    if(pretrained_weights):
+    	model.load_weights(pretrained_weights)
+
+    return model
+
+
+# Use the following model for segmentation:
+def unet_chambers(pretrained_weights = None, input_size = (512,512,1)):
+    
+    model = unet(input_size = input_size, final_activation = 'sigmoid', output_classes = 1)
+
+    model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy')
 
     if(pretrained_weights):
     	model.load_weights(pretrained_weights)
