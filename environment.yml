@@ -1,0 +1,14 @@
+name: delta_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - bioformats=0.1.15
+  - python=3.6
+  - tensorflow=2.1
+  - spyder=4.1
+  - scikit-image=0.17
+  - opencv=3.4
+prefix: /home/jeanbaptiste/.conda/envs/delta_env
+
