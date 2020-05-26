@@ -44,7 +44,10 @@ def rangescale(frame, rescale):
 
     '''
     frame = frame.astype(np.float32)
-    frame = ((frame-np.min(frame))/np.ptp(frame))*np.ptp(rescale)+rescale[0]
+    if np.ptp(frame) > 0:
+        frame = ((frame-np.min(frame))/np.ptp(frame))*np.ptp(rescale)+rescale[0]
+    else:
+        frame = np.ones_like(frame)*(rescale[0]+rescale[1])/2
     return frame
 
 def driftcorr(img,template=None,box=None, drift=None):
@@ -207,14 +210,18 @@ def getAttributions(scores):
                 attrib[np.argmax(scores[:,i,0]),i,0]=True # keep only the first one (which is also the one higher in the image)
     for o in range(scores.shape[0]): # Go over cells in the *old* frame
         if np.sum(attrib[o,:,0]>0) > 1: # If one old cell gets attributed to more than one new cell (mother-mother coupling)
-            attrib[o,np.argmax(attrib[o,:,0]),0]=True # keep only the first one
+            tokeep = np.argmax(attrib[o,:,0])
+            attrib[o,:,0]=False
+            attrib[o,tokeep,0]=True # keep only the first one
         if np.sum(attrib[o,:,1]>0) > 1: # If one old cell gets attributed to more than one new cell (mother-daughter coupling)
-            attrib[o,np.argmax(attrib[o,:,1]),1]=True # keep only the first one
+            tokeep = np.argmax(attrib[o,:,1])
+            attrib[o,:,1]=False
+            attrib[o,tokeep,1]=True # keep only the first one
         if np.any(attrib[o,:,0]) and np.any(attrib[o,:,1]) and np.argmax(attrib[o,:,0]) > np.argmax(attrib[o,:,1]): # If somehow the mother is lower than the daughter
-            attrib[o,np.argmax(attrib[o,:,0]),0] = False
             attrib[o,np.argmax(attrib[o,:,0]),1] = True
-            attrib[o,np.argmax(attrib[o,:,1]),1] = False
+            attrib[o,np.argmax(attrib[o,:,0]),0] = False
             attrib[o,np.argmax(attrib[o,:,1]),0] = True
+            attrib[o,np.argmax(attrib[o,:,1]),1] = False
     return attrib
 
 def label_seg(seg,cellnumbers=None):
@@ -233,7 +240,7 @@ def updatelineage(newframe, stack, framenb=0, lineage=None, attrib=None):
         stack[framenb] = label_seg(newframe)
         cells = np.unique(stack[framenb])
         for c in cells[1:]: # Avoiding cell==0 (background)
-            lineage.append(createcell(framenb))
+            lineage.append(createcell(framenb+1)) # We're using framenb +1 to be compatible with old Matlab code
     else: # Update according to attribution matrix
         # Init cell numbers, retrieve previous stack frame:
         cellnumbers = []
@@ -251,14 +258,14 @@ def updatelineage(newframe, stack, framenb=0, lineage=None, attrib=None):
             for i in range(attrib.shape[1]):
                 if np.any(attrib[:,i,0]): # If cell is tracked from an old cell: (mother-mother)
                     cellnum = int(stack[framenb-1][label_old==(np.nonzero(attrib[:,i,0])[0]+1)[0]][0]) # retrieving cell number from stack
-                    lineage[cellnum-1]['framenbs'].append(float(framenb)) # Update frame number list
+                    lineage[cellnum-1]['framenbs'].append(float(framenb+1)) # Update frame number list
                     if len(lineage[cellnum-1]['daughters']) < len(lineage[cellnum-1]['framenbs']): # If framenbs hasn't been updated (in case somehow daughter goes through before mother)
                         lineage[cellnum-1]['daughters'].append(0.)
                     cellnumbers.append(cellnum)
                 elif np.any(attrib[:,i,1]): # Cell is tracked as a daughter cell (mother-daughter)
                     mothernb = int(stack[framenb-1][label_old==(np.nonzero(attrib[:,i,1])[0]+1)[0]][0]) # retrieving cell number from stack
                     # Create new cell, as daughter of mother:
-                    lineage.append(createcell(framenb,mothernb))
+                    lineage.append(createcell(framenb+1,mothernb))
                     cellnumbers.append(len(lineage))
                     # Update daughters of mother cell:
                     if len(lineage[mothernb-1]['daughters']) < len(lineage[mothernb-1]['framenbs']):
