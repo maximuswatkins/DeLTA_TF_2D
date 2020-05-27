@@ -8,12 +8,12 @@ from utilities import *
 from scipy.io import savemat
 
 # DeLTA_data = '/home/jeanbaptiste/data/DeLTA_data/'
-DeLTA_data = 'D:/DeLTA_data/'
+DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
 
 ### Models:
 model_file_chambers = DeLTA_data + 'chambers_id/models/chambers_id_tessiechamp.hdf5'
-model_file_seg = DeLTA_data + 'mother_machine/models/unet_moma_seg.hdf5'
-model_file_track = DeLTA_data + 'mother_machine/models/unet_moma_track.hdf5'
+model_file_seg = DeLTA_data + 'mother_machine/models/unet_moma_seg_paulsson.hdf5'
+model_file_track = DeLTA_data + 'mother_machine/models/unet_moma_track_multisets.hdf5'
 target_size_chambers = (512, 512)
 input_size_chambers = target_size_chambers + (1,)
 target_size_seg = (256, 32)
@@ -28,11 +28,20 @@ model_track = unet_track(input_size = target_size_seg + (4,))
 model_track.load_weights(model_file_track)
 
 ### XP File:
-xpfile = DeLTA_data + 'mother_machine/evaluation/evalutaion_movie.ome.tiff'
+xpfile = DeLTA_data + 'mother_machine/evaluation/evaluation_movie.ome.tiff'
 channelnames = ['trans','gfp'] # trans will be used for DeLTA, all other channels will be treated as fluo
 xp = xpreader(xpfile,
               channelnames=channelnames,
               use_bioformats=False)
+
+### Results folder:
+resfolder = DeLTA_data  + 'mother_machine/evaluation/results/'
+os.mkdir(resfolder)
+os.mkdir(resfolder+'preprocessed')
+os.mkdir(resfolder+'postprocessed')
+
+# Misc:
+rotation = 0 # For now we don't correct
 
 #%% Run over all positions:
 
@@ -54,6 +63,15 @@ for pos in range(xp.positions):
                         ybr = max(chamberboxes,key=lambda elem: elem['ytl'])['ytl']
                         )
     transframes, driftvalues = driftcorr(transframes, template=drifttemplate, box=driftcorbox)
+    
+    # Save pre-processing to disk:
+    savemat(resfolder+'preprocessed/Position'+str(pos).zfill(6)+'.mat',
+            {'tiffile': xpfile,
+             'moviedimensions': [xp.y,xp.x,xp.channels,xp.timepoints],
+             'proc': {'rotation': rotation,
+                      'chambers': np.array([[c['xtl'],c['ytl'],c['xbr']-c['xtl'],c['ybr']-c['ytl']] for c in chamberboxes],dtype=np.float64),
+                      'XYdrift': np.flip(np.transpose(np.array(-driftvalues)),axis=0)}})
+    
     
     # Load up fluoresence images, apply drift correction:
     fluoframes = xp.getframes(positions=pos, channels=[x for x in channelnames if x!='trans'], squeeze_dimensions=False)[0] # Not squeezing in case there is only one fluo channel, but squeezing the first position dimension with [0]
@@ -146,5 +164,5 @@ for pos in range(xp.positions):
         res.append(dict(lineage=lineage,label_stack=label_stack,label_stack_resized=label_stack_resized))
     
     # Save position .mat file:
-    savemat(os.path.splitext(xpfile)[0]+'_Position'+str(pos).zfill(6)+'.mat',{'res': res})
-    print(' - Done! ['+str(round(time.time()))+' secs]')
+    savemat(resfolder+'postprocessed/Position'+str(pos).zfill(6)+'.mat',{'res': res})
+    print(' - Done! ['+str(round(time.time() - start_time))+' secs]')
