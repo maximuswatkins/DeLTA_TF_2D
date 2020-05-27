@@ -7,8 +7,8 @@ from model import unet_chambers, unet_seg, unet_track
 from utilities import *
 from scipy.io import savemat
 
-# DeLTA_data = '/home/jeanbaptiste/data/DeLTA_data/'
-DeLTA_data = 'D:/DeLTA_data/'
+DeLTA_data = '/home/jeanbaptiste/data/DeLTA_data/'
+# DeLTA_data = 'D:/DeLTA_data/'
 
 ### Models:
 model_file_chambers = DeLTA_data + 'chambers_id/models/chambers_id_tessiechamp.hdf5'
