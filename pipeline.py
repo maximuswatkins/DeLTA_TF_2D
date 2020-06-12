@@ -31,7 +31,7 @@ if len(sys.argv) == 3: # If arguments were passed
 else:
     # XP File:
     # xpfile = DeLTA_data + 'mother_machine/evaluation/evaluation_movie.ome.tiff'
-    # Folders containing image sequences are also valid: (see bioformats2sequence.py)
+    # Folders containing image sequences are also valid: (run bioformats2sequence.py first)
     xpfile = DeLTA_data + 'mother_machine/evaluation/sequence/'
     channelnames = ['trans','gfp'] # trans will be used for DeLTA, all other channels will be treated as fluo
     xp = xpreader(xpfile,
