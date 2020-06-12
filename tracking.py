@@ -1,3 +1,12 @@
+'''
+This script runs the tracking U-Net on data out of the segmentation U-Net.
+
+Images are processed in batches of 512, although the number of actual samples
+run through the tracking U-Net will depend on the number of cells in each 
+image.
+
+@author: jblugagne
+'''
 from data import saveResult_track, predictCompilefromseg_track
 from model import unet_track
 from os import listdir
@@ -7,7 +16,7 @@ DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
 images_folder = DeLTA_data + 'mother_machine/evaluation/preprocessed/img/'
 segmentation_folder = DeLTA_data + 'mother_machine/evaluation/seg_output/'
 outputs_folder = DeLTA_data + 'mother_machine/evaluation/track_output/'
-model_file = DeLTA_data + 'mother_machine/models/unet_moma_track.hdf5'
+model_file = DeLTA_data + 'mother_machine/models/unet_moma_track_multisets.hdf5'
 unprocessed = listdir(images_folder)
 
 # Parameters:

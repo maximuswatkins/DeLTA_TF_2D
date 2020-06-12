@@ -1,19 +1,59 @@
+"""
+This script process an input file / folder with data from a multi-position 
+microscopy experiment and produces .mat files describing cells lineage, 
+fluorescence etc.
+
+The script can be called from the command line:
+    python pipeline.py /path/to/file/or/folder /path/to/output/folder
+    
+Or run from an IDE by changing file paths.
+
+@author: jblugagne
+"""
+
 #%% Setup
 ### Modules:
-import sys, time, cv2, re, os
+import time, cv2, os, sys
 import numpy as np
 from data import postprocess
 from model import unet_chambers, unet_seg, unet_track
 from utilities import *
 from scipy.io import savemat
 
-DeLTA_data = '/home/jeanbaptiste/data/DeLTA_data/'
-# DeLTA_data = 'D:/DeLTA_data/'
+DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
+
+
+
+### Files:
+if len(sys.argv) == 3: # If arguments were passed
+    xpfile = sys.argv[1]
+    resfolder = sys.argv[2]
+else:
+    # XP File:
+    # xpfile = DeLTA_data + 'mother_machine/evaluation/evaluation_movie.ome.tiff'
+    # Folders containing image sequences are also valid: (see bioformats2sequence.py)
+    xpfile = DeLTA_data + 'mother_machine/evaluation/sequence/'
+    channelnames = ['trans','gfp'] # trans will be used for DeLTA, all other channels will be treated as fluo
+    xp = xpreader(xpfile,
+                  channelnames=channelnames,
+                  use_bioformats=False)
+    # Results folder:
+    resfolder = DeLTA_data  + 'mother_machine/evaluation/delta_results/'
+
+# Create folders if they don't exist:
+if not os.path.exists(resfolder):
+    os.mkdir(resfolder)
+if not os.path.exists(os.path.join(resfolder,'preprocessed')):
+    os.mkdir(os.path.join(resfolder,'preprocessed'))
+if not os.path.exists(os.path.join(resfolder,'postprocessed')):
+    os.mkdir(os.path.join(resfolder,'postprocessed'))
+
+
 
 ### Models:
-model_file_chambers = DeLTA_data + 'chambers_id/models/chambers_id_tessiechamp.hdf5'
-model_file_seg = DeLTA_data + 'mother_machine/models/unet_moma_seg.hdf5'
-model_file_track = DeLTA_data + 'mother_machine/models/unet_moma_track.hdf5'
+model_file_chambers = DeLTA_data + 'mother_machine/models/chambers_id_tessiechamp.hdf5'
+model_file_seg = DeLTA_data + 'mother_machine/models/unet_moma_seg_multisets.hdf5'
+model_file_track = DeLTA_data + 'mother_machine/models/unet_moma_track_multisets.hdf5'
 target_size_chambers = (512, 512)
 input_size_chambers = target_size_chambers + (1,)
 target_size_seg = (256, 32)
@@ -27,38 +67,50 @@ model_seg.load_weights(model_file_seg)
 model_track = unet_track(input_size = target_size_seg + (4,))
 model_track.load_weights(model_file_track)
 
-### XP File:
-xpfile = DeLTA_data + 'mother_machine/evaluation/evalutaion_movie.ome.tiff'
-channelnames = ['trans','gfp'] # trans will be used for DeLTA, all other channels will be treated as fluo
-xp = xpreader(xpfile,
-              channelnames=channelnames,
-              use_bioformats=False)
+
+
+### Misc:
+min_chamber_area = 2500 # Minimum size of chambers in pixels for area filtering
 
 #%% Run over all positions:
 
 for pos in range(xp.positions):
     
     
-    ##### Chambers identificaton:
+    ##### Preprocessing - Rotation correction, Chambers identificaton, Drift:
     start_time = time.time()
-    print('Pos. '+str(pos+1)+'/'+str(xp.positions)+': Chambers ID & Drift...', end='')
-    transframes = xp.getframes(positions=pos,channels='trans',rescale=(0,1))
+    print('Pos. %d/%d: Preprocessing...' %(pos+1,xp.positions), end='')
+    # Rotation correction:
+    firstframe = xp.getframes(positions=pos,channels='trans',frames=0,rescale=(0,1)) # Get first frame for rotation estimation
+    rot_corr = deskew(firstframe) # Estimate rotation angle
+    # Get trans frames:
+    transframes = xp.getframes(positions=pos,channels='trans',rescale=(0,1),rotate=rot_corr) # Now load all trans frames, with rotation correction
     firstframe = np.expand_dims(np.expand_dims(cv2.resize(transframes[0],(512,512)),axis=0),axis=3) # using expand_dims to get it into a shape that the chambers id unet accepts
+    # Find chambers, filter results, get bounding boxes:
     chambermask = model_chambers.predict(firstframe,verbose=0)
     chambermask = cv2.resize(np.squeeze(chambermask),transframes.shape[3:0:-1]) # scaling back to original size
+    chambermask = postprocess(chambermask,min_size=min_chamber_area) # Binarization, cleaning and area filtering
     chamberboxes = getChamberBoxes(np.squeeze(chambermask))
-    drifttemplate = getDriftTemplate(chamberboxes, transframes[0])
+    # Drift correction:
+    drifttemplate = getDriftTemplate(chamberboxes, transframes[0]) # This template will be used as reference for drift correction
     driftcorbox = dict(xtl = 0,
                         xbr = None,
                         ytl = 0,
                         ybr = max(chamberboxes,key=lambda elem: elem['ytl'])['ytl']
-                        )
-    transframes, driftvalues = driftcorr(transframes, template=drifttemplate, box=driftcorbox)
-    
-    # Load up fluoresence images, apply drift correction:
-    fluoframes = xp.getframes(positions=pos, channels=[x for x in channelnames if x!='trans'], squeeze_dimensions=False)[0] # Not squeezing in case there is only one fluo channel, but squeezing the first position dimension with [0]
+                        ) # Box to match template
+    transframes, driftvalues = driftcorr(transframes, template=drifttemplate, box=driftcorbox) # Run drift corr
+    # Save pre-processing to disk:
+    savemat(resfolder+('preprocessed/Position%06d.mat' % (pos+1)),
+            {'tiffile': xpfile,
+             'moviedimensions': [xp.y,xp.x,xp.channels,xp.timepoints],
+             'proc': {'rotation': rot_corr,
+                      'chambers': np.array([[c['xtl'],c['ytl'],c['xbr']-c['xtl'],c['ybr']-c['ytl']] for c in chamberboxes],dtype=np.float64),
+                      'XYdrift': np.flip(np.transpose(-np.array(driftvalues)),axis=1)}})
+    # Load up fluoresence images, apply drift correction and rotation:
+    fluoframes = xp.getframes(positions=pos, channels=[x for x in channelnames if x!='trans'], squeeze_dimensions=False, rotate=rot_corr)[0] # Not squeezing in case there is only one fluo channel, but squeezing the first position dimension with [0]
     for f in range(fluoframes.shape[1]): #Go over all channels:
         fluoframes[:,f,:,:], _ = driftcorr(fluoframes[:,f,:,:], drift=driftvalues) # Apply drift correction
+    
     
     ##### Cell segmentation:
     print('\b\b\b - Segmentation...', end='')
@@ -107,7 +159,7 @@ for pos in range(xp.positions):
         for i in range(1,transframes.shape[0]):
             frame_idxs = [x for x, fn in enumerate(frame_numbers) if fn==i]
             if frame_idxs:
-                scores = getTrackingScores(track_inputs[frame_idxs], track[frame_idxs])
+                scores = getTrackingScores(track_inputs[frame_idxs[0],:,:,3], track[frame_idxs])
                 attrib = getAttributions(scores)
                 lineage, label_stack = updatelineage(seg[m*transframes.shape[0] + i], label_stack, framenb=i, lineage=lineage, attrib=attrib) # Because we use uint16, we can only track up to 65535 cells per chamber
             
@@ -143,8 +195,9 @@ for pos in range(xp.positions):
                 for f in range(fluoframes.shape[1]): #Go over all channels:
                     lineage[cellnb-1]['fluo'+str(f+1)].append(np.mean(chamberfluo[f,cellpixels[0],cellpixels[1]]))
         # Append to res dictionary:
-        res.append(dict(lineage=lineage,label_stack=label_stack,label_stack_resized=label_stack_resized))
+        res.append(dict(lineage=lineage,labelsstack=label_stack,labelsstack_resized=label_stack_resized))
+    
     
     # Save position .mat file:
-    savemat(os.path.splitext(xpfile)[0]+'_Position'+str(pos).zfill(6)+'.mat',{'res': res})
-    print(' - Done! ['+str(round(time.time()))+' secs]')
+    savemat(resfolder+('postprocessed/Position%06d.mat' % (pos+1)),{'res': res})
+    print(' - Done! ['+str(round(time.time() - start_time))+' secs]')

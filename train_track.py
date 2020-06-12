@@ -1,11 +1,16 @@
+'''
+This script trains the tracking U-Net.
+
+@author: jblugagne
+'''
 from model import unet_track
-from data import trainGenerator_track, estimateClassweights
+from data import trainGenerator_track
 from tensorflow.keras.callbacks import ModelCheckpoint
 
 # Files:
 DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
-training_set = DeLTA_data + 'mother_machine/training/tracking_set/train/'
-model_file = DeLTA_data + 'mother_machine/models/unet_moma_track.hdf5'
+training_set = DeLTA_data + 'mother_machine/training/tracking_set/train_multisets/'
+model_file = DeLTA_data + 'mother_machine/models/unet_moma_track_multisets.hdf5'
 
 # Parameters:
 target_size = (256, 32)
@@ -34,7 +39,6 @@ myGene = trainGenerator_track(batch_size,
                              data_gen_args,
                              target_size = target_size)
 
-#class_weights = estimateClassweights(myGene) # Not used for mother machine
 class_weights = (1,1,1)
 
 # Define model & train it:

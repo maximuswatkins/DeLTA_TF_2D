@@ -1,11 +1,16 @@
+'''
+This script trains the cell segmentation U-Net
+
+@author: jblugagne
+'''
 from model import unet_seg
 from data import trainGenerator_seg
 from tensorflow.keras.callbacks import ModelCheckpoint
 
 # Files:
 DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
-training_set = DeLTA_data + 'mother_machine/training/segmentation_set/train/'
-model_file = DeLTA_data + 'mother_machine/models/unet_moma_seg.hdf5'
+training_set = DeLTA_data + 'mother_machine/training/segmentation_set/train_multisets/'
+model_file = DeLTA_data + 'mother_machine/models/unet_moma_seg_multisets.hdf5'
 
 # Parameters:
 target_size = (256, 32)

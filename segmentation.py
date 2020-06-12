@@ -1,3 +1,11 @@
+'''
+This script runs the segmentation U-Net on data that has been pre-processed to
+crop out chamber images. See delta-interfacing/preprocessing.m or pipeline.py.
+
+The images are processed by batches of 4096 to prevent memory issues.
+
+@author: jblugagne
+'''
 from data import saveResult_seg, predictGenerator_seg, postprocess
 from model import unet_seg
 from os import listdir
@@ -6,7 +14,7 @@ from os import listdir
 DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
 inputs_folder = DeLTA_data + 'mother_machine/evaluation/preprocessed/img/'
 outputs_folder = DeLTA_data + 'mother_machine/evaluation/seg_output/'
-model_file = DeLTA_data + 'mother_machine/models/unet_moma_seg.hdf5'
+model_file = DeLTA_data + 'mother_machine/models/unet_moma_seg_multisets.hdf5'
 unprocessed = listdir(inputs_folder)
 
 # Parameters:
