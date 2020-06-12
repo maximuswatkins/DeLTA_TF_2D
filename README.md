@@ -1,84 +1,103 @@
 # DeLTA
 
 DeLTA (Deep Learning for Time-lapse Analysis) is a deep learning-based image processing pipeline for segmenting and tracking single cells in time-lapse microscopy movies.
+![](https://gitlab.com/dunloplab/delta/-/raw/images/DeLTAexample.gif)
 
-See the manuscript on bioRxiv: [https://www.biorxiv.org/content/10.1101/720615v1](https://www.biorxiv.org/content/10.1101/720615v1)
+See/Cite out paper in PLOS Computational Biology: 
+[Lugagne, J.-B., Lin, H., & Dunlop, M. J. (2020). DeLTA: Automated cell segmentation, tracking, and lineage reconstruction using deep learning. PLOS Computational Biology, 16(4), e1007673](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007673).
 
 ##### Overview
 Our pipeline is centered around two [U-Net](https://arxiv.org/abs/1505.04597) neural networks that are used sequentially:
 1. To perform semantic binary segmentation of our cells as in the original U-Net paper.
 2. To track cells from one movie frame to the next, and to identify cell divisions and mother/daughter cells.
 
-In our application, we focus on *E. coli* cells trapped in a microfluidic device known as a ["mother machine"](https://www.cell.com/current-biology/fulltext/S0960-9822%2810%2900524-5). However, as shown in the manuscript and in the "yeast" branch of this repository, the pipeline can easily be adapted to other setups and organisms.
+In our application, we focus on *E. coli* cells trapped in a microfluidic device known as a ["mother machine"](https://www.cell.com/current-biology/fulltext/S0960-9822%2810%2900524-5). However, we have been and are still working on variants of our work for segmentation and tracking of yeast and rod-shaped bacteria growing in agar pads or 'biopixel'-like microfluidic devices. See the yeast branch of this repository.
 
 The U-Nets are implemented in Tensorflow 2.0 via the Keras API. We also provide a suite of scripts and GUIs in Matlab to interface DeLTA with Matlab and help users create their own training sets. See our [DeLTA interfacing](https://gitlab.com/dunloplab/delta-interfacing) repository for that.
 
-Finally we provide datasets for training and evaluation, both for E. coli and yeast cells:
-[DeLTA_data (google drive, 12GB zip file)](https://drive.google.com/drive/u/0/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP) [Note that unzipping this archive takes a long time and fails on some linux systems.]
+We try to comment/document and make the code accessible and easily adaptable. For that reason, we try to make the code as bare-bone as possible. We provide example datasets to illustrate how the code works (see below).
+
+##### Additions since publication
+Since submission of the manuscript to PLOS Comp Biol, we have kept working on this repository and a few new features are not described in the paper. These include:
+
+- A third U-Net to detect mother machine chambers in microscopy images. This allows us crop out chamber images to then feed into the segmentation and tracking pipeline. Object detection models, such as YOLO or RCNN would have been more appropriate for this task, but this works for us and it keeps the code simple. Models and training sets are provided in the new archive.
+
+- A pipeline that runs completely in python. The script in `pipeline.py` loads images from a tif file or a sequence of images in a folder, identifies chambers, segments cells, tracks them, reconstructs the lineage, and extracts features such as cell length and fluorescence. This greatly speeds up processing speed, as it removes a lot of manual steps and input-output operations. It is however not as simple as the `segmentation.py` and `tracking.py` scripts.
+
+- A script and an environment to process Bio-Formats compatible files (nd2, czi, oib...) into a sequence of single tif files that is compatible with our pipeline. See Bio-formats section below
+
+Note that, to minimize modifications to the old code, we kept data manipulation functions related to those new features in the new `utilities.py` file. This creates a lot of redundant functions, but it ensures that we do not get unexpected new bugs for the parts of the code that worked fine before. Also, the new part of the code uses the openCV library for performance purposes, while older parts of the code use scikit-image for its relative simplicity.
 
 ## Install
 ### GPU Requirements
-While this code can run on CPU, we recommend running it on GPU for faster processing. To do so you will need [an nvidia gpu with a cuda compute capability of 3.5 or higher](https://developer.nvidia.com/cuda-gpus). Make sure you update your gpu drivers ([from the nvidia website](https://www.nvidia.com/Download/index.aspx?lang=en-us))
+While this code can run on CPU, we recommend running it on GPU for faster processing. To do so you will need [an nvidia gpu with a cuda compute capability of 3.5 or higher](https://developer.nvidia.com/cuda-gpus). Make sure you update your gpu drivers ([from the nvidia website](https://www.nvidia.com/Download/index.aspx?lang=en-us)). You do not need to configure anything to run on GPU, Tensorflow will automatically run on compatible GPUs.
 
-### Tensorflow 2.0 - GPU (recommended)
-We recommend installing tensorflow 2.0 (GPU)  with [anaconda](https://www.anaconda.com/distribution/). Anaconda is easy to install, and will allow you to setup environments that are not in conflict with each other and will streamline the installation process. See [here](https://towardsdatascience.com/tensorflow-gpu-installation-made-easy-use-conda-instead-of-pip-52e5249374bc) for more details.
+### Anaconda installation
+We recommend installing necessary modules and libraries with [Anaconda](https://www.anaconda.com/distribution/). Anaconda is easy to install, and will allow you to setup environments that are not in conflict with each other and will streamline the installation process.  
 
-    (base)$ conda create --name tf_gpu python=3.6 tensorflow-gpu
-The code should work with python >= 3.6, but just to be on the safe side we recommend you use the python=3.6 option when creating the tf_gpu environment. You can name your environment tf_gpu or whatever you like.
+From inside the DeLTA folder, the following commands will install and activate the environment:
 
-You will also need to install scikit-image in the environment:
+    (base)$ conda env create -f delta_env.yml
+	(base)$ conda activate delta_env
+Note that the library versions listed in the `delta_env.yml` file have been tested and work on Linux and Windows, but more recent versions should work as well. We use the Spyder IDE, but it can be removed from the environment file.
 
-    (base)$ conda activate tf_gpu
-	(tf_gpu)$ conda install -c conda-forge scikit-image
-
-And that's it! Although our code actually uses the Keras framework, since it is now included with tensorflow 2.0 as an API, you don't need to actually install it.
-
-### Tensorflow 2.0 - CPU
-If you can not install the GPU version of tensorflow (unfortunately the AMD graphics cards in Macs are not supported), you can install the CPU version and the code will run just fine. It will be significantly slower (probably by one to two orders of magnitude).
-
-    (base)$ conda create --name tf_cpu python=3.6 tensorflow
-    (base)$ conda activate tf_cpu
-	(tf_cpu)$ conda install -c conda-forge scikit-image
-	
-Again you can name your environment whatever you like. 
-	
-### Elastic deformations (optional)
-If you want to use random elastic deformations as described in [Ronneberger et al. 2015](https://arxiv.org/abs/1505.04597) (necessary for the yeast branch of this repository) you will need to install the relevant library from github:
-
-    (base)$ conda activate tf_gpu
-	(tf_gpu)$ conda install pip git
-	(tf_gpu)$ pip install git+https://github.com/gvtulder/elasticdeform
-	
 Note: On Windows, you might need to [install c++ support for Visual Studio](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation)
 
 ## Example datasets
 You can create your own datasets for your setup using our [suite of Matlab scripts and GUIs](https://gitlab.com/dunloplab/delta-interfacing), however we recommend you check out how data is formatted in our example datasets first:
-[DeLTA_data (google drive, 12GB zip file)](https://drive.google.com/drive/u/0/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP) [Note that unzipping this archive takes a long time and fails on some linux systems.]
+[DeLTA_data (google drive, 19GB zip file)](https://drive.google.com/drive/u/0/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP) [~38 GB unzipped]
 
-Once unzipped, you should update the DeLTA_data folder path on line 6 of `train_seg.py`, `train_track.py`, `segmentation.py` and `tracking.py`.
+Once unzipped, you should update the DeLTA_data folder path at the beginning of all scripts to test them.
+
+In that same google folder you can also find our latest trained model files. Get in touch if you want us to take a look at your data and add it to our training sets.
 
 ## Example run:
 
-The typical workflow of DeLTA is:
+The original workflow of DeLTA was:
+
+**Training**
+
 0. Design new training sets for segmentation and tracking (see [DeLTA interfacing](https://gitlab.com/dunloplab/delta-interfacing))
 1. Train the segmentation and tracking U-Net on the training sets
+
+**Prediction**
+
 2. Run trained segmentation U-Net on new data
 3. Run trained tracking U-Net on output of segmentation U-Net
 4. Run post-processing on tracking output to compile into a user-friendly format (see [DeLTA interfacing](https://gitlab.com/dunloplab/delta-interfacing))
 
+Now, after training, prediction can be run with only one script: `pipeline.py`. Note that there is an area filtering parameter for the chambers (min_chamber_area) in the script that is set manually. Set it to 0 or None if you don't know what minimum area your chambers should be. Optional data reformatting can be performed beforehand (see bioformats section below).
+
+![](https://gitlab.com/dunloplab/delta/-/raw/images/DeLTA_code.svg)
+
+Note that we provide trained models and you can run the prediction steps without having to retrain on our DeLTA_data training sets.
+
+
+
 
 ### Training
-You can test training with the datasets we provide with the `train_seg.py` script for segmentation and the `train_track.py` script for tracking. You can run them from within an IDE like spyder or from the shell.
+You can test training with the datasets we provide with the `train_seg.py` script for segmentation, the `train_track.py` script for tracking, and the `train_seg_chambers.py` script for chamber identification. You can run them from within an IDE like spyder or from the shell.
 
 ### Prediction
-Once your two models are trained, you can run predictions on larger datasets using the `segmentation.py` and `tracking.py` scripts sequentially. 
+Once the models are trained, you can run predictions on larger datasets using the `segmentation.py` and `tracking.py` scripts sequentially if chamber images are already cropped out. (see mother_machine/evaluation/preprocessed/img folder in the data zip). 
 
-Our dataset features a pre-processed evaluation movie, but our pre-existing models have been quite good at generalizing to new data. We encourage you to test them directly, for example by cropping a chamber image sequence (or several) with software like imageJ and to process them with those two scripts, even without retraining the models. You would need to name the image sequence following our nomenclature:
+Otherwise, the `pipeline.py` script can process an entire experiment from an OME-TIFF file or a sequence of image files saved in the same folder. You would have to run the bioformats2sequence.py first to test on our data. To see how the final MAT files can be used, see [DeLTA interfacing](https://gitlab.com/dunloplab/delta-interfacing), specifically the postprocess_stacks.m file.
 
-Position01_Chamber01_Frame\*\*\*\.png
+### Bio-Formats microscopy files
+Unfortunately the python-bioformats library that would allow us to read most [microscopy file formats](https://docs.openmicroscopy.org/bio-formats/5.7.1/supported-formats.html "Bio-Formats compatible") like .nd2, .czi, .oif etc does not work with python 3. But we provide tools to work with those formats.
+
+1. First, you can convert various microscopy formats into ome-tiff with Bio-Formats' [bfconvert](https://docs.openmicroscopy.org/bio-formats/5.7.1/users/comlinetools/conversion.html "bfconvert") tool. Our xpreader object can read OME-TIFF files converted this way, although it can run into memory issues if the file is too big.
+
+2. We also provide a small python 2 script, `bioformats2sequence.py` that can run in the conda environment described in `bioformats_env.yml`. This script writes all frames from a bioformats-compatible file to single tiff files sequence compatible with our pipeline script. We have only tested this with nd2 and czi files, although other formats should also work.
+
+
+    (base)$ conda env create -f bioformats_env.yml
+    (base)$ conda activate bioformats_env
+    (bioformats_env)$ python bioformats2sequence.py /path/to/microscopyfile.nd2 /path/to/outputfolder/
+The path to the output folder can then be passed to the xpreader object in `pipeline.py` (after activating delta_env)
 
 ## Troubleshooting
 ### OOM - Out of memory (GPU)
-If you run the code on your GPU, you might run into memory problems. This is both linked to the batch size and the size of the images you are using. The batch size is fairly straightforward to change, just lower the value at the beginning of the `train_seg.py` or `train_track.py` files. Note that lower batch sizes may mean slower training convergence or lower performance overall. You might want to increase the number of epochs or steps per epoch to compensate.
+If you run the code on your GPU, you might run into cache memory problems. This is both linked to the batch size and the size of the images you are using. The batch size is fairly straightforward to change, just lower the value at the beginning of the `train_seg.py` or `train_track.py` files. Note that lower batch sizes may mean slower training convergence or lower performance overall. You might want to increase the number of epochs or steps per epoch to compensate.
 
-The other solution would be to use a smaller image target size. However, if the original images are, say 512×512, downsizing it to 256×256 will certainly reduce the memory footprint, but it might cause some borders between cells in the binary masks to disappear. Instead, you would have to modify your images size upstream of U-Net to make sure that your training set does feature cell-to-cell borders in the segmentation masks.
+The other solution would be to use a smaller image target size. However, if the original images are, say 512×512, downsizing it to 256×256 will certainly reduce the memory footprint, but it might cause some borders between cells in the binary masks to disappear. Instead, you would have to modify your training images size upstream of DeLTA to make sure that your training set does feature cell-to-cell borders in the segmentation masks.

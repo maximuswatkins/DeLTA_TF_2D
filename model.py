@@ -1,24 +1,39 @@
+'''
+This file contains model definitions and loss/metrics functions definitions
+
+@author: jblugagne
+'''
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import backend as K
-
-from tensorflow.python.ops import array_ops
-from tensorflow.python.ops import math_ops
-
+from tensorflow.python.ops import array_ops, math_ops
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, UpSampling2D
-from tensorflow.keras.layers import Concatenate
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, UpSampling2D, ZeroPadding2D, LeakyReLU, BatchNormalization, Concatenate, Add
 from tensorflow.keras.optimizers import Adam
 
 
+
+#%% Losses/metrics
 def pixelwise_weighted_binary_crossentropy(y_true, y_pred):
     '''
-    This function implements pixel-wise weighted, binary cross-entropy
-    (Important to detect the small borders between cells for segmentation)
-    
+    Pixel-wise weighted binary cross-entropy loss.
     The code is adapted from the Keras TF backend.
     (see their github)
+    
+    Parameters
+    ----------
+    y_true : Tensor
+        Stack of groundtruth segmentation masks + weight maps.
+    y_pred : Tensor
+        Predicted segmentation masks.
+
+    Returns
+    -------
+    Tensor
+        Pixel-wise weight binary cross-entropy between inputs.
+
     '''
+    
     try:
         # The weights are passed as part of the y_true tensor:
         [seg, weight] = tf.unstack(y_true, 2, axis=-1)
@@ -44,13 +59,22 @@ def pixelwise_weighted_binary_crossentropy(y_true, y_pred):
 
 def class_weighted_categorical_crossentropy(class_weights):
     '''
-    This function returns a loss function. And that loss function is a 
-    class-weighted categorical cross-entropy, i.e. the loss associated with 
-    each class/category is weighted by weights in the class_weights list.
-    
+    Generate class-weighted categorical cross-entropy loss function.
     The code is adapted from the Keras TF backend.
     (see their github)
+    
+    Parameters
+    ----------
+    class_weights : tuple/list of floats
+        Weights for each class/category.
+
+    Returns
+    -------
+    function.
+        Class-weighted categorical cross-entropy loss function.
+
     '''
+    
     def loss_function(y_true, y_pred):
         
         # scale preds so that the class probas of each sample sum to 1
@@ -60,7 +84,7 @@ def class_weighted_categorical_crossentropy(class_weights):
         y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
         
         # Multiply each class by its weight:
-        classes_list = tf.unstack(y_true * tf.log(y_pred), axis=-1)
+        classes_list = tf.unstack(y_true * tf.math.log(y_pred), axis=-1)
         for i in range(len(classes_list)):
             classes_list[i] = tf.scalar_mul(class_weights[i], classes_list[i])
         
@@ -71,9 +95,22 @@ def class_weighted_categorical_crossentropy(class_weights):
 
 
 def unstack_acc(y_true, y_pred):
-    ''' 
-    This function unstacks the mask from the weights in the output tensor for
-    segmentation and performs binary accuracy on the former
+    '''
+    Unstacks the mask from the weights in the output tensor for
+    segmentation and computes binary accuracy
+
+    Parameters
+    ----------
+    y_true : Tensor
+        Stack of groundtruth segmentation masks + weight maps.
+    y_pred : Tensor
+        Predicted segmentation masks.
+
+    Returns
+    -------
+    Tensor
+        Binary prediction accuracy.
+
     '''
     try:
         [seg, weight] = tf.unstack(y_true, 2, axis=-1)
@@ -86,11 +123,32 @@ def unstack_acc(y_true, y_pred):
     return keras.metrics.binary_accuracy(seg,y_pred)
 
 
+
+#%% Models
 # Generic unet declaration:
 def unet(input_size = (256,32,1), final_activation = 'sigmoid', output_classes = 1):
     '''
-    Generic U-Net declaration. Only the input size, final activation layer and 
-    dimensionality of the output vary between the different uses.
+    Generic U-Net declaration.
+
+    Parameters
+    ----------
+    input_size : tuple of 3 ints, optional
+        Dimensions of the input tensor, excluding batch size. 
+        The default is (256,32,1).
+    final_activation : string or function, optional
+        Activation function for the final 2D convolutional layer. see 
+        keras.activations
+        The default is 'sigmoid'.
+    output_classes : int, optional
+        Number of output classes, ie dimensionality of the output space of the
+        last 2D convolutional layer.
+        The default is 1.
+
+    Returns
+    -------
+    model : Model
+        Defined U-Net model (not compiled yet).
+
     '''
     
     inputs = Input(input_size,  name='true_input')	
@@ -140,26 +198,78 @@ def unet(input_size = (256,32,1), final_activation = 'sigmoid', output_classes =
 
 
 # Use the following model for segmentation:
-def unet_seg(pretrained_weights = None, input_size = (256,32,1)):
+def unet_seg(input_size = (256,32,1)):
+    '''
+    Cell segmentation U-Net definition function.
+
+    Parameters
+    ----------
+    input_size : tuple of 3 ints, optional
+        Dimensions of the input tensor, without batch size.
+        The default is (256,32,1).
+
+    Returns
+    -------
+    model : Model
+        Segmentation U-Net (compiled).
+
+    '''
     
     model = unet(input_size = input_size, final_activation = 'sigmoid', output_classes = 1)
-
     model.compile(optimizer = Adam(lr = 1e-4), loss = pixelwise_weighted_binary_crossentropy, metrics = [unstack_acc])
-
-    if(pretrained_weights):
-    	model.load_weights(pretrained_weights)
 
     return model
 
 
 # Use the following model for tracking and lineage reconstruction:
-def unet_track(pretrained_weights = None, input_size = (256,32,4), class_weights = (1, 1, 1)):
+def unet_track(input_size = (256,32,4), class_weights = (1., 1., 1.)):
+    '''
+    Tracking U-Net definition function.
+
+    Parameters
+    ----------
+    input_size : tuple of 3 ints, optional
+        Dimensions of the input tensor, without batch size.
+        The default is (256,32,4).
+    class_weights : tuple/list of floats, optional
+        Relative weights of each class. If daughters are very uncommon or each
+        single cell occupies a small part of the image, this can make the U-Net
+        converge to non-trivial solutions. (A trivial solution would be to 
+        systematically return a mask of 0s)
+        The default is (1., 1., 1.).
+
+    Returns
+    -------
+    model : Model
+        Tracking U-Net (compiled).
+
+    '''
     
     model = unet(input_size = input_size, final_activation = 'softmax', output_classes = 3)
-    
     model.compile(optimizer=Adam(lr = 1e-4), loss=class_weighted_categorical_crossentropy(class_weights), metrics = ['categorical_accuracy'])
 
-    if(pretrained_weights):
-    	model.load_weights(pretrained_weights)
+    return model
+
+
+# Use the following model for segmentation:
+def unet_chambers(input_size = (512,512,1)):
+    '''
+    Chambers segmentation U-Net.
+
+    Parameters
+    ----------
+    input_size : tuple of 3 ints, optional
+        Dimensions of the input tensor, without batch size.
+        The default is (512,512,1).
+
+    Returns
+    -------
+    model : Model
+        Chambers ID U-Net (compiled).
+
+    '''
+    
+    model = unet(input_size = input_size, final_activation = 'sigmoid', output_classes = 1)
+    model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy')
 
     return model
