@@ -1,6 +1,7 @@
 # DeLTA
 
 DeLTA (Deep Learning for Time-lapse Analysis) is a deep learning-based image processing pipeline for segmenting and tracking single cells in time-lapse microscopy movies.
+![](https://gitlab.com/dunloplab/delta/-/raw/images/DeLTAexample.gif)
 
 See/Cite out paper in PLOS Computational Biology: 
 [Lugagne, J.-B., Lin, H., & Dunlop, M. J. (2020). DeLTA: Automated cell segmentation, tracking, and lineage reconstruction using deep learning. PLOS Computational Biology, 16(4), e1007673](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007673).
@@ -53,18 +54,24 @@ In that same google folder you can also find our latest trained model files. Get
 ## Example run:
 
 The original workflow of DeLTA was:
+
 **Training**
+
 0. Design new training sets for segmentation and tracking (see [DeLTA interfacing](https://gitlab.com/dunloplab/delta-interfacing))
 1. Train the segmentation and tracking U-Net on the training sets
 
 **Prediction**
+
 2. Run trained segmentation U-Net on new data
 3. Run trained tracking U-Net on output of segmentation U-Net
 4. Run post-processing on tracking output to compile into a user-friendly format (see [DeLTA interfacing](https://gitlab.com/dunloplab/delta-interfacing))
 
 Now, after training, prediction can be run with only one script: `pipeline.py`. Note that there is an area filtering parameter for the chambers (min_chamber_area) in the script that is set manually. Set it to 0 or None if you don't know what minimum area your chambers should be. Optional data reformatting can be performed beforehand (see bioformats section below).
 
+![](https://gitlab.com/dunloplab/delta/-/raw/images/DeLTA_code.svg)
+
 Note that we provide trained models and you can run the prediction steps without having to retrain on our DeLTA_data training sets.
+
 
 
 
