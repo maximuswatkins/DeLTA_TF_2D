@@ -18,7 +18,7 @@ def deskew(image):
     Compute rotation angle of chambers in image for rotation correction.
     From: https://gist.github.com/panzerama/beebb12a1f9f61e1a7aa8233791bc253
     Not extensively tested. You can skip rotation correction if your chambers
-    are about +/- 1° of horizontal
+    are about +/- 1 degrees of horizontal
 
     Parameters
     ----------
