@@ -16,14 +16,14 @@ Or in an IDE by modifying the paths below
 
 import sys
 from utilities import xpreader
-from skimage.external import tifffile
+from cv2 import imwrite
 
 # Files:
 if len(sys.argv) == 3: # If arguments were passed
     xpfile = sys.argv[1]
     save_folder = sys.argv[2]
 else:
-    DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
+    DeLTA_data = '/home/jeanbaptiste/data/DeLTA_data/'
     xpfile = DeLTA_data + 'mother_machine/evaluation/evaluation_movie.nd2'
     save_folder = DeLTA_data + 'mother_machine/evaluation/sequence/'
 
@@ -47,7 +47,7 @@ for pos in range(xp.positions):
             # Generate filename:
             filename = filename_proto % (pos+1,cha+1,fra+1)
             # Save to disk:
-            tifffile.imsave(save_folder+filename,frame)
+            imwrite(save_folder+filename,frame)
             # display progress:
             counter += 1
             print('%s - saved (%03d%% done)' \
