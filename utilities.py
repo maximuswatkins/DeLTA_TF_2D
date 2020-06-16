@@ -5,16 +5,8 @@ to minimize the risk of unforeseen bugs.
 
 @author: jblugagne
 '''
-import cv2, os, re, importlib
+import cv2, os, re
 import numpy as np
-# Try to import skimage, issue warning if not found (this is normal in bioformats env):
-if importlib.util.find_spec("skimage") is None:
-    warnings.warn("Could not load scikit-image. [Normal for bioformats_env]")
-else:
-    from skimage.external.tifffile import TiffFile
-    from skimage.filters import gaussian, threshold_otsu
-    from skimage.feature import canny
-    from skimage.transform import probabilistic_hough_line
 
 
 def deskew(image):
@@ -35,14 +27,10 @@ def deskew(image):
         Rotation angle of the chambers for correction.
 
     '''
-    # image = imread(filename, as_grey=True)
-
-    # #threshold to get rid of extraneous noise
-    # thresh = threshold_otsu(image)
-    # normalize = image > thresh
-
-    # gaussian blur
-    # blur = gaussian(image, 3)
+    
+    from skimage.filters import gaussian, threshold_otsu
+    from skimage.feature import canny
+    from skimage.transform import probabilistic_hough_line
 
 
     # canny edges in scikit-image
@@ -630,6 +618,7 @@ class xpreader:
             self.dtype = I.dtype
             
         elif (file_extension.lower() == '.tif' or file_extension.lower() == '.tiff'): # Works with single-series tif & mutli-series ome.tif
+            from skimage.external.tifffile import TiffFile
             self.filetype = 'tif'
             self.filehandle = TiffFile(filename)
             self.positions = len(self.filehandle.series)
