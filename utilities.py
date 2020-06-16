@@ -5,11 +5,11 @@ to minimize the risk of unforeseen bugs.
 
 @author: jblugagne
 '''
-import cv2, os, re
+import cv2, os, re, importlib
 import numpy as np
 # Try to import skimage, issue warning if not found (this is normal in bioformats env):
 if importlib.util.find_spec("skimage") is None:
-    warnings.warn("Could not load scikit-image.")
+    warnings.warn("Could not load scikit-image. [Normal for bioformats_env]")
 else:
     from skimage.external.tifffile import TiffFile
     from skimage.filters import gaussian, threshold_otsu
