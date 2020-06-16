@@ -7,10 +7,14 @@ to minimize the risk of unforeseen bugs.
 '''
 import cv2, os, re
 import numpy as np
-from skimage.external.tifffile import TiffFile
-from skimage.filters import gaussian, threshold_otsu
-from skimage.feature import canny
-from skimage.transform import probabilistic_hough_line
+# Try to import skimage, issue warning if not found (this is normal in bioformats env):
+if importlib.util.find_spec("skimage") is None:
+    warnings.warn("Could not load scikit-image.")
+else:
+    from skimage.external.tifffile import TiffFile
+    from skimage.filters import gaussian, threshold_otsu
+    from skimage.feature import canny
+    from skimage.transform import probabilistic_hough_line
 
 
 def deskew(image):
