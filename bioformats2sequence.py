@@ -26,6 +26,8 @@ else:
     DeLTA_data = '/home/jeanbaptiste/data/DeLTA_data/'
     xpfile = DeLTA_data + 'mother_machine/evaluation/evaluation_movie.nd2'
     save_folder = DeLTA_data + 'mother_machine/evaluation/sequence/'
+if not os.path.exists(save_folder):
+    os.mkdir(save_folder)
 
 # Initialize XP reader:
 xp = xpreader(xpfile,
