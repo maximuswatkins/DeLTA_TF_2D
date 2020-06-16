@@ -180,7 +180,7 @@ for pos in range(xp.positions):
             for f in range(fluoframes.shape[1]):
                 chamberfluo[f] = cropbox(fluoframes[i,f],chamberbox)
             # Get contours of all cells in frame:
-            contours = cv2.findContours((label_stack_resized[i]>0).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1] # Get contours of single cells
+            contours = cv2.findContours((label_stack_resized[i]>0).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] # Get contours of single cells
             contours.sort(key=lambda elem: np.max(elem[:,0,1])) # Sort along Y axis
             for c, contour in enumerate(contours): # Run through cells in frame
                 cellnb = label_stack_resized[i,contour[0,0,1],contour[0,0,0]] # Get cell number in stack (opencv indexing is opposite of numpy)

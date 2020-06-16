@@ -201,8 +201,8 @@ def getChamberBoxes(chambersmask):
         chambersmask = chambersmask.astype(np.uint8)
     else:
         chambersmask = cv2.threshold(chambersmask,.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
-    contours = cv2.findContours(chambersmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    for chamber in contours[1]:
+    contours = cv2.findContours(chambersmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+    for chamber in contours:
         xtl, ytl, boxwidth, boxheight = cv2.boundingRect(chamber)
         chamberboxes.append(dict(
                 xtl = xtl,
@@ -259,7 +259,7 @@ def getSinglecells(seg):
         seg = seg.astype(np.uint8)
     else:
         seg = cv2.threshold(seg,.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
-    contours = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
+    contours = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
     contours.sort(key=lambda elem: np.max(elem[:,0,1])) # Sorting along Y
     singlecellseg = np.empty([len(contours),seg.shape[0],seg.shape[1]])
     for c, contour in enumerate(contours):
@@ -415,7 +415,7 @@ def label_seg(seg,cellnumbers=None):
         seg = seg.astype(np.uint8)
     else:
         seg = cv2.threshold(seg,.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
-    contours = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
+    contours = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
     contours.sort(key=lambda elem: np.max(elem[:,0,1])) # Sorting along Y
     label = np.zeros(seg.shape,dtype=np.uint16) # Because we use uint16, we can not have >65535 cells in one movie
     for c, contour in enumerate(contours):
@@ -483,7 +483,7 @@ def updatelineage(newframe, stack, framenb=0, lineage=None, attrib=None):
         
         # If previous stack frame has no cells:
         if not np.any(label_old>0): # This can happen if the chamber is empty and suddenly cells appear (can be a segmentation error, or a focus problem)
-            contours = cv2.findContours(newframe.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1] # In this case just label
+            contours = cv2.findContours(newframe.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] # In this case just label
             for _ in range(len(contours)):
                 lineage.append(createcell(framenb))
                 cellnumbers.append(len(lineage))
