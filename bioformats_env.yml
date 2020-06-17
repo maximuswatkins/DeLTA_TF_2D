@@ -1,11 +1,11 @@
 name: bioformats_env
 channels:
-  - bioconda
   - conda-forge
   - defaults
 dependencies:
   - python=2.7.*
+  - opencv
   - spyder
-  - scikit-image=0.14.*
-  - opencv=3.4.*
-  - python-bioformats=1.5.*
+  - pip
+  - pip:
+    - python-bioformats
