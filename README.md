@@ -31,7 +31,9 @@ Note that, to minimize modifications to the old code, we kept data manipulation 
 
 ## Install
 ### GPU Requirements
-While this code can run on CPU, we recommend running it on GPU for faster processing. To do so you will need [an nvidia gpu with a cuda compute capability of 3.5 or higher](https://developer.nvidia.com/cuda-gpus). Make sure you update your gpu drivers ([from the nvidia website](https://www.nvidia.com/Download/index.aspx?lang=en-us)). See [here](https://www.tensorflow.org/install/gpu) and . If you want to run the CPU version of tensorflow, remove the -gpu suffix in [delta_env.yml](delta_env.yml).
+While this code can run on CPU, we recommend running it on GPU for significantly faster processing. To do so you will need [an nvidia gpu with a cuda compute capability of 3.5 or higher](https://developer.nvidia.com/cuda-gpus) and [an up-to-date gpu driver](https://www.nvidia.com/Download/index.aspx?lang=en-us)). If no compatible GPU/driver is found on the system, tensorflow will run on CPU. To force the CPU version of tensorflow, remove the -gpu suffix in [delta_env.yml](delta_env.yml).
+
+For more information see [here](https://docs.anaconda.com/anaconda/user-guide/tasks/tensorflow/) and [here](https://www.tensorflow.org/guide/gpu).
 
 ### Anaconda installation
 We recommend installing necessary modules and libraries with [Anaconda](https://www.anaconda.com/distribution/). Anaconda is easy to install, and will allow you to setup environments that are not in conflict with each other and will streamline the installation process.  
@@ -84,14 +86,16 @@ Once the models are trained, you can run predictions on larger datasets using th
 
 Otherwise, the [pipeline.py](pipeline.py) script can process an entire experiment from an OME-TIFF file or a sequence of image files saved in the same folder. You would have to run the bioformats2sequence.py first to test on our data. To see how the final MAT files can be used, see [DeLTA interfacing](https://gitlab.com/dunloplab/delta-interfacing), specifically the postprocess_stacks.m file.
 
-### Bio-Formats microscopy files
+## Bio-Formats microscopy files
 Unfortunately the python-bioformats library that would allow us to read most [microscopy file formats](https://docs.openmicroscopy.org/bio-formats/5.7.1/supported-formats.html "Bio-Formats compatible") like .nd2, .czi, .oif etc does not work with python 3. But we provide tools to work with those formats.
 
 1. First, you can convert various microscopy formats into ome-tiff with Bio-Formats' [bfconvert](https://docs.openmicroscopy.org/bio-formats/5.7.1/users/comlinetools/conversion.html "bfconvert") tool. Our xpreader object can read OME-TIFF files converted this way, although it can run into memory issues if the file is too big.
 
 2. We also provide a small python 2 script, [bioformats2sequence.py](bioformats2sequence.py) that can run in the conda environment described in [bioformats_env.yml](bioformats_env.yml). This script writes all frames from a bioformats-compatible file to single tiff files sequence compatible with our pipeline script. We have only tested this with nd2 and czi files, although other formats should also work.
 
-On Windows you will need Java JRE & JDK >=1.6 and [Visual C++ support for python 2.7](https://aka.ms/vcpython27). You can then run the following commands:
+### Setup
+
+On Windows you will need Java JRE & JDK >=1.6 and the [Visual C++ compiler for python 2.7](https://aka.ms/vcpython27). You can then run the following commands:
 
     (base)$ conda env create -f bioformats_env.yml
     (base)$ conda activate bioformats_env
@@ -99,10 +103,10 @@ On Windows you will need Java JRE & JDK >=1.6 and [Visual C++ support for python
 
 The path to the output folder can then be passed to the xpreader object in [pipeline.py](pipeline.py) (after activating delta_env)
 
-Note: On more recent versions of spyder, you may get an encoding error. Try `$env:PYTHONIOENCODING = "UTF-8"` (Windows) or `set PYTHONIOENCODING=UTF-8` (Unix)
+Note: On more recent versions of spyder, you may get an encoding error on startup. Try `$env:PYTHONIOENCODING = "UTF-8"` (Windows) or `set PYTHONIOENCODING=UTF-8` (Unix)
 
 ## Troubleshooting
 ### OOM - Out of memory (GPU)
 If you run the code on your GPU, you might run into cache memory problems. This is both linked to the batch size and the size of the images you are using. The batch size is fairly straightforward to change, just lower the value at the beginning of the [train_seg.py](train_seg.py) or [train_track.py](train_track.py) files. Note that lower batch sizes may mean slower training convergence or lower performance overall. You might want to increase the number of epochs or steps per epoch to compensate.
 
-The other solution would be to use a smaller image target size. However, if the original images are, say 512×512, downsizing it to 256×256 will certainly reduce the memory footprint, but it might cause some borders between cells in the binary masks to disappear. Instead, you would have to modify your training images size upstream of DeLTA to make sure that your training set does feature cell-to-cell borders in the segmentation masks.
+The other solution would be to use a smaller image target size. However if the original training images and masks are for example 512×512, downsizing them to 256×256 will reduce the memory footprint, but it might cause some borders between cells in the binary masks to disappear. Instead, you would have to modify your training images size upstream of DeLTA to make sure that your training set does feature cell-to-cell borders in the segmentation masks.
