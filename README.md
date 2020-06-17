@@ -3,7 +3,7 @@
 DeLTA (Deep Learning for Time-lapse Analysis) is a deep learning-based image processing pipeline for segmenting and tracking single cells in time-lapse microscopy movies.
 ![](https://gitlab.com/dunloplab/delta/-/raw/images/DeLTAexample.gif)
 
-See/Cite our paper in PLOS Computational Biology:
+See/Cite out paper in PLOS Computational Biology:
 
 [Lugagne, J.-B., Lin, H., & Dunlop, M. J. (2020). DeLTA: Automated cell segmentation, tracking, and lineage reconstruction using deep learning. PLOS Computational Biology, 16(4), e1007673](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007673).
 
@@ -31,7 +31,7 @@ Note that, to minimize modifications to the old code, we kept data manipulation 
 
 ## Install
 ### GPU Requirements
-While this code can run on CPU, we recommend running it on GPU for faster processing. To do so you will need [an nvidia gpu with a cuda compute capability of 3.5 or higher](https://developer.nvidia.com/cuda-gpus). Make sure you update your gpu drivers ([from the nvidia website](https://www.nvidia.com/Download/index.aspx?lang=en-us)). If you want to run the CPU version of tensorflow, remove the -gpu suffix in [delta_env.yml](delta_env.yml).
+While this code can run on CPU, we recommend running it on GPU for faster processing. To do so you will need [an nvidia gpu with a cuda compute capability of 3.5 or higher](https://developer.nvidia.com/cuda-gpus). Make sure you update your gpu drivers ([from the nvidia website](https://www.nvidia.com/Download/index.aspx?lang=en-us)). See [here](https://www.tensorflow.org/install/gpu) and . If you want to run the CPU version of tensorflow, remove the -gpu suffix in [delta_env.yml](delta_env.yml).
 
 ### Anaconda installation
 We recommend installing necessary modules and libraries with [Anaconda](https://www.anaconda.com/distribution/). Anaconda is easy to install, and will allow you to setup environments that are not in conflict with each other and will streamline the installation process.  
@@ -91,11 +91,15 @@ Unfortunately the python-bioformats library that would allow us to read most [mi
 
 2. We also provide a small python 2 script, [bioformats2sequence.py](bioformats2sequence.py) that can run in the conda environment described in [bioformats_env.yml](bioformats_env.yml). This script writes all frames from a bioformats-compatible file to single tiff files sequence compatible with our pipeline script. We have only tested this with nd2 and czi files, although other formats should also work.
 
+On Windows you will need Java JRE & JDK >=1.6 and [Visual C++ support for python 2.7](https://aka.ms/vcpython27). You can then run the following commands:
 
     (base)$ conda env create -f bioformats_env.yml
     (base)$ conda activate bioformats_env
     (bioformats_env)$ python bioformats2sequence.py /path/to/microscopyfile.nd2 /path/to/outputfolder/
+
 The path to the output folder can then be passed to the xpreader object in [pipeline.py](pipeline.py) (after activating delta_env)
+
+Note: On more recent versions of spyder, you may get an encoding error. Try `$env:PYTHONIOENCODING = "UTF-8"` (Windows) or `set PYTHONIOENCODING=UTF-8` (Unix)
 
 ## Troubleshooting
 ### OOM - Out of memory (GPU)
