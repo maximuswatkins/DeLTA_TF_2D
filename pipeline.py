@@ -81,10 +81,10 @@ for pos in range(xp.positions):
     start_time = time.time()
     print('Pos. %d/%d: Preprocessing...' %(pos+1,xp.positions), end='')
     # Rotation correction:
-    firstframe = xp.getframes(positions=pos,channels=1,frames=0,rescale=(0,1)) # Get first frame for rotation estimation (We assume first channel is trans)
+    firstframe = xp.getframes(positions=pos,channels=0,frames=0,rescale=(0,1)) # Get first frame for rotation estimation (We assume first channel is trans)
     rot_corr = deskew(firstframe) # Estimate rotation angle
     # Get trans frames:
-    transframes = xp.getframes(positions=pos,channels=1,rescale=(0,1),rotate=rot_corr) # Now load all trans frames, with rotation correction
+    transframes = xp.getframes(positions=pos,channels=0,rescale=(0,1),rotate=rot_corr) # Now load all trans frames, with rotation correction
     firstframe = np.expand_dims(np.expand_dims(cv2.resize(transframes[0],(512,512)),axis=0),axis=3) # using expand_dims to get it into a shape that the chambers id unet accepts
     # Find chambers, filter results, get bounding boxes:
     chambermask = model_chambers.predict(firstframe,verbose=0)
