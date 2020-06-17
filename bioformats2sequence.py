@@ -14,7 +14,7 @@ Or in an IDE by modifying the paths below
 @author: jblugagne
 """
 
-import sys
+import sys, os
 from utilities import xpreader
 from cv2 import imwrite
 
@@ -26,6 +26,8 @@ else:
     DeLTA_data = '/home/jeanbaptiste/data/DeLTA_data/'
     xpfile = DeLTA_data + 'mother_machine/evaluation/evaluation_movie.nd2'
     save_folder = DeLTA_data + 'mother_machine/evaluation/sequence/'
+if not os.path.exists(save_folder):
+    os.mkdir(save_folder)
 
 # Initialize XP reader:
 xp = xpreader(xpfile,
@@ -47,7 +49,7 @@ for pos in range(xp.positions):
             # Generate filename:
             filename = filename_proto % (pos+1,cha+1,fra+1)
             # Save to disk:
-            imwrite(save_folder+filename,frame)
+            imwrite(os.path.join(save_folder,filename),frame)
             # display progress:
             counter += 1
             print('%s - saved (%03d%% done)' \
