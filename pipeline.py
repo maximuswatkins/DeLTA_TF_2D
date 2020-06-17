@@ -100,7 +100,7 @@ for pos in range(xp.positions):
                         ) # Box to match template
     transframes, driftvalues = driftcorr(transframes, template=drifttemplate, box=driftcorbox) # Run drift corr
     # Save pre-processing to disk:
-    savemat(resfolder+('preprocessed/Position%06d.mat' % (pos+1)),
+    savemat(os.path.join(resfolder,('preprocessed/Position%06d.mat' % (pos+1))),
             {'tiffile': xpfile,
              'moviedimensions': [xp.y,xp.x,xp.channels,xp.timepoints],
              'proc': {'rotation': rot_corr,
@@ -199,5 +199,5 @@ for pos in range(xp.positions):
     
     
     # Save position .mat file:
-    savemat(resfolder+('postprocessed/Position%06d.mat' % (pos+1)),{'res': res})
+    savemat(os.path.join(resfolder,('postprocessed/Position%06d.mat' % (pos+1))),{'res': res})
     print(' - Done! ['+str(round(time.time() - start_time))+' secs]')
