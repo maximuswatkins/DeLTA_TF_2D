@@ -28,17 +28,17 @@ DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
 if len(sys.argv) == 3: # If arguments were passed
     xpfile = sys.argv[1]
     resfolder = sys.argv[2]
+    channelnames = None
 else:
     # XP File:
     # xpfile = DeLTA_data + 'mother_machine/evaluation/evaluation_movie.ome.tiff'
     # Folders containing image sequences are also valid: (run bioformats2sequence.py first)
     xpfile = DeLTA_data + 'mother_machine/evaluation/sequence/'
-    channelnames = ['trans','gfp'] # trans will be used for DeLTA, all other channels will be treated as fluo
-    xp = xpreader(xpfile,
-                  channelnames=channelnames,
-                  use_bioformats=False)
     # Results folder:
     resfolder = DeLTA_data  + 'mother_machine/evaluation/delta_results/'
+
+# Init reader:
+xp = xpreader(xpfile)
 
 # Create folders if they don't exist:
 if not os.path.exists(resfolder):
@@ -81,10 +81,10 @@ for pos in range(xp.positions):
     start_time = time.time()
     print('Pos. %d/%d: Preprocessing...' %(pos+1,xp.positions), end='')
     # Rotation correction:
-    firstframe = xp.getframes(positions=pos,channels='trans',frames=0,rescale=(0,1)) # Get first frame for rotation estimation
+    firstframe = xp.getframes(positions=pos,channels=1,frames=0,rescale=(0,1)) # Get first frame for rotation estimation (We assume first channel is trans)
     rot_corr = deskew(firstframe) # Estimate rotation angle
     # Get trans frames:
-    transframes = xp.getframes(positions=pos,channels='trans',rescale=(0,1),rotate=rot_corr) # Now load all trans frames, with rotation correction
+    transframes = xp.getframes(positions=pos,channels=1,rescale=(0,1),rotate=rot_corr) # Now load all trans frames, with rotation correction
     firstframe = np.expand_dims(np.expand_dims(cv2.resize(transframes[0],(512,512)),axis=0),axis=3) # using expand_dims to get it into a shape that the chambers id unet accepts
     # Find chambers, filter results, get bounding boxes:
     chambermask = model_chambers.predict(firstframe,verbose=0)
@@ -107,7 +107,7 @@ for pos in range(xp.positions):
                       'chambers': np.array([[c['xtl'],c['ytl'],c['xbr']-c['xtl'],c['ybr']-c['ytl']] for c in chamberboxes],dtype=np.float64),
                       'XYdrift': np.flip(np.transpose(-np.array(driftvalues)),axis=1)}})
     # Load up fluoresence images, apply drift correction and rotation:
-    fluoframes = xp.getframes(positions=pos, channels=[x for x in channelnames if x!='trans'], squeeze_dimensions=False, rotate=rot_corr)[0] # Not squeezing in case there is only one fluo channel, but squeezing the first position dimension with [0]
+    fluoframes = xp.getframes(positions=pos, channels=[x for x in range(1,xp.channels)], squeeze_dimensions=False, rotate=rot_corr)[0] # Not squeezing in case there is only one fluo channel, but squeezing the first position dimension with [0]
     for f in range(fluoframes.shape[1]): #Go over all channels:
         fluoframes[:,f,:,:], _ = driftcorr(fluoframes[:,f,:,:], drift=driftvalues) # Apply drift correction
     
