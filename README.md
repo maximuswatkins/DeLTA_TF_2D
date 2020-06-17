@@ -31,9 +31,9 @@ Note that, to minimize modifications to the old code, we kept data manipulation 
 
 ## Install
 ### GPU Requirements
-While this code can run on CPU, we recommend running it on GPU for significantly faster processing. To do so you will need [an nvidia gpu with a cuda compute capability of 3.5 or higher](https://developer.nvidia.com/cuda-gpus). Make sure you update your gpu drivers ([from the nvidia website](https://www.nvidia.com/Download/index.aspx?lang=en-us)). If you want to run the CPU version of tensorflow, remove the -gpu suffix in [delta_env.yml](delta_env.yml).
+While this code can run on CPU, we recommend running it on GPU for significantly faster processing. To do so you will need [an nvidia gpu with a cuda compute capability of 3.5 or higher](https://developer.nvidia.com/cuda-gpus) and [an up-to-date gpu driver](https://www.nvidia.com/Download/index.aspx?lang=en-us)). If no compatible GPU/driver is found on the system, tensorflow will run on CPU. To force the CPU version of tensorflow, remove the -gpu suffix in [delta_env.yml](delta_env.yml).
 
-For more information see [here](https://docs.anaconda.com/anaconda/user-guide/tasks/tensorflow/) and [here](https://www.tensorflow.org/install/gpu).
+For more information see [here](https://docs.anaconda.com/anaconda/user-guide/tasks/tensorflow/) and [here](https://www.tensorflow.org/guide/gpu).
 
 ### Anaconda installation
 We recommend installing necessary modules and libraries with [Anaconda](https://www.anaconda.com/distribution/). Anaconda is easy to install, and will allow you to setup environments that are not in conflict with each other and will streamline the installation process.  
