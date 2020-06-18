@@ -33,11 +33,9 @@ else:
     # XP File:
     # xpfile = DeLTA_data + 'mother_machine/evaluation/evaluation_movie.ome.tiff'
     # Folders containing image sequences are also valid: (run bioformats2sequence.py first)
-    # xpfile = DeLTA_data + 'mother_machine/evaluation/sequence/'
-    # # Results folder:
-    # resfolder = DeLTA_data  + 'mother_machine/evaluation/delta_results/'
-    xpfile = 'E:/JBL/2020-03-12_NT5_100Positions_RandomStimulations/assembled'
-    resfolder = 'E:/JBL/2020-03-12_NT5_100Positions_RandomStimulations/delta_res'
+    xpfile = DeLTA_data + 'mother_machine/evaluation/sequence/'
+    # Results folder:
+    resfolder = DeLTA_data  + 'mother_machine/evaluation/delta_results/'
 
 # Init reader:
 xp = utils.xpreader(xpfile)
