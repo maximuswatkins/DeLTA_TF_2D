@@ -33,9 +33,11 @@ else:
     # XP File:
     # xpfile = DeLTA_data + 'mother_machine/evaluation/evaluation_movie.ome.tiff'
     # Folders containing image sequences are also valid: (run bioformats2sequence.py first)
-    xpfile = DeLTA_data + 'mother_machine/evaluation/sequence/'
-    # Results folder:
-    resfolder = DeLTA_data  + 'mother_machine/evaluation/delta_results/'
+    # xpfile = DeLTA_data + 'mother_machine/evaluation/sequence/'
+    # # Results folder:
+    # resfolder = DeLTA_data  + 'mother_machine/evaluation/delta_results/'
+    xpfile = 'E:/JBL/2020-03-12_NT5_100Positions_RandomStimulations/assembled'
+    resfolder = 'E:/JBL/2020-03-12_NT5_100Positions_RandomStimulations/delta_res'
 
 # Init reader:
 xp = xpreader(xpfile)
@@ -150,7 +152,8 @@ for pos in range(xp.positions):
                     ))
         track_inputs = np.array(track_inputs) # Format into 4D tensor
         # Run U-Net model for tracking:
-        track = model_track.predict(track_inputs,verbose=0)
+        if track_inputs.size!=0: # If not empty
+            track = model_track.predict(track_inputs,verbose=0)
         
         
         ##### Compile lineage and label stack:
