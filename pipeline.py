@@ -17,7 +17,7 @@ import time, cv2, os, sys
 import numpy as np
 from data import postprocess
 from model import unet_chambers, unet_seg, unet_track
-from utilities import *
+import utilities as utils
 from scipy.io import savemat
 
 DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
@@ -40,17 +40,11 @@ else:
     resfolder = 'E:/JBL/2020-03-12_NT5_100Positions_RandomStimulations/delta_res'
 
 # Init reader:
-xp = xpreader(xpfile)
+xp = utils.xpreader(xpfile)
 
 # Create folders if they don't exist:
 if not os.path.exists(resfolder):
     os.mkdir(resfolder)
-if not os.path.exists(os.path.join(resfolder,'preprocessed')):
-    os.mkdir(os.path.join(resfolder,'preprocessed'))
-if not os.path.exists(os.path.join(resfolder,'postprocessed')):
-    os.mkdir(os.path.join(resfolder,'postprocessed'))
-
-
 
 ### Models:
 model_file_chambers = DeLTA_data + 'mother_machine/models/chambers_id_tessiechamp.hdf5'
@@ -84,7 +78,7 @@ for pos in range(xp.positions):
     print('Pos. %d/%d: Preprocessing...' %(pos+1,xp.positions), end='')
     # Rotation correction:
     firstframe = xp.getframes(positions=pos,channels=0,frames=0,rescale=(0,1)) # Get first frame for rotation estimation (We assume first channel is trans)
-    rot_corr = deskew(firstframe) # Estimate rotation angle
+    rot_corr = utils.deskew(firstframe) # Estimate rotation angle
     # Get trans frames:
     transframes = xp.getframes(positions=pos,channels=0,rescale=(0,1),rotate=rot_corr) # Now load all trans frames, with rotation correction
     firstframe = np.expand_dims(np.expand_dims(cv2.resize(transframes[0],(512,512)),axis=0),axis=3) # using expand_dims to get it into a shape that the chambers id unet accepts
@@ -92,26 +86,19 @@ for pos in range(xp.positions):
     chambermask = model_chambers.predict(firstframe,verbose=0)
     chambermask = cv2.resize(np.squeeze(chambermask),transframes.shape[3:0:-1]) # scaling back to original size
     chambermask = postprocess(chambermask,min_size=min_chamber_area) # Binarization, cleaning and area filtering
-    chamberboxes = getChamberBoxes(np.squeeze(chambermask))
+    chamberboxes = utils.getChamberBoxes(np.squeeze(chambermask))
     # Drift correction:
-    drifttemplate = getDriftTemplate(chamberboxes, transframes[0]) # This template will be used as reference for drift correction
+    drifttemplate = utils.getDriftTemplate(chamberboxes, transframes[0]) # This template will be used as reference for drift correction
     driftcorbox = dict(xtl = 0,
                         xbr = None,
                         ytl = 0,
                         ybr = max(chamberboxes,key=lambda elem: elem['ytl'])['ytl']
                         ) # Box to match template
-    transframes, driftvalues = driftcorr(transframes, template=drifttemplate, box=driftcorbox) # Run drift corr
-    # Save pre-processing to disk:
-    savemat(os.path.join(resfolder,('preprocessed/Position%06d.mat' % (pos+1))),
-            {'tiffile': xpfile,
-             'moviedimensions': [xp.y,xp.x,xp.channels,xp.timepoints],
-             'proc': {'rotation': rot_corr,
-                      'chambers': np.array([[c['xtl'],c['ytl'],c['xbr']-c['xtl'],c['ybr']-c['ytl']] for c in chamberboxes],dtype=np.float64),
-                      'XYdrift': np.flip(np.transpose(-np.array(driftvalues)),axis=1)}})
+    transframes, driftvalues = utils.driftcorr(transframes, template=drifttemplate, box=driftcorbox) # Run drift corr    
     # Load up fluoresence images, apply drift correction and rotation:
     fluoframes = xp.getframes(positions=pos, channels=[x for x in range(1,xp.channels)], squeeze_dimensions=False, rotate=rot_corr)[0] # Not squeezing in case there is only one fluo channel, but squeezing the first position dimension with [0]
     for f in range(fluoframes.shape[1]): #Go over all channels:
-        fluoframes[:,f,:,:], _ = driftcorr(fluoframes[:,f,:,:], drift=driftvalues) # Apply drift correction
+        fluoframes[:,f,:,:], _ = utils.driftcorr(fluoframes[:,f,:,:], drift=driftvalues) # Apply drift correction
     
     
     ##### Cell segmentation:
@@ -120,7 +107,7 @@ for pos in range(xp.positions):
     # Compile segmentation inputs:
     for m, chamberbox in enumerate(chamberboxes):
         for i in range(transframes.shape[0]):
-            seg_inputs.append(cv2.resize(rangescale(cropbox(transframes[i],chamberbox),(0,1)),(32,256)))
+            seg_inputs.append(cv2.resize(utils.rangescale(utils.cropbox(transframes[i],chamberbox),(0,1)),(32,256)))
     seg_inputs = np.expand_dims(np.array(seg_inputs),axis=3) # Format into 4D tensor
     # Run segmentation U-Net:
     seg = model_seg.predict(seg_inputs,verbose=0)
@@ -140,7 +127,7 @@ for pos in range(xp.positions):
         frame_numbers = []# To reconstruct
         # Compile tracking inputs:
         for i in range(1,transframes.shape[0]):
-            singleseg = getSinglecells(seg[m*transframes.shape[0] + i-1]) # Get single cell masks in the 'old' frame
+            singleseg = utils.getSinglecells(seg[m*transframes.shape[0] + i-1]) # Get single cell masks in the 'old' frame
             for c in range(singleseg.shape[0]):
                 frame_numbers.append(i) # For lineage reconstruction later
                 track_inputs.append(np.stack((
@@ -158,13 +145,13 @@ for pos in range(xp.positions):
         
         ##### Compile lineage and label stack:
         label_stack = np.zeros([transframes.shape[0],seg.shape[1],seg.shape[2]],dtype=np.uint16)
-        lineage, label_stack = updatelineage(seg[m*transframes.shape[0]], label_stack) # Initialize lineage and label stack on first frame
+        lineage, label_stack = utils.updatelineage(seg[m*transframes.shape[0]], label_stack) # Initialize lineage and label stack on first frame
         for i in range(1,transframes.shape[0]):
             frame_idxs = [x for x, fn in enumerate(frame_numbers) if fn==i]
             if frame_idxs:
-                scores = getTrackingScores(track_inputs[frame_idxs[0],:,:,3], track[frame_idxs])
-                attrib = getAttributions(scores)
-                lineage, label_stack = updatelineage(seg[m*transframes.shape[0] + i], label_stack, framenb=i, lineage=lineage, attrib=attrib) # Because we use uint16, we can only track up to 65535 cells per chamber
+                scores = utils.getTrackingScores(track_inputs[frame_idxs[0],:,:,3], track[frame_idxs])
+                attrib = utils.getAttributions(scores)
+                lineage, label_stack = utils.updatelineage(seg[m*transframes.shape[0] + i], label_stack, framenb=i, lineage=lineage, attrib=attrib) # Because we use uint16, we can only track up to 65535 cells per chamber
             
             
         ##### Extract features:
@@ -181,7 +168,7 @@ for pos in range(xp.positions):
             # Get cropped out fluorescence images:
             chamberfluo = np.empty((fluoframes.shape[1],)+label_stack_resized.shape[1:])
             for f in range(fluoframes.shape[1]):
-                chamberfluo[f] = cropbox(fluoframes[i,f],chamberbox)
+                chamberfluo[f] = utils.cropbox(fluoframes[i,f],chamberbox)
             # Get contours of all cells in frame:
             contours = cv2.findContours((label_stack_resized[i]>0).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] # Get contours of single cells
             contours.sort(key=lambda elem: np.max(elem[:,0,1])) # Sort along Y axis
@@ -202,5 +189,12 @@ for pos in range(xp.positions):
     
     
     # Save position .mat file:
-    savemat(os.path.join(resfolder,('postprocessed/Position%06d.mat' % (pos+1))),{'res': res})
+    savemat(os.path.join(resfolder,('Position%06d.mat' % (pos+1))),
+            {'res': res,
+             'tiffile': xpfile,
+             'moviedimensions': [xp.y,xp.x,xp.channels,xp.timepoints],
+             'proc': {'rotation': rot_corr,
+                      'chambers': np.array([[c['xtl'],c['ytl'],c['xbr']-c['xtl'],c['ybr']-c['ytl']] for c in chamberboxes],dtype=np.float64),
+                      'XYdrift': np.flip(np.transpose(-np.array(driftvalues)),axis=1)}
+             })
     print(' - Done! ['+str(round(time.time() - start_time))+' secs]')
