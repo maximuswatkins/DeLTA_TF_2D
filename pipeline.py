@@ -40,6 +40,14 @@ else:
 # Init reader:
 xp = utils.xpreader(xpfile)
 
+# Example for reading from a micromanager experiment folder:
+# xpfile = 'E:/JH/2020.06.20/IMG__1'
+# resfolder = 'E:/JH/2020.06.20/delta_results'
+# xp = utils.xpreader(xpfile,
+#                     prototype='Pos%01d/img_channel%03d_position%03d_time%09d_z000.tif',
+#                     fileorder='pcpt',
+#                     filenamesindexing=0)
+
 # Create folders if they don't exist:
 if not os.path.exists(resfolder):
     os.mkdir(resfolder)

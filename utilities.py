@@ -530,9 +530,10 @@ def createcell(framenb, mothernb=0):
                 mothernb=mothernb,
                 daughters=[0.])
 
+
 class xpreader:
     
-    def __init__(self, filename, channelnames=None, use_bioformats=False):
+    def __init__(self, filename, channelnames=None, use_bioformats=False, prototype=None, fileorder='pct', filenamesindexing=1):
         '''
         Initialize experiment reader
 
@@ -541,10 +542,11 @@ class xpreader:
         filename : String
             Path to experiment tif file or directory.If the path leads to a
             directory, the experiment folder is expected to contain exclusively
-            single-page tif images with filenames of the following C-style 
-            format: %s%d%s%d%s%d.tif, with the 3 %d digit strings being 
-            zero-padded decimal representation of the position, channel and 
-            frame/timepoint number (1-based indexing) of each image file.
+            single-page tif images. If no prototype is provided, the filenames 
+            are expected to be of the following C-style format: 
+            %s%d%s%d%s%d.tif, with the 3 %d digit strings being zero-padded 
+            decimal representation of the position, channel and frame/timepoint
+            number of each image file.
             Valid examples:
                 Pos01_Cha3_Fra0005.tif
                 p3c1t034.tif
@@ -556,6 +558,27 @@ class xpreader:
             Flag to use the bioformats reader.
             DEPRECATED - bioformats does not work with python 3
             The default is False.
+        prototype: string, optional
+            Filename prototype to use when reading single-page tif images from
+            a sequence folder, in C-style formatting. Folder separators can be
+            used. If None, the prototype will be estimated from the first tif
+            file in the folder. For example, an experiment from micromanager 
+            can be processed with prototype =
+            'Pos%01d/img_channel%03d_position%03d_time%09d_z000.tif'
+            and fileorder = 'pcpt' and filenamesindexing = 0
+            The default is None.
+        fileorder: string, optional
+            Order of the numbers in the prototype, with 'p' for positions/
+            series, 'c' for imaging channels, and 't' for timepoints/frames.
+            For example 'pct' indicates that the first number is going to be
+            positions, then channels, then timepoints. You can use the same 
+            letter multiple times, like 'pcpt'.
+            The default is 'pct'
+        filenamesindexing = int
+            Selects between 0-based or 1-based indexing in the filename. If 
+            1, position 0 will be referenced as position 1 in the filename.
+            The default is 1
+            
 
         Raises
         ------
@@ -589,30 +612,36 @@ class xpreader:
         elif os.path.isdir(filename): # Experiment is stored as individual image TIFF files in a folder
             self.filetype = 'dir'
             self.filehandle = filename
-            imgfiles = [x for x in os.listdir(filename) if os.path.splitext(x)[1].lower() in ('.tif','.tiff')]
-            # Here we assume all images in the folder follow the same naming convention:
-            numstrs = re.findall("\d+", imgfiles[0]) # Get digits sequences in first filename
-            charstrs = re.findall("\D+", imgfiles[0]) # Get character sequences in first filename
-            if len(numstrs)!=3 or len(charstrs)!=4:
-                raise ValueError('Filename formatting error. See documentation for image sequence formatting')
-            # Create the string prototype to be used to generate filenames on the fly:
-            # Order is position, channel, frame/timepoint
-            self.prototype =    charstrs[0]+'%0'+str(len(numstrs[0]))+'d'+\
-                                charstrs[1]+'%0'+str(len(numstrs[1]))+'d'+\
-                                charstrs[2]+'%0'+str(len(numstrs[2]))+'d'+\
-                                charstrs[3]
+            self.fileorder = fileorder
+            self.filenamesindexing = filenamesindexing
+            # If filename prototype is not provided, guess it from the first file:
+            if prototype is None:
+                imgfiles = [x for x in os.listdir(filename) if os.path.splitext(x)[1].lower() in ('.tif','.tiff')]
+                # Here we assume all images in the folder follow the same naming convention:
+                numstrs = re.findall("\d+", imgfiles[0]) # Get digits sequences in first filename
+                charstrs = re.findall("\D+", imgfiles[0]) # Get character sequences in first filename
+                if len(numstrs)!=3 or len(charstrs)!=4:
+                    raise ValueError('Filename formatting error. See documentation for image sequence formatting')
+                # Create the string prototype to be used to generate filenames on the fly:
+                # Order is position, channel, frame/timepoint
+                self.prototype =    charstrs[0]+'%0'+str(len(numstrs[0]))+'d'+\
+                                    charstrs[1]+'%0'+str(len(numstrs[1]))+'d'+\
+                                    charstrs[2]+'%0'+str(len(numstrs[2]))+'d'+\
+                                    charstrs[3]
+            else:
+                self.prototype = prototype
             # Get experiment settings by testing if relevant files exist: 
             # Get number of positions:
             self.positions = 0
-            while(os.path.exists(os.path.join(self.filehandle,self.prototype % (self.positions+1,1,1)))): self.positions+=1
+            while(os.path.exists(self.getfilenamefromprototype(self.positions,0,0))): self.positions+=1
             # Get number of channels:
             self.channels = 0
-            while(os.path.exists(os.path.join(self.filehandle,self.prototype % (1,self.channels+1,1)))): self.channels+=1
+            while(os.path.exists(self.getfilenamefromprototype(0,self.channels,0))): self.channels+=1
             # Get number of frames/timepoints:
             self.timepoints = 0
-            while(os.path.exists(os.path.join(self.filehandle,self.prototype % (1,1,self.timepoints+1)))): self.timepoints+=1
+            while(os.path.exists(self.getfilenamefromprototype(0,0,self.timepoints))): self.timepoints+=1
             # Get image specs:
-            I = cv2.imread(os.path.join(self.filehandle, self.prototype % (1,1,1)),cv2.IMREAD_ANYDEPTH)
+            I = cv2.imread(self.getfilenamefromprototype(0,0,0),cv2.IMREAD_ANYDEPTH)
             self.x = I.shape[1]
             self.y = I.shape[0]
             self.dtype = I.dtype
@@ -629,6 +658,39 @@ class xpreader:
             self.y = s.shape[s.axes.find('Y')]
             self.dtype = s.pages[0].asarray().dtype
                 
+            
+            
+    def getfilenamefromprototype(self,position,channel,frame):
+        '''
+        Generate full filename for specific frame based on file path, 
+        prototype, fileorder, and filenamesindexing
+
+        Parameters
+        ----------
+        position : int
+            Position/series index (0-based indexing).
+        channel : int
+            Imaging channel index (0-based indexing).
+        frame : int
+            Frame/timepoint index (0-based indexing).
+
+        Returns
+        -------
+        string
+            Filename.
+
+        '''
+        filenumbers = []
+        
+        for i in self.fileorder:
+            if i=='p':
+                filenumbers.append(position+self.filenamesindexing)
+            if i=='c':
+                filenumbers.append(channel+self.filenamesindexing)
+            if i=='t':
+                filenumbers.append(frame+self.filenamesindexing)
+        return os.path.join(self.filehandle,self.prototype % tuple(filenumbers))
+        
         
         
     def getframes(self, positions=None, channels=None, frames=None, 
@@ -733,7 +795,7 @@ class xpreader:
                     if self.use_bioformats:
                         frame = self.filehandle.read(series=pos,c=cha,t=fra,rescale=False)
                     elif self.filetype == 'dir':
-                        frame = cv2.imread(os.path.join(self.filehandle,self.prototype % (pos+1,cha+1,fra+1)),cv2.IMREAD_ANYDEPTH)
+                        frame = cv2.imread(self.getfilenamefromprototype(pos, cha, fra),cv2.IMREAD_ANYDEPTH)
                     elif self.filetype == 'tif':
                         frame = self.filehandle.series[pos].\
                                                     pages[fra*self.channels+cha].\
