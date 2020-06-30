@@ -658,7 +658,13 @@ class xpreader:
             self.y = s.shape[s.axes.find('Y')]
             self.dtype = s.pages[0].asarray().dtype
                 
-            
+    def close(self):
+        if self.use_bioformats:
+            self.filehandle.close()
+            import javabridge
+            javabridge.kill_vm()
+        elif self.filetype == 'tif': # Nothing to do if sequence directory
+            self.filehandle.close()
             
     def getfilenamefromprototype(self,position,channel,frame):
         '''
