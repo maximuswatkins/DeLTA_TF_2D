@@ -467,7 +467,8 @@ def trainGenerator_seg(batch_size,
     preload_weight = []
     
     # Get training image files list:
-    image_name_arr = glob.glob(os.path.join(img_path,"*.png"))
+    image_name_arr =    glob.glob(os.path.join(img_path,"*.png")) +\
+                        glob.glob(os.path.join(img_path,"*.tif"))
     
     # If preloading, load the images and compute weight maps:
     if preload:
@@ -497,6 +498,7 @@ def trainGenerator_seg(batch_size,
             else:
                 # Read images:
                 filename = image_name_arr[index]
+                print(filename)
                 img = readreshape(filename, target_size = target_size, order = 1)
                 mask = readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False)
                 if weight_path is not None:
@@ -671,8 +673,8 @@ def trainGenerator_track(batch_size,
     
     
     # Initialize variables and arrays:
-    image_name_arr = glob.glob(os.path.join(img_path,"*.png"))
-    
+    image_name_arr =    glob.glob(os.path.join(img_path,"*.png")) +\
+                        glob.glob(os.path.join(img_path,"*.tif"))
     
     # Reset the pseudo-random generator:
     random.seed(a=seed)
