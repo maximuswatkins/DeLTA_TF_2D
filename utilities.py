@@ -135,14 +135,14 @@ def driftcorr(img,template=None,box=None, drift=None):
 
     Returns
     -------
-    2D numpy array, tuple of len 2
+    2D/3D numpy array, tuple of len 2
         Drift-corrected image and drift.
 
     '''
     
     if len(img.shape)==2:
         twoDflag=True
-        np.expand_dims(img,axis=0)
+        img = np.expand_dims(img,axis=0)
     else:
         twoDflag=False
         
