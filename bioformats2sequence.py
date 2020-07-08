@@ -23,7 +23,7 @@ if len(sys.argv) == 3: # If arguments were passed
     xpfile = sys.argv[1]
     save_folder = sys.argv[2]
 else:
-    DeLTA_data = '/home/jeanbaptiste/data/DeLTA_data/'
+    DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
     xpfile = DeLTA_data + 'mother_machine/evaluation/evaluation_movie.nd2'
     save_folder = DeLTA_data + 'mother_machine/evaluation/sequence/'
 if not os.path.exists(save_folder):
@@ -54,3 +54,6 @@ for pos in range(xp.positions):
             counter += 1
             print('%s - saved (%03d%% done)' \
                   % (filename,100*counter/(xp.positions*xp.channels*xp.timepoints)))
+
+# Close the reader:
+xp.close()
