@@ -135,3 +135,7 @@ If the installation of one of the environments was interrupted for one reason or
 
     conda env remove -n delta_env/bioformats_env
     conda clean --all
+
+### max() arg is an empty sequence / Some chambers are not analyzed
+In [pipeline.py](pipeline.py), there is an area filtering parameter `min_chamber_area` that you can lower or set to 0 or None.
+Bear in mind that this filtering operation typically removes chambers that are on the edges of the image.
