@@ -147,6 +147,8 @@ def driftcorr(img,template=None,box=None, drift=None):
         twoDflag=False
         
     if drift is None:
+        if template is None: # If we have a position with 0 chambers (see getDriftTemplate)
+            return img, (0,0)
         template = rangescale(template,(0,255)).astype(np.uint8) # Making sure its the right format
         xcorr = np.empty([img.shape[0]])
         ycorr = np.empty([img.shape[0]])
@@ -218,11 +220,15 @@ def getDriftTemplate(chamberboxes,img):
 
     Returns
     -------
-    2D numpy array
-        A cropped region of the image to use as template for drift correction
+    2D numpy array or None
+        A cropped region of the image to use as template for drift correction.
+        If an empty list of chamber boxes is passed, None is returned.
         (see driftcorr()).
 
     '''
+    
+    if len(chamberboxes)==0:
+        return None
     (y_cut,x_cut) = [round(i*.025) for i in img.shape] # Cutting out 2.5% of the image on eahc side as drift margin
     box = dict(
             xtl = x_cut,
