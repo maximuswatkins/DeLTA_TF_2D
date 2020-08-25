@@ -38,7 +38,7 @@ else:
     resfolder = DeLTA_data  + 'mother_machine/evaluation/delta_results/'
 
 # Init reader:
-xp = utils.xpreader(xpfile)
+# xp = utils.xpreader(xpfile)
 
 # Example for reading from a micromanager experiment folder:
 # xpfile = 'E:/JH/2020.06.20/IMG__1'
@@ -47,6 +47,14 @@ xp = utils.xpreader(xpfile)
 #                     prototype='Pos%01d/img_channel%03d_position%03d_time%09d_z000.tif',
 #                     fileorder='pcpt',
 #                     filenamesindexing=0)
+
+# Example for HT post-processing:
+xpfile = 'E:/JBL/onlinexp'
+resfolder = xpfile + '/delta_results'
+xp = utils.xpreader(xpfile,
+                    prototype='chan%02d_img/Position%06d_Frame%06d.tif',
+                    fileorder='cpt',
+                    filenamesindexing=1)
 
 # Create folders if they don't exist:
 if not os.path.exists(resfolder):
@@ -72,7 +80,7 @@ model_track.load_weights(model_file_track)
 
 
 ### Misc:
-min_chamber_area = 2500 # Minimum size of chambers in pixels for area filtering
+min_chamber_area = 8e3 # Minimum size of chambers in pixels for area filtering
 
 #%% Run over all positions:
 

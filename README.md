@@ -30,6 +30,8 @@ Since submission of the manuscript to PLOS Comp Biol, we have kept working on th
 Note that, to minimize modifications to the old code, we kept data manipulation functions related to those new features in the new [utilities.py](utilities.py) file. This creates a lot of redundant functions, but it ensures that we do not get unexpected new bugs for the parts of the code that worked fine before. Also, the new part of the code uses the openCV library for performance purposes, while older parts of the code use scikit-image for its relative simplicity.
 
 ## Install
+We are using this code on several different Linux and Windows systems, and unless otherwise specified the instructions apply for both.
+
 ### GPU Requirements
 While this code can run on CPU, we recommend running it on GPU for significantly faster processing. To do so you will need [an nvidia gpu with a cuda compute capability of 3.5 or higher](https://developer.nvidia.com/cuda-gpus) and [an up-to-date gpu driver](https://www.nvidia.com/Download/index.aspx?lang=en-us)). If no compatible GPU/driver is found on the system, tensorflow will run on CPU. To force the CPU version of tensorflow, remove the -gpu suffix in [delta_env.yml](delta_env.yml).
 
@@ -44,7 +46,7 @@ From inside the DeLTA folder, the following commands will install and activate t
 	(base)$ conda activate delta_env
 Note that the library versions listed in the [delta_env.yml](delta_env.yml) file have been tested and work on Linux and Windows, but more recent versions should work as well. We use the Spyder IDE, but it can be removed from the environment file.
 
-Note: On Windows, you might need to [install c++ support for Visual Studio](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation)
+Note: On Windows, you might need to first [install c++ support for Visual Studio](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation).
 
 ## Example datasets
 You can create your own datasets for your setup using our [suite of Matlab scripts and GUIs](https://gitlab.com/dunloplab/delta-interfacing), however we recommend you check out how data is formatted in our example datasets first:
@@ -95,7 +97,7 @@ Unfortunately the python-bioformats library that would allow us to read most [mi
 
 ### Setup
 
-On Windows you will need Java JRE & JDK >=1.6 and the [Visual C++ compiler for python 2.7](https://aka.ms/vcpython27). You can then run the following commands:
+On Windows you will need to install a recent [Java JDK](https://www.oracle.com/java/technologies/javase-downloads.html) (≥8), [.NET support for Visual studio](https://docs.microsoft.com/en-us/dotnet/framework/install/guide-for-developers), and the [Visual C++ compiler for python 2.7](https://aka.ms/vcpython27). On Linux you *should* be good to go. Then run the following commands:
 
     (base)$ conda env create -f bioformats_env.yml
     (base)$ conda activate bioformats_env
@@ -103,10 +105,37 @@ On Windows you will need Java JRE & JDK >=1.6 and the [Visual C++ compiler for p
 
 The path to the output folder can then be passed to the xpreader object in [pipeline.py](pipeline.py) (after activating delta_env)
 
-Note: On more recent versions of spyder, you may get an encoding error on startup. Try `$env:PYTHONIOENCODING = "UTF-8"` (Windows) or `set PYTHONIOENCODING=UTF-8` (Unix)
+Note: On more recent versions of spyder, you may get an encoding error on startup. Try `$env:PYTHONIOENCODING = "UTF-8"` (Windows) or `set PYTHONIOENCODING=UTF-8` (Unix). This seems to not be an issue if you launch from an anaconda Powershell prompt.
 
 ## Troubleshooting
 ### OOM - Out of memory (GPU)
 If you run the code on your GPU, you might run into cache memory problems. This is both linked to the batch size and the size of the images you are using. The batch size is fairly straightforward to change, just lower the value at the beginning of the [train_seg.py](train_seg.py) or [train_track.py](train_track.py) files. Note that lower batch sizes may mean slower training convergence or lower performance overall. You might want to increase the number of epochs or steps per epoch to compensate.
 
 The other solution would be to use a smaller image target size. However if the original training images and masks are for example 512×512, downsizing them to 256×256 will reduce the memory footprint, but it might cause some borders between cells in the binary masks to disappear. Instead, you would have to modify your training images size upstream of DeLTA to make sure that your training set does feature cell-to-cell borders in the segmentation masks.
+
+### cuDNN (or other libraries) not loading
+We have run into OOM errors or some GPU-related libraries failing to load or initialize on laptops, and the problems seems to come from tensorflow using too much memory on the GPU cache. See the "Limiting GPU memory growth" section on [this tensorflow help page](https://www.tensorflow.org/guide/gpu). In particular, adding the following lines at the beginning of [pipeline.py](pipeline.py) solved the problem for us:
+
+    import tensorflow as tf
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+    # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+    try:
+        tf.config.experimental.set_virtual_device_configuration(
+            gpus[0],
+            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)])
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        # Virtual devices must be set before GPUs have been initialized
+        print(e)
+
+### Prefix already exists
+If the installation of one of the environments was interrupted for one reason or another, you might need to remove it before attempting to install it again:
+
+    conda env remove -n delta_env/bioformats_env
+    conda clean --all
+
+### max() arg is an empty sequence / Some chambers are not analyzed
+In [pipeline.py](pipeline.py), there is an area filtering parameter `min_chamber_area` that you can lower or set to 0 or None.
+Bear in mind that this filtering operation typically removes chambers that are on the edges of the image.
