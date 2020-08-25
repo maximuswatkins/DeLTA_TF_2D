@@ -178,6 +178,9 @@ def data_augmentation(images_input, aug_par, order=0):
                 operation is applied. The parameters are given as key-value 
                 pairs. sigma values are given under the sigma key, deformation
                 points are given under the points key. See elasticdeform doc.
+            gaussian_noise: float. Apply gaussian noise to the image. The 
+                sigma value of the gaussian noise is uniformly sampled between
+                0 and +gaussian_noise.
             horizontal_flip: bool. Whether to flip the images horizontally. 
                 Input images have a 50% chance of being flipped
             vertical_flip: bool. Whether to flip the images vertically. 
@@ -234,6 +237,14 @@ def data_augmentation(images_input, aug_par, order=0):
                 if order[index] > 0: # Not super elegant, but tells me if binary or grayscale image
                     output[index] = histogram_voodoo(item)
                     
+    
+    if 'gaussian_noise' in aug_par:
+        sigma = np.random.rand()*aug_par['gaussian_noise']
+        for index, item in enumerate(output):
+            if order[index] > 0: # Not super elegant, but tells me if binary or grayscale image
+                item = item + np.random.normal(0,sigma,item.shape) # Add Gaussian noise
+                item = (item-np.min(item))/np.ptp(item) # Rescale to 0-1
+                
     if "elastic_deformation" in aug_par:
         output = elasticdeform.deform_random_grid(output,
                                                   sigma=aug_par["elastic_deformation"]["sigma"],
