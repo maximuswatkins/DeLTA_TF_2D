@@ -239,11 +239,12 @@ def data_augmentation(images_input, aug_par, order=0):
                     
     
     if 'gaussian_noise' in aug_par:
-        sigma = np.random.rand()*aug_par['gaussian_noise']
-        for index, item in enumerate(output):
-            if order[index] > 0: # Not super elegant, but tells me if binary or grayscale image
-                item = item + np.random.normal(0,sigma,item.shape) # Add Gaussian noise
-                item = (item-np.min(item))/np.ptp(item) # Rescale to 0-1
+        if aug_par['gaussian_noise']:
+            sigma = np.random.rand()*aug_par['gaussian_noise']
+            for index, item in enumerate(output):
+                if order[index] > 0: # Not super elegant, but tells me if binary or grayscale image
+                    item = item + np.random.normal(0,sigma,item.shape) # Add Gaussian noise
+                    output[index] = (item-np.min(item))/np.ptp(item) # Rescale to 0-1
                 
     if "elastic_deformation" in aug_par:
         output = elasticdeform.deform_random_grid(output,
