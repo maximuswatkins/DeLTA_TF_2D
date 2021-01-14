@@ -40,13 +40,13 @@ For more information see [here](https://docs.anaconda.com/anaconda/user-guide/ta
 ### Anaconda installation
 We recommend installing necessary modules and libraries with [Anaconda](https://www.anaconda.com/distribution/). Anaconda is easy to install, and will allow you to setup environments that are not in conflict with each other and will streamline the installation process.  
 
+Note: On Windows, you might need to first [install c++ support with Visual Studio](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation).
+
 From inside the DeLTA folder, the following commands will install and activate the environment:
 
     (base)$ conda env create -f delta_env.yml
 	(base)$ conda activate delta_env
 Note that the library versions listed in the [delta_env.yml](delta_env.yml) file have been tested and work on Linux and Windows, but more recent versions should work as well. We use the Spyder IDE, but it can be removed from the environment file.
-
-Note: On Windows, you might need to first [install c++ support for Visual Studio](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation).
 
 ## Example datasets
 You can create your own datasets for your setup using our [suite of Matlab scripts and GUIs](https://gitlab.com/dunloplab/delta-interfacing), however we recommend you check out how data is formatted in our example datasets first:
@@ -116,10 +116,11 @@ The other solution would be to use a smaller image target size. However if the o
 ### cuDNN (or other libraries) not loading
 We have run into OOM errors or some GPU-related libraries failing to load or initialize on laptops, and the problems seems to come from tensorflow using too much memory on the GPU cache. See the "Limiting GPU memory growth" section on [this tensorflow help page](https://www.tensorflow.org/guide/gpu). In particular, adding the following lines at the beginning of [pipeline.py](pipeline.py) solved the problem for us:
 
-    import tensorflow as tf
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if gpus:
-    # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+```python
+import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+# Restrict TensorFlow to only allocate 1GB of memory on the first GPU
     try:
         tf.config.experimental.set_virtual_device_configuration(
             gpus[0],
@@ -129,11 +130,12 @@ We have run into OOM errors or some GPU-related libraries failing to load or ini
     except RuntimeError as e:
         # Virtual devices must be set before GPUs have been initialized
         print(e)
+```
 
 ### Prefix already exists
 If the installation of one of the environments was interrupted for one reason or another, you might need to remove it before attempting to install it again:
 
-    conda env remove -n delta_env/bioformats_env
+    conda env remove -n delta_env (or bioformats_env)
     conda clean --all
 
 ### max() arg is an empty sequence / Some chambers are not analyzed
