@@ -178,6 +178,9 @@ def data_augmentation(images_input, aug_par, order=0):
                 operation is applied. The parameters are given as key-value 
                 pairs. sigma values are given under the sigma key, deformation
                 points are given under the points key. See elasticdeform doc.
+            gaussian_noise: float. Apply gaussian noise to the image. The 
+                sigma value of the gaussian noise is uniformly sampled between
+                0 and +gaussian_noise.
             horizontal_flip: bool. Whether to flip the images horizontally. 
                 Input images have a 50% chance of being flipped
             vertical_flip: bool. Whether to flip the images vertically. 
@@ -234,6 +237,15 @@ def data_augmentation(images_input, aug_par, order=0):
                 if order[index] > 0: # Not super elegant, but tells me if binary or grayscale image
                     output[index] = histogram_voodoo(item)
                     
+    
+    if 'gaussian_noise' in aug_par:
+        if aug_par['gaussian_noise']:
+            sigma = np.random.rand()*aug_par['gaussian_noise']
+            for index, item in enumerate(output):
+                if order[index] > 0: # Not super elegant, but tells me if binary or grayscale image
+                    item = item + np.random.normal(0,sigma,item.shape) # Add Gaussian noise
+                    output[index] = (item-np.min(item))/np.ptp(item) # Rescale to 0-1
+                
     if "elastic_deformation" in aug_par:
         output = elasticdeform.deform_random_grid(output,
                                                   sigma=aug_par["elastic_deformation"]["sigma"],
@@ -721,8 +733,35 @@ def trainGenerator_track(batch_size,
         # Concatenare and yield inputs and output:
         inputs_arr = np.concatenate((img_arr,seg_arr,previmg_arr,segall_arr),axis=-1)
         outputs_arr = np.concatenate((mother_arr,daughter_arr,bkgd_arr),axis=-1)
-        yield (inputs_arr, outputs_arr)            
+        yield (inputs_arr, outputs_arr)
             
+            
+# def predictGenerator_track(test_path,files_list = [],target_size = (256,32)):
+#     '''
+#     This function is a generator for predicting tracking on new image files 
+#     once the tracking U-Net has been trained.
+    
+#     Images are loaded from subfolders in the test_path folder (following the 
+#     same nomenclature as in trainGenerator_track())
+#     If a list of filenames files_list is specified, it will read only those 
+#     images, otherwise it will go through the entire folder.
+    
+#     Images are resized to target_size upon loading.
+#     '''
+    
+#     if not files_list:
+#         files_list = os.listdir(test_path)
+#     for index, item in enumerate(files_list):
+#             img = readreshape(os.path.join(test_path + 'img/',os.path.basename(item)), target_size = target_size, order = 1)
+#             seg = readreshape(os.path.join(test_path + 'seg/',os.path.basename(item)), target_size = target_size, binarize = True, order = 0, rangescale = False)
+#             previmg = readreshape(os.path.join(test_path + 'previmg/',os.path.basename(item)), target_size = target_size, order = 1)
+#             segall = readreshape(os.path.join(test_path + 'segall/',os.path.basename(item)), target_size = target_size, binarize = True, order = 0, rangescale = False)
+            
+#             inputs_arr = np.concatenate((img,seg,previmg,segall),axis=-1)
+#             inputs_arr = np.reshape(inputs_arr,(1,)+inputs_arr.shape) # Tensorflow needs one extra single dimension (so that it is a 4D tensor)
+            
+#             yield inputs_arr
+
 
 def predictCompilefromseg_track(img_path,seg_path, files_list = [],
                                   target_size = (256,32)):

@@ -725,7 +725,8 @@ class xpreader:
             The frames from the channel index or indexes passed as an integer 
             or a tuple/list will be returned. If the channel names have been 
             defined, the channel(s) can be passed as a string or tuple/list of 
-            strings. If None is passed, all channels are returned.
+            strings. If an empty list is passed, None is returned. If None is 
+            passed, all channels are returned.
             The default is None.
         frames : None, int, tuple/list of ints, optional
             The frame index or indexes passed as an integer or a tuple/list 
@@ -782,14 +783,18 @@ class xpreader:
                 channels = [self.channelnames.index(channels)]
             else:
                 raise ValueError(channels+' is not a valid channel name.')
-        elif (type(channels) is list or type(channels) is tuple) and all([type(c) is str for c in channels]): # refer to channels by list/tuple of names:
-            if self.channelnames is None:
-                raise ValueError('Set channel names first')
-            for i, c in enumerate(channels):
-                if c in self.channelnames:
-                    channels[i] = self.channelnames.index(c)
-                else:
-                    raise ValueError(c+' is not a valid channel name.')   
+        elif (type(channels) is list or type(channels) is tuple):
+            # If list of ints, nothing to do
+            if len(channels)==0: # Empty list of channels: Return None
+                return None
+            elif all([type(c) is str for c in channels]): # refer to channels by list/tuple of names:
+                if self.channelnames is None:
+                    raise ValueError('Set channel names first')
+                for i, c in enumerate(channels):
+                    if c in self.channelnames:
+                        channels[i] = self.channelnames.index(c)
+                    else:
+                        raise ValueError(c+' is not a valid channel name.')   
         elif type(channels) is not list and type(channels) is not tuple:
             channels = [channels]
             

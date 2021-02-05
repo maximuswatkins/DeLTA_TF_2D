@@ -8,6 +8,8 @@ dependencies:
   - spyder=4.1.*
   - opencv=4.2.*
   - tensorflow-gpu=2.1.*
+  - tensorflow-estimator=2.1.*
+  - h5py=2.10.*
   - git
   - pip
   - pip:

@@ -38,9 +38,10 @@ else:
     resfolder = DeLTA_data  + 'mother_machine/evaluation/delta_results/'
 
 # Init reader:
-# xp = utils.xpreader(xpfile)
+xp = utils.xpreader(xpfile)
 
 # Example for reading from a micromanager experiment folder:
+# (See utilities.py > xpreader docstring for more information)
 # xpfile = 'E:/JH/2020.06.20/IMG__1'
 # resfolder = 'E:/JH/2020.06.20/delta_results'
 # xp = utils.xpreader(xpfile,
@@ -80,7 +81,7 @@ model_track.load_weights(model_file_track)
 
 
 ### Misc:
-min_chamber_area = 8e3 # Minimum size of chambers in pixels for area filtering
+min_chamber_area = 500 # Minimum size of chambers in pixels for area filtering
 
 #%% Run over all positions:
 
@@ -125,9 +126,11 @@ for pos in range(xp.positions):
                         ) # Box to match template
     transframes, driftvalues = utils.driftcorr(transframes, template=drifttemplate, box=driftcorbox) # Run drift corr    
     # Load up fluoresence images, apply drift correction and rotation:
-    fluoframes = xp.getframes(positions=pos, channels=[x for x in range(1,xp.channels)], squeeze_dimensions=False, rotate=rot_corr)[0] # Not squeezing in case there is only one fluo channel, but squeezing the first position dimension with [0]
-    for f in range(fluoframes.shape[1]): #Go over all channels:
-        fluoframes[:,f,:,:], _ = utils.driftcorr(fluoframes[:,f,:,:], drift=driftvalues) # Apply drift correction
+    fluoframes = xp.getframes(positions=pos, channels=[x for x in range(1,xp.channels)], squeeze_dimensions=False, rotate=rot_corr)
+    if fluoframes is not None:
+        fluoframes = fluoframes[0] # Squeezing out the position dimension
+        for f in range(fluoframes.shape[1]): #Go over all channels:
+            fluoframes[:,f,:,:], _ = utils.driftcorr(fluoframes[:,f,:,:], drift=driftvalues) # Apply drift correction
     
     
     ##### Cell segmentation:
@@ -187,17 +190,19 @@ for pos in range(xp.positions):
         # Add dictionary keys for the features:
         for l in range(len(lineage)):
             lineage[l] = {**lineage[l], **dict(length=[],width=[],area=[],pixels=[])}
-            for f in range(fluoframes.shape[1]): #Go over all channels:
-                lineage[l] = {**lineage[l], **{'fluo'+str(f+1):[]}}
+            if fluoframes is not None:
+                for f in range(fluoframes.shape[1]): #Go over all channels:
+                    lineage[l] = {**lineage[l], **{'fluo'+str(f+1):[]}}
         # Generate new label stack:
         label_stack_resized = np.empty([transframes.shape[0],chamberbox['ybr']-chamberbox['ytl'],chamberbox['xbr']-chamberbox['xtl']],dtype=np.uint16)
         for i in range(0,transframes.shape[0]): # Go over frames
             # Resize from original stack:
             label_stack_resized[i] = cv2.resize(label_stack[i],label_stack_resized.shape[2:0:-1],interpolation=cv2.INTER_NEAREST) # The stack needs to be resized to the actual chamber box size
             # Get cropped out fluorescence images:
-            chamberfluo = np.empty((fluoframes.shape[1],)+label_stack_resized.shape[1:])
-            for f in range(fluoframes.shape[1]):
-                chamberfluo[f] = utils.cropbox(fluoframes[i,f],chamberbox)
+            if fluoframes is not None:
+                chamberfluo = np.empty((fluoframes.shape[1],)+label_stack_resized.shape[1:])
+                for f in range(fluoframes.shape[1]):
+                    chamberfluo[f] = utils.cropbox(fluoframes[i,f],chamberbox)
             # Get contours of all cells in frame:
             contours = cv2.findContours((label_stack_resized[i]>0).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] # Get contours of single cells
             contours.sort(key=lambda elem: np.max(elem[:,0,1])) # Sort along Y axis
@@ -211,8 +216,9 @@ for pos in range(xp.positions):
                 # Pixels list and Fluorescence:
                 cellpixels = np.where(label_stack_resized[i]==cellnb)
                 lineage[cellnb-1]['pixels'].append(np.ravel_multi_index(cellpixels,label_stack_resized.shape[1:]).astype(np.float32)) # Using floats for compatibility with previous version of the pipeline
-                for f in range(fluoframes.shape[1]): #Go over all channels:
-                    lineage[cellnb-1]['fluo'+str(f+1)].append(np.mean(chamberfluo[f,cellpixels[0],cellpixels[1]]))
+                if fluoframes is not None:
+                    for f in range(fluoframes.shape[1]): #Go over all channels:
+                        lineage[cellnb-1]['fluo'+str(f+1)].append(np.mean(chamberfluo[f,cellpixels[0],cellpixels[1]]))
         # Append to res dictionary:
         res.append(dict(lineage=lineage,labelsstack=label_stack,labelsstack_resized=label_stack_resized))
     
