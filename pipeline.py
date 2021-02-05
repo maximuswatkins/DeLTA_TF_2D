@@ -49,7 +49,7 @@ else:
 #                     filenamesindexing=0)
 
 # Example for HT post-processing:
-xpfile = 'E:/JBL/onlinexp'
+xpfile = 'E:/JBL/2021-02-05_NT5_3chambersperFOV_CFP_RFP'
 resfolder = xpfile + '/delta_results'
 xp = utils.xpreader(xpfile,
                     prototype='chan%02d_img/Position%06d_Frame%06d.tif',
@@ -101,6 +101,21 @@ for pos in range(xp.positions):
     chambermask = cv2.resize(np.squeeze(chambermask),transframes.shape[3:0:-1]) # scaling back to original size
     chambermask = postprocess(chambermask,min_size=min_chamber_area) # Binarization, cleaning and area filtering
     chamberboxes = utils.getChamberBoxes(np.squeeze(chambermask))
+    # If no chambers detected:
+    if len(chamberboxes)==0:
+        print('\b\b\b - No chambers detected! Saving empty mat file...', end='')
+        savemat(os.path.join(resfolder,('Position%06d.mat' % (pos+1))),
+                {'res': [],
+                 'tiffile': xpfile,
+                 'moviedimensions': [xp.y,xp.x,xp.channels,xp.timepoints],
+                 'proc': {'rotation': rot_corr,
+                          'chambers': [],
+                          'XYdrift': []}
+                 }
+                )
+        print('\b\b\b - Done! ['+str(round(time.time() - start_time))+' secs]')
+        continue
+        
     # Drift correction:
     drifttemplate = utils.getDriftTemplate(chamberboxes, transframes[0]) # This template will be used as reference for drift correction
     driftcorbox = dict(xtl = 0,
