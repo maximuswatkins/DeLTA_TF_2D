@@ -94,8 +94,8 @@ def rangescale(frame, rescale):
 
     Parameters
     ----------
-    frame : 2D numpy array of uint8/uint16/float/bool
-        Input image.
+    frame : ND numpy array of uint8/uint16/float/bool
+        Input image(s).
     rescale : Tuple of 2 values
         Values range for the rescaled image.
 
@@ -709,6 +709,7 @@ class xpreader:
                   squeeze_dimensions=True, 
                   resize=None, 
                   rescale=None,
+                  globalrescale=None,
                   rotate=None):
         '''
         Get frames from experiment.
@@ -739,6 +740,9 @@ class xpreader:
             The default is None.
         rescale : None or tuple/list of 2 int/floats, optional
             Rescale all values in each frame to be within the given range.
+            The default is None.
+        globalrescale : None or tuple/list of 2 int/floats, optional
+            Rescale all values in all frames to be within the given range.
             The default is None.
         rotate : None or float, optional
             Rotation to apply to the image (in degrees).
@@ -822,7 +826,11 @@ class xpreader:
                         frame = rangescale(frame,rescale)
                     # Add to output array:
                     output[p,f,c,:,:] = frame
-        
+                    
+        # Rescale all images:
+        if globalrescale is not None:
+            output = rangescale(output,globalrescale)
+
         # Return:
         return np.squeeze(output) if squeeze_dimensions else output
     
