@@ -5,8 +5,10 @@ to minimize the risk of unforeseen bugs.
 
 @author: jblugagne
 '''
+import config as cfg
 import cv2, os, re
 import numpy as np
+from scipy.io import savemat
 
 
 def deskew(image):
@@ -264,7 +266,7 @@ def getSinglecells(seg):
         singlecellseg[c] = cv2.drawContours(np.zeros((seg.shape[0],seg.shape[1]), dtype=np.uint8),[contour],0, color=1, thickness=-1)
     return singlecellseg
 
-def getTrackingScores(inputs,outputs):
+def getTrackingScores(inputs,outputs, method='overlap'):
     '''
     Get overlap scores between input/target cells and tracking outputs
 
@@ -277,6 +279,10 @@ def getTrackingScores(inputs,outputs):
         Tracking U-Net output. For each cell in the 'old'/'previous' frame,
         two masks were produced as potential mother and daughter cell outlines.
         (plus a third, unused mask for background)
+    method : str, optional
+        Method to compute the score, either by binary overlap ('overlap') or by
+        element-wise multiplication ('multiplication').
+        The default is 'overlap'.
 
     Returns
     -------
@@ -302,11 +308,17 @@ def getTrackingScores(inputs,outputs):
     targetcells = getSinglecells(inputs).astype(np.uint8)
     scores = np.zeros([outputs.shape[0],targetcells.shape[0],2],dtype=np.float32)
     for o in range(outputs.shape[0]):
-        mother_pred = cv2.threshold(outputs[o,:,:,0],.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
-        daughter_pred = cv2.threshold(outputs[o,:,:,1],.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
-        for i in range(targetcells.shape[0]):
-            scores[o,i,0] = getOverlap(mother_pred,targetcells[i,:,:])
-            scores[o,i,1] = getOverlap(daughter_pred,targetcells[i,:,:])
+        if method=='overlap':
+            mother_pred = cv2.threshold(outputs[o,:,:,0],.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
+            daughter_pred = cv2.threshold(outputs[o,:,:,1],.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
+            for i in range(targetcells.shape[0]):
+                scores[o,i,0] = getOverlap(mother_pred,targetcells[i,:,:])
+                scores[o,i,1] = getOverlap(daughter_pred,targetcells[i,:,:])
+        elif method=='multiplication':
+            for o in range(outputs.shape[0]):
+                for i in range(targetcells.shape[0]):
+                    scores[o,i,0] = getMult(outputs[o,:,:,0],targetcells[i,:,:])
+                    scores[o,i,1] = getMult(outputs[o,:,:,1],targetcells[i,:,:])
     return scores
         
 def getOverlap(output,target):
@@ -333,6 +345,26 @@ def getOverlap(output,target):
             cv2.sumElems(
                     target
                 )[0]
+
+def getMult(output, target):
+    '''
+    Average tracking output score in target cell mask.
+
+    Parameters
+    ----------
+    output : array of uint8
+        Mask of tracking output.
+    target : array of uint8
+        Mask of target cell.
+
+    Returns
+    -------
+    float
+        Average tracking output score per target cell pixel.
+
+    '''
+    
+    return np.sum(np.multiply(output,target))/np.sum(target)
 
 def getAttributions(scores):
     '''
@@ -361,6 +393,7 @@ def getAttributions(scores):
         attributed to 0 or 1 'old' cell, either as a 'mother' or 'daughter'.
 
     '''
+    
     attrib = np.zeros(scores.shape)
     for i in range(scores.shape[1]): # Go over cells in the *new* frame
         if np.sum(scores[:,i,:]>0) == 1: # If only one old cell was attributed to the new cell
@@ -536,6 +569,112 @@ def createcell(framenb, mothernb=0):
                 mothernb=mothernb,
                 daughters=[0.])
 
+def loadmodels(toload=['chambers','segmentation','tracking']):
+    '''
+    Load models (as specified in config.py)
+
+    Parameters
+    ----------
+    toload : list of str, optional
+        Which of the 3 models to load. 
+        The default is ['chambers','segmentation','tracking'].
+
+    Returns
+    -------
+    models : dict
+        Dictionary containing the models specified.
+
+    '''
+    
+    
+    from model import unet_chambers, unet_seg, unet_track
+    models = dict()
+    
+    if 'chambers' in toload:
+        models['chambers'] = unet_chambers(input_size = cfg.input_size_chambers)
+        models['chambers'].load_weights(cfg.model_file_chambers)
+    
+    if 'segmentation' in toload:
+        models['segmentation'] = unet_seg(input_size = cfg.target_size_seg + (1,))
+        models['segmentation'].load_weights(cfg.model_file_seg)
+    
+    if 'tracking' in toload:
+        models['tracking'] = unet_track(input_size = cfg.target_size_seg + (4,))
+        models['tracking'].load_weights(cfg.model_file_track)
+    
+    return models
+
+def legacysave(res_file, 
+               xpfile, 
+               delta_res, 
+               chamberboxes, 
+               rot_corr, 
+               driftvalues,
+               moviedimensions):
+    '''
+    Save single position pipeline results in the legacy Matlab format
+
+    Parameters
+    ----------
+    res_file : str
+        Path to save the data to.
+    xpfile : str
+        Path to the experimental folder.
+    res : list
+        List of dicts for each chamber produced by delta pipeline.
+    chamberboxes : list
+        List of dicts describing single chambers positions in the image.
+    rot_corr : float
+        Rotation applied to images to get the chambers horizontal.
+    driftvalues : list
+        XY drift values computed by pipeline preprocessing step.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    if delta_res is not None:
+        savemat(res_file,
+                    {'res': delta_res,
+                     'tiffile': xpfile,
+                     'moviedimensions': moviedimensions,
+                     'proc': {'rotation': rot_corr,
+                              'chambers': np.array([[c['xtl'],c['ytl'],c['xbr']-c['xtl'],c['ybr']-c['ytl']] for c in chamberboxes],dtype=np.float64),
+                              'XYdrift': np.flip(np.transpose(-np.array(driftvalues)),axis=1)}
+                     })
+    
+    else:
+        savemat(res_file,
+                    {'res': [],
+                     'tiffile': xpfile,
+                     'moviedimensions': moviedimensions,
+                     'proc': {'rotation': rot_corr,
+                              'chambers': [],
+                              'XYdrift': []}
+                     }
+                    )
+
+def getxppathdialog():
+    '''
+    Pop up window to select experiment folder.
+
+    Returns
+    -------
+    folder_path : str
+        Path to experiment folder.
+
+    '''
+    import tkinter as tk
+    from tkinter import filedialog
+    
+    root = tk.Tk()
+    # root.withdraw()
+    folder_path = filedialog.askdirectory(title='Please select experiment folder',
+                                          mustexist=True)
+    
+    return folder_path
 
 class xpreader:
     

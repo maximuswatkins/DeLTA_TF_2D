@@ -501,75 +501,67 @@ def features(lin, label_stack, fluoframes, chamberbox, timepoints):
 ### Main
 if __name__=='__main__':
     
-    # resfolder = None
-    # rotation_correction = True
-    # prototype = None
-    # filenamesindexing = 1
-    # fileorder = 'pct'
-    # verbose = 1
-    
-    # if len(sys.argv) >= 3: # If arguments were passed
-    #     xpfolder = sys.argv[1]
-    #     resfolder = sys.argv[2]
-    #     i = 3
-    #     while i<len(sys.argv):
-    #         if sys.argv[i]=='-order':
-    #             fileorder = sys.argv[i+1]
-    #             i+=2
-    #         if sys.argv[i]=='-index':
-    #             filenamesindexing = int(sys.argv[i+1])
-    #             i+=2
-    #         if sys.argv[i]=='-proto':
-    #             prototype = sys.argv[i+1]
-    #             i+=2
-    #         if sys.argv[i]=='-rot':
-    #             rotation_correction = float(sys.argv[i+1])
-    #             i+=2
-    #         if sys.argv[i]=='-v':
-    #             verbose = int(sys.argv[i+1])
-    #             i+=2
-    
-    # else: # Interactive session:
-    #     # Folder containing image sequence:
-    #     xpfolder = utils.getxppathdialog()
-        
-    #     # Get xp settings:
-    #     print('Experiment type?\n1 - bioformats2sequence\n2 - micromanager\n3 - high-throughput\n0 - other\nEnter a number [1]: ',end='')
-    #     answer = int(input())
-    #     print()
-    #     if answer is None or answer == 1:
-    #         prototype = None
-    #         fileorder = 'pct'
-    #         filenamesindexing=1
-    #     elif answer == 2:
-    #         prototype = 'Pos%01d/img_channel%03d_position%03d_time%09d_z000.tif'
-    #         fileorder = 'pcpt'
-    #         filenamesindexing=0
-    #     elif answer == 3:
-    #         prototype = 'chan%02d_img/Position%06d_Frame%06d.tif'
-    #         fileorder = 'cpt'
-    #         filenamesindexing=1
-    #     elif answer == 0:
-    #         print('Enter files prototype: ', end='')
-    #         prototype = input()
-    #         print()
-    #         print('Enter files order: ', end='')
-    #         fileorder = input()
-    #         print()
-    #         print('Enter files indexing: ', end='')
-    #         filenamesindexing = int(input())
-    #         print()
-    #     else:
-    #         raise ValueError('Invalid experiment type')
-    #     print()
-    
-    xpfolder = 'E:/JBL/2021-02-05_NT5_3chambersperFOV_CFP_RFP'
     resfolder = None
     rotation_correction = True
-    prototype = 'chan%02d_img/Position%06d_Frame%06d.tif'
+    prototype = None
     filenamesindexing = 1
-    fileorder = 'cpt'
+    fileorder = 'pct'
     verbose = 1
+    
+    if len(sys.argv) >= 3: # If arguments were passed
+        xpfolder = sys.argv[1]
+        resfolder = sys.argv[2]
+        i = 3
+        while i<len(sys.argv):
+            if sys.argv[i]=='-order':
+                fileorder = sys.argv[i+1]
+                i+=2
+            if sys.argv[i]=='-index':
+                filenamesindexing = int(sys.argv[i+1])
+                i+=2
+            if sys.argv[i]=='-proto':
+                prototype = sys.argv[i+1]
+                i+=2
+            if sys.argv[i]=='-rot':
+                rotation_correction = float(sys.argv[i+1])
+                i+=2
+            if sys.argv[i]=='-v':
+                verbose = int(sys.argv[i+1])
+                i+=2
+    
+    else: # Interactive session:
+        # Folder containing image sequence:
+        xpfolder = utils.getxppathdialog()
+        
+        # Get xp settings:
+        print('Experiment type?\n1 - bioformats2sequence\n2 - micromanager\n3 - high-throughput\n0 - other\nEnter a number [1]: ',end='')
+        answer = int(input())
+        print()
+        if answer is None or answer == 1:
+            prototype = None
+            fileorder = 'pct'
+            filenamesindexing=1
+        elif answer == 2:
+            prototype = 'Pos%01d/img_channel%03d_position%03d_time%09d_z000.tif'
+            fileorder = 'pcpt'
+            filenamesindexing=0
+        elif answer == 3:
+            prototype = 'chan%02d_img/Position%06d_Frame%06d.tif'
+            fileorder = 'cpt'
+            filenamesindexing=1
+        elif answer == 0:
+            print('Enter files prototype: ', end='')
+            prototype = input()
+            print()
+            print('Enter files order: ', end='')
+            fileorder = input()
+            print()
+            print('Enter files indexing: ', end='')
+            filenamesindexing = int(input())
+            print()
+        else:
+            raise ValueError('Invalid experiment type')
+        print()
     
     
     process_xp(xpfolder, 
