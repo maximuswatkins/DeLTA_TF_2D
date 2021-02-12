@@ -516,7 +516,7 @@ def updatelineage(newframe, stack, framenb=0, lineage=None, attrib=None):
         if not np.any(label_old>0): # This can happen if the chamber is empty and suddenly cells appear (can be a segmentation error, or a focus problem)
             contours = cv2.findContours(newframe.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] # In this case just label
             for _ in range(len(contours)):
-                lineage.append(createcell(framenb))
+                lineage.append(createcell(framenb+1))
                 cellnumbers.append(len(lineage))
                 
         # If previous stack frame has cells:
@@ -539,7 +539,7 @@ def updatelineage(newframe, stack, framenb=0, lineage=None, attrib=None):
                     else:
                         lineage[mothernb-1]['daughters'][-1] = float(cellnumbers[-1])
                 else: # Orphan cell
-                    lineage.append(createcell(framenb))
+                    lineage.append(createcell(framenb+1))
                     cellnumbers.append(len(lineage))
                     
         # Compile new labeled frame, push to stack:
