@@ -419,6 +419,9 @@ def getAttributions(scores):
             attrib[o,np.argmax(attrib[o,:,0]),0] = False
             attrib[o,np.argmax(attrib[o,:,1]),0] = True
             attrib[o,np.argmax(attrib[o,:,1]),1] = False
+        if np.any(attrib[o,:,1]) and not np.any(attrib[o,:,0]): # If a cell is attributed a daughter but somehow no mother-mother coupling
+            attrib[o,np.argmax(attrib[o,:,1]),0] = True
+            attrib[o,np.argmax(attrib[o,:,1]),1] = False
     return attrib
 
 def label_seg(seg,cellnumbers=None):
@@ -521,9 +524,9 @@ def updatelineage(newframe, stack, framenb=0, lineage=None, attrib=None):
                 
         # If previous stack frame has cells:
         else:
-            for i in range(attrib.shape[1]):
+            for i in range(attrib.shape[1]): # Go through new cells
                 if np.any(attrib[:,i,0]): # If cell is tracked from an old cell: (mother-mother)
-                    cellnum = int(stack[framenb-1][label_old==(np.nonzero(attrib[:,i,0])[0]+1)[0]][0]) # retrieving cell number from stack
+                    cellnum = int(stack[framenb-1][label_old==(np.nonzero(attrib[:,i,0])[0]+1)[0]][0]) # retrieving "mother" cell number from old stack frame
                     lineage[cellnum-1]['framenbs'].append(float(framenb+1)) # Update frame number list
                     if len(lineage[cellnum-1]['daughters']) < len(lineage[cellnum-1]['framenbs']): # If framenbs hasn't been updated (in case somehow daughter goes through before mother)
                         lineage[cellnum-1]['daughters'].append(0.)
@@ -533,8 +536,8 @@ def updatelineage(newframe, stack, framenb=0, lineage=None, attrib=None):
                     # Create new cell, as daughter of mother:
                     lineage.append(createcell(framenb+1,mothernb))
                     cellnumbers.append(len(lineage))
-                    # Update daughters of mother cell:
-                    if len(lineage[mothernb-1]['daughters']) < len(lineage[mothernb-1]['framenbs']):
+                    # Update 'daughters' key of mother cell:
+                    if len(lineage[mothernb-1]['daughters']) < len(lineage[mothernb-1]['framenbs']): # This situation should never happen actually
                         lineage[mothernb-1]['daughters'].append(float(cellnumbers[-1]))
                     else:
                         lineage[mothernb-1]['daughters'][-1] = float(cellnumbers[-1])
@@ -777,14 +780,23 @@ class xpreader:
                 self.prototype = prototype
             # Get experiment settings by testing if relevant files exist: 
             # Get number of positions:
-            self.positions = 0
-            while(os.path.exists(self.getfilenamefromprototype(self.positions,0,0))): self.positions+=1
+            if 'p' in self.fileorder:
+                self.positions = 0
+                while(os.path.exists(self.getfilenamefromprototype(self.positions,0,0))): self.positions+=1
+            else:
+                self.positions = 1
             # Get number of channels:
-            self.channels = 0
-            while(os.path.exists(self.getfilenamefromprototype(0,self.channels,0))): self.channels+=1
+            if 'c' in self.fileorder:
+                self.channels = 0
+                while(os.path.exists(self.getfilenamefromprototype(0,self.channels,0))): self.channels+=1
+            else:
+                self.channels = 1
             # Get number of frames/timepoints:
-            self.timepoints = 0
-            while(os.path.exists(self.getfilenamefromprototype(0,0,self.timepoints))): self.timepoints+=1
+            if 't' in self.fileorder:
+                self.timepoints = 0
+                while(os.path.exists(self.getfilenamefromprototype(0,0,self.timepoints))): self.timepoints+=1
+            else:
+                self.timepoints = 1 # I guess this shouldn't really happen
             # Get image specs:
             I = cv2.imread(self.getfilenamefromprototype(0,0,0),cv2.IMREAD_ANYDEPTH)
             self.x = I.shape[1]

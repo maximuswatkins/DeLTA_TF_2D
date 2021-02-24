@@ -4,7 +4,7 @@ microscopy experiment and produces .mat files describing cells lineage,
 fluorescence etc.
 
 The script can be called from the command line:
-    python pipeline.py /path/to/file/or/folder -o /path/to/output/folder
+    python pipeline.py /path/to/file/or/folder /path/to/output/folder
     
 Or run from an IDE by changing file paths.
 
@@ -379,6 +379,8 @@ def tracking(seg, seg_inputs, chamber_number, timepoints):
     # Run U-Net model for tracking:
     if track_inputs.size!=0: # If not empty
         track = models['tracking'].predict(track_inputs,verbose=0)
+    else:
+        track = None
     
     return track, track_inputs, frame_numbers
 
