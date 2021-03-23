@@ -686,7 +686,8 @@ def getxppathdialog(ask_folder=False):
         
     else:
         file_path = filedialog.askopenfilenames(title='Please select experiment files(s)')
-        
+    
+    root.destroy()
         
     return file_path
 
