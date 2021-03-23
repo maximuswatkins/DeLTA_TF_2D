@@ -570,7 +570,7 @@ if __name__=='__main__':
     else: # Interactive session:
         
         # Get xp settings:
-        print('Experiment type?\n1 - Bio-Formats compatible (.nd2, .oib, .czi, .ome.tif...)\n2 - bioformats2sequence (folder)\n3 - micromanager (folder)\n4 - high-throughput (folder)\n0 - other (folder)\nEnter a number [1]: ',end='')
+        print('Experiment type?\n1 - Bio-Formats compatible (.nd2, .oib, .czi, .ome.tif...)\n2 - bioformats2sequence (folder)\n3 - micromanager (folder)\n4 - high-throughput (folder)\n0 - other (folder)\nEnter a number: ',end='')
         answer = int(input())
         print()
         
