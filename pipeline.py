@@ -22,20 +22,25 @@ import utilities as utils
 # Load models:
 models = utils.loadmodels()
 
-def process_xp(xpfolder, 
-         prototype=None, 
-         fileorder='pct',
-         filenamesindexing=1,
-         resfolder = None,
-         rotation_correction = True,
-         verbose = 1):
+def process_xp(xpfile,
+               use_bioformats=False,
+               prototype=None, 
+               fileorder='pct',
+               filenamesindexing=1,
+               resfolder = None,
+               rotation_correction = True,
+               verbose = 1):
     '''
     Process entire experiment folder.
 
     Parameters
     ----------
-    xpfolder : str
-        Path to experiment file or folder.
+    xpfile : str or tuple/list of str
+        Path to experiment file(s) or folder.
+    use_bioformats : bool, optional
+        Use bio-formats reader for provided files (necessary for .nd2, .oib, 
+        .czi...)
+        The default is False.
     prototype : str, optional
         File names prototype. See xpreader() in utilities.py.
         The default is None.
@@ -62,36 +67,62 @@ def process_xp(xpfolder,
 
     '''
     
-    # Create folders if they don't exist:
-    if resfolder is None:
-        resfolder = os.path.join(xpfolder, 'delta_results')
-    if not os.path.exists(resfolder):
-        os.mkdir(resfolder)
+    # If single file path str, turn into list:    
+    if type(xpfile) is str:
+        xpfile = [xpfile]
     
-    # Initialize XP reader:
-    xp = utils.xpreader(xpfolder,
-                        prototype=prototype,
-                        fileorder=fileorder,
-                        filenamesindexing=filenamesindexing)
+    # Loop through experiments:
+    for x, experiment in enumerate(xpfile):
+        
+        # Print start message:
+        if verbose >= 1:
+            print('\n%s ----- Processing experiment %d/%d: %s'%(time.strftime("%e %b %Y - %T", 
+                                                                            time.localtime()),
+                                                              x,
+                                                              len(xpfile),
+                                                              os.path.split(experiment)[1])
+                  )
+        
+        # Create folders if they don't exist:
+        if resfolder is None:
+            if os.path.isdir(experiment):
+                resfolder = os.path.join(experiment, 'delta_results')
+            else:
+                resfolder = os.path.splitext(experiment)[0]+'_delta_results'
+        if not os.path.exists(resfolder):
+            os.mkdir(resfolder)
+        
+        # Initialize XP reader:
+        xp = utils.xpreader(experiment,
+                            prototype=prototype,
+                            fileorder=fileorder,
+                            filenamesindexing=filenamesindexing,
+                            use_bioformats=use_bioformats)
+        
+        # Run over all positions:
+        for pos in range(xp.positions):
+            
+            # Run processing for position:
+            res, chamberboxes, rot_corr, driftvalues = process_position(xp,
+                                                                        pos,
+                                                                        verbose=verbose)
     
-    # Run over all positions:
-    for pos in range(xp.positions):
-        
-        # Run processing for position:
-        res, chamberboxes, rot_corr, driftvalues = process_position(xp,
-                                                                    pos,
-                                                                    verbose=verbose)
-
-        # Save results to disk:
-        utils.legacysave(os.path.join(resfolder,('Position%06d.mat' % (pos+1))), 
-                         xpfolder, 
-                         res, 
-                         chamberboxes, 
-                         rot_corr, 
-                         driftvalues,
-                         [xp.y,xp.x,xp.channels,xp.timepoints])
-        
-        
+            # Save results to disk:
+            utils.legacysave(os.path.join(resfolder,('Position%06d.mat' % (pos+1))), 
+                             experiment, 
+                             res, 
+                             chamberboxes, 
+                             rot_corr, 
+                             driftvalues,
+                             [xp.y,xp.x,xp.channels,xp.timepoints])
+            
+    # Done, print message:
+    if verbose>=1:
+        print('\n\n%s ----- %d/%d experiments processed'%(time.strftime("%e %b %Y - %T", 
+                                                                        time.localtime()),
+                                                          x,
+                                                          len(xpfile))
+              )
         
 def process_position(xp,
                      pos,
@@ -503,73 +534,88 @@ def features(lin, label_stack, fluoframes, chamberbox, timepoints):
 ### Main
 if __name__=='__main__':
     
+    # Default parameters:
     resfolder = None
+    bioformats = False
     rotation_correction = True
     prototype = None
     filenamesindexing = 1
     fileorder = 'pct'
     verbose = 1
     
-    if len(sys.argv) >= 3: # If arguments were passed
+    if len(sys.argv) >= 3: # If command line arguments were passed
         xpfolder = sys.argv[1]
         resfolder = sys.argv[2]
         i = 3
         while i<len(sys.argv):
-            if sys.argv[i]=='-order':
+            if sys.argv[i]=='--bio-formats':
+                bioformats = bool(int(sys.argv[i+1]))
+                i+=2
+            if sys.argv[i]=='--order':
                 fileorder = sys.argv[i+1]
                 i+=2
-            if sys.argv[i]=='-index':
+            if sys.argv[i]=='--index':
                 filenamesindexing = int(sys.argv[i+1])
                 i+=2
-            if sys.argv[i]=='-proto':
+            if sys.argv[i]=='--proto':
                 prototype = sys.argv[i+1]
                 i+=2
-            if sys.argv[i]=='-rot':
+            if sys.argv[i]=='--rot':
                 rotation_correction = float(sys.argv[i+1])
                 i+=2
-            if sys.argv[i]=='-v':
+            if sys.argv[i]=='--verbose':
                 verbose = int(sys.argv[i+1])
                 i+=2
     
     else: # Interactive session:
-        # Folder containing image sequence:
-        xpfolder = utils.getxppathdialog()
         
         # Get xp settings:
-        print('Experiment type?\n1 - bioformats2sequence\n2 - micromanager\n3 - high-throughput\n0 - other\nEnter a number [1]: ',end='')
+        print('Experiment type?\n1 - Bio-Formats compatible (.nd2, .oib, .czi, .ome.tif...)\n2 - bioformats2sequence (folder)\n3 - micromanager (folder)\n4 - high-throughput (folder)\n0 - other (folder)\nEnter a number [1]: ',end='')
         answer = int(input())
         print()
+        
+        # If bioformats file(s):
         if answer is None or answer == 1:
-            prototype = None
-            fileorder = 'pct'
-            filenamesindexing=1
-        elif answer == 2:
-            prototype = 'Pos%01d/img_channel%03d_position%03d_time%09d_z000.tif'
-            fileorder = 'pcpt'
-            filenamesindexing=0
-        elif answer == 3:
-            prototype = 'chan%02d_img/Position%06d_Frame%06d.tif'
-            fileorder = 'cpt'
-            filenamesindexing=1
-        elif answer == 0:
-            print('Enter files prototype: ', end='')
-            prototype = input()
-            print()
-            print('Enter files order: ', end='')
-            fileorder = input()
-            print()
-            print('Enter files indexing: ', end='')
-            filenamesindexing = int(input())
-            print()
+            print('Please select experiment file(s)...')
+            xpfile = utils.getxppathdialog(ask_folder=False)
+            bioformats = True
+        # If folder: 
         else:
-            raise ValueError('Invalid experiment type')
-        print()
+            print('Please select experiment folder...')
+            xpfile = utils.getxppathdialog(ask_folder=True)
+            bioformats = False
+            if answer is None or answer == 2:
+                prototype = None
+                fileorder = 'pct'
+                filenamesindexing=1
+            elif answer == 3:
+                prototype = 'Pos%01d/img_channel%03d_position%03d_time%09d_z000.tif'
+                fileorder = 'pcpt'
+                filenamesindexing=0
+            elif answer == 4:
+                prototype = 'chan%02d_img/Position%06d_Frame%06d.tif'
+                fileorder = 'cpt'
+                filenamesindexing=1
+            elif answer == 0:
+                print('Enter files prototype: ', end='')
+                prototype = input()
+                print()
+                print('Enter files order: ', end='')
+                fileorder = input()
+                print()
+                print('Enter files indexing: ', end='')
+                filenamesindexing = int(input())
+                print()
+            else:
+                raise ValueError('Invalid experiment type')
+            print()
     
-    
-    process_xp(xpfolder, 
-              prototype=prototype,
-              fileorder=fileorder,
-              filenamesindexing=filenamesindexing,
-              resfolder = resfolder,
-              rotation_correction = rotation_correction,
-              verbose = verbose)
+    # Run:
+    process_xp(xpfile,
+               use_bioformats=bioformats,
+               prototype=prototype,
+               fileorder=fileorder,
+               filenamesindexing=filenamesindexing,
+               resfolder = resfolder,
+               rotation_correction = rotation_correction,
+               verbose = verbose)

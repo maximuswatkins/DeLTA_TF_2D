@@ -659,25 +659,36 @@ def legacysave(res_file,
                      }
                     )
 
-def getxppathdialog():
+def getxppathdialog(ask_folder=False):
     '''
-    Pop up window to select experiment folder.
+    Pop up window to select experiment file or folder.
+
+    Parameters
+    ----------
+    ask_folder : bool, optional
+        Folder selection window will pop up instead of file selection.
+        The default is False.
 
     Returns
     -------
-    folder_path : str
-        Path to experiment folder.
+    file_path : str
+        Path to experiment file or folder.
 
     '''
+    
     import tkinter as tk
     from tkinter import filedialog
     
     root = tk.Tk()
-    # root.withdraw()
-    folder_path = filedialog.askdirectory(title='Please select experiment folder',
-                                          mustexist=True)
-    
-    return folder_path
+    if ask_folder:
+        file_path = filedialog.askdirectory(title='Please select experiment folder(s)',
+                                              mustexist=True)
+        
+    else:
+        file_path = filedialog.askopenfilenames(title='Please select experiment files(s)')
+        
+        
+    return file_path
 
 class xpreader:
     
@@ -704,7 +715,6 @@ class xpreader:
             The default is None.
         use_bioformats : bool, optional
             Flag to use the bioformats reader.
-            DEPRECATED - bioformats does not work with python 3
             The default is False.
         prototype: string, optional
             Filename prototype to use when reading single-page tif images from
@@ -743,14 +753,14 @@ class xpreader:
         _, file_extension = os.path.splitext(filename)
         self.use_bioformats = use_bioformats
         self.channelnames = channelnames
-        if use_bioformats: # Unfortunately bioformats only works with python 2, leaving it here if it helps anybody.
+        if use_bioformats:
             import bioformats, javabridge
             javabridge.start_vm(class_path=bioformats.JARS)
             self.filetype = file_extension.lower()[1:]
             self.filehandle = bioformats.ImageReader(filename)
             md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=filename))
             self.positions = md.get_image_count()
-            self.timepoints = md.image(0).Pixels.SizeT # Here I'm going to assume all series have the same format
+            self.timepoints = md.image(0).Pixels.SizeT # Here I'm going to assume all series have the same number of timepoints
             self.channels = md.image(0).Pixels.channel_count
             self.x = md.image(0).Pixels.SizeX
             self.y = md.image(0).Pixels.SizeY

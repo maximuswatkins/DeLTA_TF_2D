@@ -13,5 +13,6 @@ dependencies:
   - git
   - pip
   - pip:
+    - python-bioformats=4.0.*
     - git+https://github.com/gvtulder/elasticdeform
 
