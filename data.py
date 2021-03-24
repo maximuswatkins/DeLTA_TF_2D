@@ -8,7 +8,7 @@ from __future__ import print_function
 import numpy as np 
 import os, glob, re, random, warnings, copy, importlib
 import skimage.io as io
-import skimage.external.tifffile as tiflib
+import tifffile
 import skimage.transform as trans
 from skimage.measure import label
 from skimage.morphology import square, binary_opening, medial_axis, remove_small_objects
@@ -84,7 +84,7 @@ def readreshape(filename, target_size = (256,32), binarize = False, order = 1, r
     if fext in ('.png', '.jpg', '.jpeg'):
         i = io.imread(filename,as_gray = True)
     elif fext in ('.tif', '.tiff'):
-        i = tiflib.imread(filename)
+        i = tifffile.imread(filename)
     else:
         raise ValueError('Only PNG, JPG or single-page TIF files accepted')
         

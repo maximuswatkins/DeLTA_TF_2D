@@ -27,9 +27,9 @@ if memory_growth_limit is not None:
 # Path to model files:
 # Download latest models first:
 # https://drive.google.com/drive/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP
-model_file_chambers = 'D:/DeLTA_data/mother_machine/models/chambers_id_tessiechamp.hdf5'
-model_file_seg = 'D:/DeLTA_data/mother_machine/models/unet_moma_seg_multisets.hdf5'
-model_file_track = 'D:/DeLTA_data/mother_machine/models/unet_moma_track_multisets.hdf5'
+model_file_chambers = 'C:/DeepLearning/DeLTA_data/mother_machine/models/chambers_id_tessiechamp.hdf5'
+model_file_seg = 'C:/DeepLearning/DeLTA_data/mother_machine/models/unet_moma_seg_multisets.hdf5'
+model_file_track = 'C:/DeepLearning/DeLTA_data/mother_machine/models/unet_moma_track_multisets.hdf5'
 
 # Model parameters:
 target_size_chambers = (512, 512)

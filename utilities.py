@@ -594,7 +594,7 @@ def loadmodels(toload=['chambers','segmentation','tracking']):
     models = dict()
     
     if 'chambers' in toload:
-        models['chambers'] = unet_chambers(input_size = cfg.input_size_chambers)
+        models['chambers'] = unet_chambers(input_size = cfg.target_size_chambers + (1,))
         models['chambers'].load_weights(cfg.model_file_chambers)
     
     if 'segmentation' in toload:
@@ -640,24 +640,23 @@ def legacysave(res_file,
     
     if delta_res is not None:
         savemat(res_file,
-                    {'res': delta_res,
-                     'tiffile': xpfile,
-                     'moviedimensions': moviedimensions,
-                     'proc': {'rotation': rot_corr,
-                              'chambers': np.array([[c['xtl'],c['ytl'],c['xbr']-c['xtl'],c['ybr']-c['ytl']] for c in chamberboxes],dtype=np.float64),
-                              'XYdrift': np.flip(np.transpose(-np.array(driftvalues)),axis=1)}
-                     })
+                {'res': delta_res,
+                 'tiffile': xpfile,
+                 'moviedimensions': moviedimensions,
+                 'proc': {'rotation': rot_corr,
+                          'chambers': np.array([[c['xtl'],c['ytl'],c['xbr']-c['xtl'],c['ybr']-c['ytl']] for c in chamberboxes],dtype=np.float64),
+                          'XYdrift': np.flip(np.transpose(-np.array(driftvalues)),axis=1)}
+                 })
     
     else:
         savemat(res_file,
-                    {'res': [],
-                     'tiffile': xpfile,
-                     'moviedimensions': moviedimensions,
-                     'proc': {'rotation': rot_corr,
-                              'chambers': [],
-                              'XYdrift': []}
-                     }
-                    )
+                {'res': [],
+                 'tiffile': xpfile,
+                 'moviedimensions': moviedimensions,
+                 'proc': {'rotation': rot_corr,
+                          'chambers': [],
+                          'XYdrift': []}
+                 })
 
 def getxppathdialog(ask_folder=False):
     '''
@@ -680,6 +679,7 @@ def getxppathdialog(ask_folder=False):
     from tkinter import filedialog
     
     root = tk.Tk()
+    # root.withdraw() # For some reason this doesn't work with askdirectory?
     if ask_folder:
         file_path = filedialog.askdirectory(title='Please select experiment folder(s)',
                                               mustexist=True)
