@@ -5,6 +5,7 @@ channels:
 dependencies:
   - python=3.7.*
   - scikit-image=0.14.*
+  - tifffile=2020
   - spyder=4.1.*
   - opencv=4.2.*
   - tensorflow-gpu=2.1.*
@@ -13,6 +14,6 @@ dependencies:
   - git
   - pip
   - pip:
-    - python-bioformats=4.0.*
+    - python-bioformats
     - git+https://github.com/gvtulder/elasticdeform
 
