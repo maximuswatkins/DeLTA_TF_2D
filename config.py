@@ -17,26 +17,28 @@ if memory_growth_limit is not None:
         try:
             tf.config.experimental.set_virtual_device_configuration(
                 gpus[0],
-                [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)])
+                [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memory_growth_limit)])
             logical_gpus = tf.config.experimental.list_logical_devices('GPU')
             print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
         except RuntimeError as e:
             # Virtual devices must be set before GPUs have been initialized
             print(e)
 
-
+# Path to model files:
 # Download latest models first:
 # https://drive.google.com/drive/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP
-
-# Path to model files:
-model_file_chambers = 'C:/DeepLearning/DeLTA_data/mother_machine/models/chambers_id_tessiechamp.hdf5'
-model_file_seg = 'C:/DeepLearning/DeLTA_data/mother_machine/models/unet_moma_seg_multisets.hdf5'
-model_file_track = 'C:/DeepLearning/DeLTA_data/mother_machine/models/unet_moma_track_multisets.hdf5'
+model_file_chambers = 'D:/DeLTA_data/mother_machine/models/chambers_id_tessiechamp.hdf5'
+model_file_seg = 'D:/DeLTA_data/mother_machine/models/unet_moma_seg_multisets.hdf5'
+model_file_track = 'D:/DeLTA_data/mother_machine/models/unet_moma_track_multisets.hdf5'
 
 # Model parameters:
 target_size_chambers = (512, 512)
-input_size_chambers = target_size_chambers + (1,)
 target_size_seg = (256, 32)
 
+# Training sets:
+training_set_chambers = 'C:/DeepLearning/DeLTA_data/mother_machine/training/chambers_seg_set/train'
+training_set_seg = 'C:/DeepLearning/DeLTA_data/mother_machine/training/segmentation_set/train_multisets/'
+training_set_track = 'C:/DeepLearning/DeLTA_data/mother_machine/training/tracking_set/train_multisets/'
+
 # Misc:
-min_chamber_area = 500 # Minimum size of chambers in pixels for area filtering
+min_chamber_area = 500 # Minimum size of chambers in pixels for area filtering (0 to +Inf)
