@@ -12,6 +12,7 @@ dependencies:
   - tensorflow=2.3=mkl_py38h1fcfbd6_0
   - tensorflow-estimator=2.4
   - h5py=2.10
+  - ffmpeg-python
   - git
   - pip
   - pip:
