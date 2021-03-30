@@ -39,4 +39,4 @@ input_size_chambers = target_size_chambers + (1,)
 target_size_seg = (256, 32)
 
 # Misc:
-min_chamber_area = 8e3 # Minimum size of chambers in pixels for area filtering
+min_chamber_area = 1e3 # Minimum size of chambers in pixels for area filtering
