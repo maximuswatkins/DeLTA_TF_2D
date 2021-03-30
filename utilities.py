@@ -9,6 +9,9 @@ import config as cfg
 import cv2, os, re
 import numpy as np
 from scipy.io import savemat
+import ffmpeg
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 
 def deskew(image):
@@ -594,7 +597,7 @@ def loadmodels(toload=['chambers','segmentation','tracking']):
     models = dict()
     
     if 'chambers' in toload:
-        models['chambers'] = unet_chambers(input_size = cfg.input_size_chambers)
+        models['chambers'] = unet_chambers(input_size = cfg.target_size_chambers + (1,))
         models['chambers'].load_weights(cfg.model_file_chambers)
     
     if 'segmentation' in toload:
@@ -640,44 +643,311 @@ def legacysave(res_file,
     
     if delta_res is not None:
         savemat(res_file,
-                    {'res': delta_res,
-                     'tiffile': xpfile,
-                     'moviedimensions': moviedimensions,
-                     'proc': {'rotation': rot_corr,
-                              'chambers': np.array([[c['xtl'],c['ytl'],c['xbr']-c['xtl'],c['ybr']-c['ytl']] for c in chamberboxes],dtype=np.float64),
-                              'XYdrift': np.flip(np.transpose(-np.array(driftvalues)),axis=1)}
-                     })
+                {'res': delta_res,
+                 'tiffile': xpfile,
+                 'moviedimensions': moviedimensions,
+                 'proc': {'rotation': rot_corr,
+                          'chambers': np.array([[c['xtl'],c['ytl'],c['xbr']-c['xtl'],c['ybr']-c['ytl']] for c in chamberboxes],dtype=np.float64),
+                          'XYdrift': np.flip(np.transpose(-np.array(driftvalues)),axis=1)}
+                 })
     
     else:
         savemat(res_file,
-                    {'res': [],
-                     'tiffile': xpfile,
-                     'moviedimensions': moviedimensions,
-                     'proc': {'rotation': rot_corr,
-                              'chambers': [],
-                              'XYdrift': []}
-                     }
-                    )
+                {'res': [],
+                 'tiffile': xpfile,
+                 'moviedimensions': moviedimensions,
+                 'proc': {'rotation': rot_corr,
+                          'chambers': [],
+                          'XYdrift': []}
+                 })
 
-def getxppathdialog():
+def getxppathdialog(ask_folder=False):
     '''
-    Pop up window to select experiment folder.
+    Pop up window to select experiment file or folder.
+
+    Parameters
+    ----------
+    ask_folder : bool, optional
+        Folder selection window will pop up instead of file selection.
+        The default is False.
 
     Returns
     -------
-    folder_path : str
-        Path to experiment folder.
+    file_path : str
+        Path to experiment file or folder.
 
     '''
+    
     import tkinter as tk
     from tkinter import filedialog
     
     root = tk.Tk()
-    # root.withdraw()
-    folder_path = filedialog.askdirectory(title='Please select experiment folder',
-                                          mustexist=True)
+    # root.withdraw() # For some reason this doesn't work with askdirectory?
+    if ask_folder:
+        file_path = filedialog.askdirectory(title='Please select experiment folder(s)',
+                                              mustexist=True)
+        
+    else:
+        file_path = filedialog.askopenfilenames(title='Please select experiment files(s)')
     
-    return folder_path
+    root.destroy()
+        
+    return file_path
+
+def results_movie(xp, 
+                  pos, 
+                  res, 
+                  chamberboxes,
+                  rot_corr=0, 
+                  driftvalues=None,
+                  display=False
+                  ):
+    '''
+    Produce movie illustrating DeLTA results.
+
+    Parameters
+    ----------
+    xp : xpreader object
+        See xpreader() in utilities.py. 
+    pos : int
+        Position to process.
+    res : list
+        List of dicts for each chamber produced by delta pipeline.
+    chamberboxes : list or None
+        List of dicts describing single chambers positions in the image.
+    rot_corr : int or float, optional
+        Rotation applied to images to get the chambers horizontal.
+        The default is 0.
+    driftvalues : list or None, optional
+        XY drift values computed by pipeline preprocessing step.
+        The default is None.
+    display : bool, optional
+        Flag to display movie frames as they are create.
+        The default is False.
+
+    Returns
+    -------
+    movie : 4D numpy array of floats.
+        Array of RGB frames showing DeLTA result. Dimensions are timepoints 
+        -by- X -by- Y -by- 3.
+
+    '''
+    
+    # Get trans frames:
+    transframes = xp.getframes(positions=pos,channels=0,rescale=(0,1),rotate=rot_corr) # Load all trans frames, with rotation correction
+    transframes, _ = driftcorr(np.squeeze(transframes), drift=driftvalues) # Apply drift correction
+    movie = np.empty(transframes.shape+(3,))
+    
+    for f, frame in enumerate(transframes):
+        
+        #RGB-ify:
+        frame = np.repeat(frame[:,:,np.newaxis],3,axis=-1)
+        
+        # Add frame number text:
+        frame = cv2.putText(frame,
+                            text='frame %06d' %(f+1,),
+                            org=(int(frame.shape[0]*.05),
+                                 int(frame.shape[0]*.97)),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            fontScale=1,
+                            color=(1, 1, 1, 1),
+                            thickness=2
+                            )
+        
+        # Run through chambers, add contours & division arrows:
+        if chamberboxes is not None:
+            for chamber, chamberbox in enumerate(chamberboxes):
+                
+                # Get chamber-specific variables:
+                lin = res[chamber]['lineage']
+                labels = res[chamber]['labelsstack_resized'][f]
+                colors = getrandomcolors(len(lin), seed=chamber)
+                cells, contours = getcellsinframe(labels, get_contours=True)
+                
+                # Run through cells in labelled frame:
+                for c, cell in enumerate(cells):
+                    
+                    # Draw contours:
+                    frame = cv2.drawContours(frame,
+                                             contours,
+                                             c,
+                                             color=colors[cell],
+                                             thickness=1,
+                                             offset=(chamberbox['xtl'],
+                                                     chamberbox['ytl'])
+                                             )
+                    
+                    # Plot division arrows:
+                    daughter = int(lin[cell]['daughters'][lin[cell]['framenbs'].index(f+1)]-1)
+                    if daughter>0:
+                        # Get mother centroid:
+                        centroid_mother = getcentroid(contours[c])
+                        centroid_mother = (centroid_mother[0]+chamberbox['xtl'],
+                                           centroid_mother[1]+chamberbox['ytl'])
+                        # Get daughter centroid:
+                        centroid_daughter = getcentroid(contours[cells.index(daughter)])
+                        centroid_daughter = (centroid_daughter[0]+chamberbox['xtl'],
+                                             centroid_daughter[1]+chamberbox['ytl'])
+                        # Plot arrow:
+                        frame = cv2.arrowedLine(frame,
+                                                centroid_mother,
+                                                centroid_daughter,
+                                                color=(1,1,1),
+                                                thickness=1)
+
+        # Show current frame:
+        if display:
+            plt.imshow(frame)
+            plt.show()
+        
+        # Add to movie array:
+        movie[f] = frame
+    
+    return movie
+
+def getcellsinframe(labels,get_contours=False):
+    '''
+    Get numbers of cells present in frame, sorted along Y axis
+
+    Parameters
+    ----------
+    labels : 2D numpy array of ints
+        Single frame from labels stack.
+    get_contours : bool, optional
+        Flag to get cv2 contours.
+
+    Returns
+    -------
+    cells : list
+        Cell numbers (0-based indexing).
+    contours : list
+        List of cv2 contours for each cell. Returned if get_contours==True.
+
+    '''
+    
+    cells, ind = np.unique(labels,return_index=True)
+    cells = [cell-1 for _,cell in sorted(zip(ind,cells))][1:] # Sorting along Y axis, 1-based to 0-based, & removing 1st value (background)
+    
+    # Get opencv contours:
+    if get_contours:
+        contours = []
+        for c, cell in enumerate(cells):
+            # Have to do it this way to avoid cases where border is shrunk out
+            cnt, _ = cv2.findContours((labels==cell+1).astype(np.uint8),
+                                       cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+            contours += cnt
+        return cells, contours
+    else:
+        return cells
+
+def getrandomcolors(num_colors, seed=0):
+    '''
+    Pseudo-randomly generate list of random hsv colors.
+
+    Parameters
+    ----------
+    num_colors : int
+        Number of desired colors.
+    seed : None or int, optional
+        Seed to use with numpy.random.seed(). 
+        The default is 0.
+
+    Returns
+    -------
+    colors : list
+        List of RGB values (0-1 interval).
+
+    '''
+    
+    # Get colors:
+    cmap = cm.get_cmap('hsv', lut=num_colors)
+    colors = [cmap(i)[0:3] for i in range(num_colors)]
+    
+    # Pseudo randomly shuffle colors:
+    if seed is not None:
+        np.random.seed(seed)
+    np.random.shuffle(colors)
+    
+    return colors
+
+def getcentroid(contour):
+    '''
+    Get centroid of cv2 contour
+
+    Parameters
+    ----------
+    contour : 3D numpy array
+        Blob contour generated by cv2.findContours().
+
+    Returns
+    -------
+    cx : int
+        X-axis coordinate of centroid.
+    cy : int
+        Y-axis coordinate of centroid.
+
+    '''
+    
+    # Calculate moments for each contour
+    M = cv2.moments(contour)
+    # Calculate x,y coordinate of center
+    cx = int(M["m10"] / M["m00"])
+    cy = int(M["m01"] / M["m00"])
+    
+    return cx,cy
+
+
+
+def vidwrite(images, filename, crf=20, verbose=1):
+    '''
+    Write images stack to video file with h264 compression.
+
+    Parameters
+    ----------
+    images : 4D numpy array
+        Stack of RGB images to write to video file.
+    filename : str
+        File name to write video to. (Overwritten if exists)
+    crf : int, optional
+        Compression rate. 'Sane' values are 17-28. See 
+        https://trac.ffmpeg.org/wiki/Encode/H.264
+        The default is 23.
+    verbose : int, optional
+        Verbosity of console output. 
+        The default is 1.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    # Initialize ffmpeg parameters:
+    height,width,_ = images[0].shape
+    quiet = [] if verbose else ['-loglevel', 'error', '-hide_banner']
+    process = (
+        ffmpeg
+            .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height),r=7)
+            .output(filename, pix_fmt='yuv420p', vcodec='libx264', crf=crf, preset='veryslow')
+            .global_args(*quiet)
+            .overwrite_output()
+            .run_async(pipe_stdin=True)
+    )
+    
+    # Write frames:
+    for frame in images:
+        process.stdin.write(
+            frame
+                .astype(np.uint8)
+                .tobytes()
+        )
+    
+    # Close file stream:
+    process.stdin.close()
+    
+    # Wait for processing + close to complete:
+    process.wait()
 
 class xpreader:
     
@@ -704,7 +974,6 @@ class xpreader:
             The default is None.
         use_bioformats : bool, optional
             Flag to use the bioformats reader.
-            DEPRECATED - bioformats does not work with python 3
             The default is False.
         prototype: string, optional
             Filename prototype to use when reading single-page tif images from
@@ -743,14 +1012,14 @@ class xpreader:
         _, file_extension = os.path.splitext(filename)
         self.use_bioformats = use_bioformats
         self.channelnames = channelnames
-        if use_bioformats: # Unfortunately bioformats only works with python 2, leaving it here if it helps anybody.
+        if use_bioformats:
             import bioformats, javabridge
             javabridge.start_vm(class_path=bioformats.JARS)
             self.filetype = file_extension.lower()[1:]
             self.filehandle = bioformats.ImageReader(filename)
             md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=filename))
             self.positions = md.get_image_count()
-            self.timepoints = md.image(0).Pixels.SizeT # Here I'm going to assume all series have the same format
+            self.timepoints = md.image(0).Pixels.SizeT # Here I'm going to assume all series have the same number of timepoints
             self.channels = md.image(0).Pixels.channel_count
             self.x = md.image(0).Pixels.SizeX
             self.y = md.image(0).Pixels.SizeY

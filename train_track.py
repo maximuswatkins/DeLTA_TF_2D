@@ -5,44 +5,54 @@ This script trains the tracking U-Net.
 '''
 from model import unet_track
 from data import trainGenerator_track
-from tensorflow.keras.callbacks import ModelCheckpoint
-
-# Files:
-DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
-training_set = DeLTA_data + 'mother_machine/training/tracking_set/train_multisets/'
-model_file = DeLTA_data + 'mother_machine/models/unet_moma_track_multisets.hdf5'
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+import os
+import config as cfg
 
 # Parameters:
-target_size = (256, 32)
-input_size = target_size + (4,)
+class_weights = (1,1,1) # same weight for all classes
 batch_size = 5
 epochs = 400
 steps_per_epoch = 250
+patience = 30
 
-#Data generator:
-data_gen_args = dict(
-                    rotation = 1,
-                    shiftX=.05,
-                    shiftY=.05,
-                    zoom=.15,
-                    horizontal_flip=True,
-                    histogram_voodoo=True,
-                    illumination_voodoo=True)
+#Data generator parameters:
+data_gen_args = dict(rotation = 1,
+                     shiftX=.05,
+                     shiftY=.05,
+                     zoom=.15,
+                     horizontal_flip=True,
+                     histogram_voodoo=True,
+                     illumination_voodoo=True)
 
+# Generator init:
 myGene = trainGenerator_track(batch_size,
-                             training_set + 'img/',
-                             training_set + 'seg/',
-                             training_set + 'previmg/',
-                             training_set + 'segall/',
-                             training_set + 'mother/',
-                             training_set + 'daughter/',
-                             data_gen_args,
-                             target_size = target_size)
+                              os.path.join(cfg.training_set_track,'img'),
+                              os.path.join(cfg.training_set_track,'seg'),
+                              os.path.join(cfg.training_set_track,'previmg'),
+                              os.path.join(cfg.training_set_track,'segall'),
+                              os.path.join(cfg.training_set_track,'mother'),
+                              os.path.join(cfg.training_set_track,'daughter'),
+                              data_gen_args,
+                              target_size = cfg.target_size_seg)
 
-class_weights = (1,1,1)
-
-# Define model & train it:
-model = unet_track(input_size = input_size, class_weights = class_weights)
+# Define model:
+model = unet_track(input_size = cfg.target_size_seg+(4,),
+                   class_weights = class_weights)
 model.summary()
-model_checkpoint = ModelCheckpoint(model_file, monitor='loss',verbose=1, save_best_only=True)
-model.fit_generator(myGene,steps_per_epoch=steps_per_epoch,epochs=epochs,callbacks=[model_checkpoint])
+
+# Callbacks:
+model_checkpoint = ModelCheckpoint(cfg.model_file_track,
+                                   monitor='loss',
+                                   verbose=1,
+                                   save_best_only=True)
+early_stopping = EarlyStopping(monitor='loss',
+                               mode='min',
+                               verbose=1,
+                               patience=patience)
+
+# Train:
+history = model.fit_generator(myGene,
+                              steps_per_epoch=steps_per_epoch,
+                              epochs=epochs,
+                              callbacks=[model_checkpoint, early_stopping])
