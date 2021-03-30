@@ -29,6 +29,7 @@ def process_xp(xpfile,
                filenamesindexing=1,
                resfolder = None,
                rotation_correction = True,
+               write_movie = True,
                verbose = 1):
     '''
     Process entire experiment folder.
@@ -56,6 +57,9 @@ def process_xp(xpfile,
         The default is None.
     rotation_correction : bool, optional
         Flag to automatically correct the angle of images. 
+        The default is True.
+    write_movie : bool, optional
+        Flag to write movies of results to disk.
         The default is True.
     verbose: int, optional
         Verbosity of console output.
@@ -103,18 +107,31 @@ def process_xp(xpfile,
         for pos in range(xp.positions):
             
             # Run processing for position:
-            res, chamberboxes, rot_corr, driftvalues = process_position(xp,
-                                                                        pos,
-                                                                        verbose=verbose)
+            delta_output = process_position(xp,
+                                            pos,
+                                            verbose=verbose)
     
             # Save results to disk:
             utils.legacysave(os.path.join(resfolder,('Position%06d.mat' % (pos+1))), 
                              experiment, 
-                             res, 
-                             chamberboxes, 
-                             rot_corr, 
-                             driftvalues,
+                             *delta_output,
                              [xp.y,xp.x,xp.channels,xp.timepoints])
+            
+            # Write results movie:
+            if write_movie:
+                if verbose>=1:
+                    print('Writing mp4 movie file...')
+                movie = utils.results_movie(xp,
+                                            pos,
+                                            *delta_output,
+                                            display=False
+                                            )
+                utils.vidwrite(movie*255,
+                               os.path.join(resfolder,('Position%06d.mp4' % (pos+1))),
+                               verbose=0
+                               )
+            
+            
             
     # Done, print message:
     if verbose>=1:
@@ -504,7 +521,7 @@ def features(lin, label_stack, fluoframes, chamberbox, timepoints):
                 lin[l] = {**lin[l], **{'fluo'+str(f+1):[]}}
     # Generate new label stack:
     label_stack_resized = np.empty([timepoints,chamberbox['ybr']-chamberbox['ytl'],chamberbox['xbr']-chamberbox['xtl']],dtype=np.uint16)
-    for i in range(0,timepoints): # Go over frames
+    for i in range(timepoints): # Go over frames
         # Resize from original stack:
         label_stack_resized[i] = cv2.resize(label_stack[i],label_stack_resized.shape[2:0:-1],interpolation=cv2.INTER_NEAREST) # The stack needs to be resized to the actual chamber box size
         # Get cropped out fluorescence images:
@@ -513,21 +530,19 @@ def features(lin, label_stack, fluoframes, chamberbox, timepoints):
             for f in range(fluoframes.shape[1]):
                 chamberfluo[f] = utils.cropbox(fluoframes[i,f],chamberbox)
         # Get contours of all cells in frame:
-        contours = cv2.findContours((label_stack_resized[i]>0).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] # Get contours of single cells
-        contours.sort(key=lambda elem: np.max(elem[:,0,1])) # Sort along Y axis
-        for c, contour in enumerate(contours): # Run through cells in frame
-            cellnb = label_stack_resized[i,contour[0,0,1],contour[0,0,0]] # Get cell number in stack (opencv indexing is opposite of numpy)
+        cells, contours = utils.getcellsinframe(label_stack_resized[i],get_contours=True)
+        for c, cellnb in enumerate(cells): # Run through cells in frame
             # Length, width, area:
-            rotrect = cv2.minAreaRect(contour)
-            lin[cellnb-1]['length'].append(max(rotrect[1]))
-            lin[cellnb-1]['width'].append(min(rotrect[1]))
-            lin[cellnb-1]['area'].append(cv2.contourArea(contour))
+            rotrect = cv2.minAreaRect(contours[c])
+            lin[cellnb]['length'].append(max(rotrect[1]))
+            lin[cellnb]['width'].append(min(rotrect[1]))
+            lin[cellnb]['area'].append(cv2.contourArea(contours[c]))
             # Pixels list and Fluorescence:
-            cellpixels = np.where(label_stack_resized[i]==cellnb)
-            lin[cellnb-1]['pixels'].append(np.ravel_multi_index(cellpixels,label_stack_resized.shape[1:]).astype(np.float32)) # Using floats for compatibility with previous version of the pipeline
+            cellpixels = np.where(label_stack_resized[i]==cellnb+1)
+            lin[cellnb]['pixels'].append(np.ravel_multi_index(cellpixels,label_stack_resized.shape[1:]).astype(np.float32)) # Using floats for compatibility with previous version of the pipeline
             if fluoframes is not None:
                 for f in range(fluoframes.shape[1]): #Go over all channels:
-                    lin[cellnb-1]['fluo'+str(f+1)].append(np.mean(chamberfluo[f,cellpixels[0],cellpixels[1]]))
+                    lin[cellnb]['fluo'+str(f+1)].append(np.mean(chamberfluo[f,cellpixels[0],cellpixels[1]]))
                         
     return lin, label_stack_resized
 
