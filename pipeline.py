@@ -137,7 +137,7 @@ def process_xp(xpfile,
     if verbose>=1:
         print('\n\n%s ----- %d/%d experiments processed'%(time.strftime("%e %b %Y - %T", 
                                                                         time.localtime()),
-                                                          x,
+                                                          x+1,
                                                           len(xpfile))
               )
         

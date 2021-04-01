@@ -843,7 +843,8 @@ def getcellsinframe(labels,get_contours=False):
     '''
     
     cells, ind = np.unique(labels,return_index=True)
-    cells = [cell-1 for _,cell in sorted(zip(ind,cells))][1:] # Sorting along Y axis, 1-based to 0-based, & removing 1st value (background)
+    cells = [cell-1 for _,cell in sorted(zip(ind,cells))] # Sorting along Y axis, 1-based to 0-based, & removing 1st value (background)
+    cells = [cell for cell in cells if cell!=-1] # Remove background
     
     # Get opencv contours:
     if get_contours:
@@ -906,12 +907,19 @@ def getcentroid(contour):
 
     '''
     
-    # Calculate moments for each contour
-    M = cv2.moments(contour)
-    # Calculate x,y coordinate of center
-    cx = int(M["m10"] / M["m00"])
-    cy = int(M["m01"] / M["m00"])
-    
+    if contour.shape[0]>2: # Looks like cv2.moments treats it as an image
+        # Calculate moments for each contour
+        M = cv2.moments(contour)
+        # Calculate x,y coordinate of center
+        if M["m00"] != 0:
+            cx = int(M["m10"] / M["m00"])
+            cy = int(M["m01"] / M["m00"])
+        else:
+            cx, cy = 0, 0
+    else:
+        cx = int(np.mean(contour[:,:,0]))
+        cy = int(np.mean(contour[:,:,1]))
+        
     return cx,cy
 
 
