@@ -269,7 +269,7 @@ def getSinglecells(seg):
         singlecellseg[c] = cv2.drawContours(np.zeros((seg.shape[0],seg.shape[1]), dtype=np.uint8),[contour],0, color=1, thickness=-1)
     return singlecellseg
 
-def getTrackingScores(inputs,outputs, method='overlap'):
+def getTrackingScores(inputs,outputs, method='histogram'):
     '''
     Get overlap scores between input/target cells and tracking outputs
 
@@ -283,8 +283,9 @@ def getTrackingScores(inputs,outputs, method='overlap'):
         two masks were produced as potential mother and daughter cell outlines.
         (plus a third, unused mask for background)
     method : str, optional
-        Method to compute the score, either by binary overlap ('overlap') or by
-        element-wise multiplication ('multiplication').
+        Method to compute the score, either by binary overlap ('overlap'), by
+        element-wise multiplication ('multiplication'), or by weighted 
+        histograms ('histogram').
         The default is 'overlap'.
 
     Returns
@@ -308,20 +309,36 @@ def getTrackingScores(inputs,outputs, method='overlap'):
             new frame.
 
     '''
-    targetcells = getSinglecells(inputs).astype(np.uint8)
-    scores = np.zeros([outputs.shape[0],targetcells.shape[0],2],dtype=np.float32)
-    for o in range(outputs.shape[0]):
-        if method=='overlap':
+
+    if method=='overlap':
+        targetcells = getSinglecells(inputs).astype(np.uint8)
+        scores = np.zeros([outputs.shape[0],targetcells.shape[0],2],dtype=np.float32)
+        for o in range(outputs.shape[0]):
             mother_pred = cv2.threshold(outputs[o,:,:,0],.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
             daughter_pred = cv2.threshold(outputs[o,:,:,1],.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
             for i in range(targetcells.shape[0]):
                 scores[o,i,0] = getOverlap(mother_pred,targetcells[i,:,:])
                 scores[o,i,1] = getOverlap(daughter_pred,targetcells[i,:,:])
-        elif method=='multiplication':
-            for o in range(outputs.shape[0]):
-                for i in range(targetcells.shape[0]):
-                    scores[o,i,0] = getMult(outputs[o,:,:,0],targetcells[i,:,:])
-                    scores[o,i,1] = getMult(outputs[o,:,:,1],targetcells[i,:,:])
+
+    elif method=='multiplication':
+        targetcells = getSinglecells(inputs).astype(np.uint8)
+        scores = np.zeros([outputs.shape[0],targetcells.shape[0],2],dtype=np.float32)
+        for o in range(outputs.shape[0]):
+            for i in range(targetcells.shape[0]):
+                scores[o,i,0] = getMult(outputs[o,:,:,0],targetcells[i,:,:])
+                scores[o,i,1] = getMult(outputs[o,:,:,1],targetcells[i,:,:])
+
+    elif method=='histogram':
+        labels = label_seg(inputs)
+        cells = np.max(labels)
+        areas, _ = np.histogram(labels, bins=cells+1)
+        scores = np.zeros([outputs.shape[0],cells,2],dtype=np.float32)
+        for o in range(outputs.shape[0]):
+            hist_mother, _ = np.histogram(labels, weights=outputs[o,:,:,0], bins=cells+1)
+            hist_daughter, _ = np.histogram(labels, weights=outputs[o,:,:,1], bins=cells+1)
+            scores[o,:,0] = hist_mother[1:] / areas[1:]
+            scores[o,:,1] = hist_daughter[1:] / areas[1:]
+
     return scores
         
 def getOverlap(output,target):
