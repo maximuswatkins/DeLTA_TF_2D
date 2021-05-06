@@ -299,7 +299,7 @@ def segmentation(transframes, chamberboxes):
     seg_inputs = np.expand_dims(np.array(seg_inputs),axis=3) # Format into 4D tensor
     # Run segmentation U-Net:
     seg = models['segmentation'].predict(seg_inputs,verbose=0)
-    seg = postprocess(seg[:,:,:,0])
+    seg = postprocess(seg[:,:,:,0], min_size=cfg.min_cell_area)
     
     return seg, seg_inputs
 
@@ -543,6 +543,20 @@ def features(lin, label_stack, fluoframes, chamberbox, timepoints):
             if fluoframes is not None:
                 for f in range(fluoframes.shape[1]): #Go over all channels:
                     lin[cellnb]['fluo'+str(f+1)].append(np.mean(chamberfluo[f,cellpixels[0],cellpixels[1]]))
+            
+        # Check if some cells got shrunk out of existence after resize:
+        cells_orig = utils.getcellsinframe(label_stack[i],get_contours=False)
+        missing_cells = set(cells_orig)-set(cells)
+        for cellnb in missing_cells:
+            lin[cellnb]['length'].append(np.nan)
+            lin[cellnb]['width'].append(np.nan)
+            lin[cellnb]['area'].append(np.nan)
+            lin[cellnb]['pixels'].append([])
+            if fluoframes is not None:
+                for f in range(fluoframes.shape[1]): #Go over all channels:
+                    lin[cellnb]['fluo'+str(f+1)].append(np.nan)
+            
+            
                         
     return lin, label_stack_resized
 
@@ -633,4 +647,5 @@ if __name__=='__main__':
                filenamesindexing=filenamesindexing,
                resfolder = resfolder,
                rotation_correction = rotation_correction,
+               write_movie = cfg.write_mp4_movies,
                verbose = verbose)
