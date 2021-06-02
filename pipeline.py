@@ -566,7 +566,7 @@ if __name__=='__main__':
     # Default parameters:
     resfolder = None
     bioformats = False
-    rotation_correction = True
+    rotation_correction = cfg.rotation_correction
     prototype = None
     filenamesindexing = 1
     fileorder = 'pct'

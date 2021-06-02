@@ -44,3 +44,4 @@ training_set_track = 'C:/DeepLearning/DeLTA_data/mother_machine/training/trackin
 min_chamber_area = 500 # Minimum size of chambers in pixels for area filtering (0 to +Inf)
 min_cell_area = None # Minimum area of cells *IN THE 256x32 SEGMENTATION OUTPUT MASK OF THE UNET*
 write_mp4_movies = True # Whether to save MP4 movies showing the DeLTA segmentation & tracking results
+rotation_correction = True # Whether to perform automated image rotation correction
