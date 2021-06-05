@@ -251,12 +251,17 @@ def preprocessing(xp, pos, rotation_correction = True):
         return None, None, None, rot_corr, None
         
     # Drift correction:
-    drifttemplate = utils.getDriftTemplate(chamberboxes, transframes[0]) # This template will be used as reference for drift correction
-    driftcorbox = dict(xtl = 0,
-                        xbr = None,
-                        ytl = 0,
-                        ybr = max(chamberboxes,key=lambda elem: elem['ytl'])['ytl']
-                        ) # Box to match template
+    drifttemplate = utils.getDriftTemplate(
+        chamberboxes, transframes[0], whole_frame=cfg.whole_frame_drift
+        ) # This template will be used as reference for drift correction
+    driftcorbox = dict(
+        xtl = 0,
+        xbr = None,
+        ytl = 0,
+        ybr = None if cfg.whole_frame_drift else max(chamberboxes,
+                                                     key=lambda elem: elem['ytl']
+                                                     )['ytl']
+        ) # Box to match template
     transframes, driftvalues = utils.driftcorr(transframes, template=drifttemplate, box=driftcorbox) # Run drift corr    
     # Load up fluoresence images, apply drift correction and rotation:
     fluoframes = xp.getframes(positions=pos, channels=[x for x in range(1,xp.channels)], squeeze_dimensions=False, rotate=rot_corr)

@@ -212,7 +212,7 @@ def getChamberBoxes(chambersmask):
     return chamberboxes
 
 
-def getDriftTemplate(chamberboxes,img):
+def getDriftTemplate(chamberboxes,img,whole_frame=False):
     '''
     This function retrieves a region above the chambers to use as drift template
 
@@ -222,6 +222,9 @@ def getDriftTemplate(chamberboxes,img):
         See getChamberBoxes().
     img : 2D numpy array
         The first frame of a movie to use as reference for drift correction.
+    whole_frame : bool, optional
+        Whether to use the whole frame as reference instead of the area above
+        the chambers.
 
     Returns
     -------
@@ -235,11 +238,16 @@ def getDriftTemplate(chamberboxes,img):
     if len(chamberboxes)==0:
         return None
     (y_cut,x_cut) = [round(i*.025) for i in img.shape] # Cutting out 2.5% of the image on eahc side as drift margin
+    
     box = dict(
-            xtl = x_cut,
-            xbr = -x_cut,
-            ytl = y_cut,
-            ybr = max(chamberboxes,key=lambda elem: elem['ytl'])['ytl']-y_cut)
+        xtl = x_cut,
+        xbr = -x_cut,
+        ytl = y_cut,
+        ybr = -y_cut if whole_frame else max(chamberboxes,
+                                             key=lambda elem: elem['ytl']
+                                             )['ytl']-y_cut
+        )
+        
     return cropbox(img,box)
 
 def getSinglecells(seg):
