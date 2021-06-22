@@ -23,6 +23,7 @@ import utilities as utils
 models = utils.loadmodels()
 
 def process_xp(xpfile,
+               positions=None,
                use_bioformats=False,
                prototype=None, 
                fileorder='pct',
@@ -38,6 +39,10 @@ def process_xp(xpfile,
     ----------
     xpfile : str or tuple/list of str
         Path to experiment file(s) or folder.
+    positions : list or None, optional
+        List of positions to process. If multiple files, list of lists of 
+        positions. If None, all positions are processed.
+        The default is None.
     use_bioformats : bool, optional
         Use bio-formats reader for provided files (necessary for .nd2, .oib, 
         .czi...)
@@ -103,8 +108,18 @@ def process_xp(xpfile,
                             filenamesindexing=filenamesindexing,
                             use_bioformats=use_bioformats)
         
+        # Process positions to run:
+        if positions is None:
+            positions_torun = range(xp.positions)
+        elif len(xpfile)==1:
+            positions_torun = positions
+        else:
+            positions_torun = positions[x]
+        if positions_torun is None:
+            positions_torun = range(xp.positions)
+        
         # Run over all positions:
-        for pos in range(xp.positions):
+        for pos in positions_torun:
             
             # Run processing for position:
             delta_output = process_position(xp,
