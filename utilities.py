@@ -6,12 +6,14 @@ to minimize the risk of unforeseen bugs.
 @author: jblugagne
 '''
 import config as cfg
-import cv2, os, re
+import cv2, os, re, ffmpeg, time
 import numpy as np
 from scipy.io import savemat
-import ffmpeg
+import tensorflow as tf
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+from queue import Queue
+from threading import Thread
 
 
 def deskew(image):
@@ -115,6 +117,28 @@ def rangescale(frame, rescale):
         frame = ((frame-np.min(frame))/np.ptp(frame))*np.ptp(rescale)+rescale[0]
     else:
         frame = np.ones_like(frame)*(rescale[0]+rescale[1])/2
+    return frame
+
+def imrotate(frame, rotate):
+    '''
+    Rotate image
+
+    Parameters
+    ----------
+    frame : ND numpy array of uint8/uint16/float/bool
+        Input image(s).
+    rotate : float
+        Rotation angle, in degrees.
+
+    Returns
+    -------
+    2D numpy array of floats
+        Rotated image
+
+    '''
+    M = cv2.getRotationMatrix2D((frame.shape[1]/2,frame.shape[0]/2), rotate, 1)
+    frame = cv2.warpAffine(frame,M,(frame.shape[1],frame.shape[0]),borderMode=cv2.BORDER_REPLICATE)
+    
     return frame
 
 def driftcorr(img,template=None,box=None, drift=None):
@@ -235,7 +259,7 @@ def getDriftTemplate(chamberboxes,img,whole_frame=False):
 
     '''
     
-    if len(chamberboxes)==0:
+    if len(chamberboxes) == 0 and not whole_frame:
         return None
     (y_cut,x_cut) = [round(i*.025) for i in img.shape] # Cutting out 2.5% of the image on eahc side as drift margin
     
@@ -982,9 +1006,68 @@ def vidwrite(images, filename, crf=20, verbose=1):
     # Wait for processing + close to complete:
     process.wait()
 
+
+class prediction_daemon:
+    
+    def __init__(self, model):
+        
+        self.model = model
+        
+        # Input queue and generator:
+        self.input = Queue(-1)
+        self.reference = Queue(-1)
+        def input_generator(queue):
+            while True:
+                ref, data = queue.get()
+                self.reference.put(ref)
+                yield data
+        self.generator = input_generator(self.input)
+        
+        # Output queue and callback:
+        self.output = Queue(-1)
+        self.callback = OnTheRunCallback(self.output)
+        
+        self.thread = None
+    
+    def start(self):
+        
+        def targetfn():
+            self.model.predict(
+                self.generator,
+                verbose=0,
+                callbacks=[self.callback])
+        
+        self.thread = Thread(target=targetfn, daemon=True)
+        self.thread.start()
+    
+    def put(self, input_data, reference=None):
+        self.input.put([reference, input_data])
+    
+    def get(self):
+        return self.output.get(), self.reference.get()
+
+
+class OnTheRunCallback(tf.keras.callbacks.Callback):
+    
+    def __init__(self,queue):
+        super().__init__()
+        self.output_queue = queue
+    
+    def on_predict_batch_end(self, batch, logs=None):
+        self.output_queue.put(logs['outputs'])
+
 class xpreader:
     
-    def __init__(self, filename, channelnames=None, use_bioformats=False, prototype=None, fileorder='pct', filenamesindexing=1):
+    def __init__(
+            self, 
+            filename,
+            channelnames=None,
+            use_bioformats=False,
+            prototype=None,
+            fileorder='pct',
+            filenamesindexing=1,
+            watchfiles = False
+            ):
         '''
         Initialize experiment reader
 
@@ -1064,6 +1147,7 @@ class xpreader:
             self.filehandle = filename
             self.fileorder = fileorder
             self.filenamesindexing = filenamesindexing
+            self.watchfiles = watchfiles
             # If filename prototype is not provided, guess it from the first file:
             if prototype is None:
                 imgfiles = [x for x in os.listdir(filename) if os.path.splitext(x)[1].lower() in ('.tif','.tiff')]
@@ -1100,10 +1184,16 @@ class xpreader:
             else:
                 self.timepoints = 1 # I guess this shouldn't really happen
             # Get image specs:
-            I = cv2.imread(self.getfilenamefromprototype(0,0,0),cv2.IMREAD_ANYDEPTH)
-            self.x = I.shape[1]
-            self.y = I.shape[0]
-            self.dtype = I.dtype
+            if self.watchfiles:
+                # Start file watcher thread:
+                self.watcher = files_watcher(self)
+                self.watcher.start()
+            else:
+                # Load first image, get image data from it
+                I = cv2.imread(self.getfilenamefromprototype(0,0,0),cv2.IMREAD_ANYDEPTH)
+                self.x = I.shape[1]
+                self.y = I.shape[0]
+                self.dtype = I.dtype
             
         elif (file_extension.lower() == '.tif' or file_extension.lower() == '.tiff'): # Works with single-series tif & mutli-series ome.tif
             from skimage.external.tifffile import TiffFile
@@ -1158,7 +1248,7 @@ class xpreader:
         
         
         
-    def getframes(self, positions=None, channels=None, frames=None, 
+    def getframes(self, positions=None, channels=None, frames=None,
                   squeeze_dimensions=True, 
                   resize=None, 
                   rescale=None,
@@ -1183,7 +1273,9 @@ class xpreader:
             The default is None.
         frames : None, int, tuple/list of ints, optional
             The frame index or indexes passed as an integer or a tuple/list 
-            will be returned. If None is passed, all frames are returned. 
+            will be returned. If None is passed, all frames are returned. If -1
+            is passed and the file watcher is activated, only new frames are
+            read. Works only for one position and channel at a time.
             The default is None.
         squeeze_dimensions : bool, optional
             If True, the numpy squeeze function is applied to the output array,
@@ -1217,11 +1309,6 @@ class xpreader:
         '''
         
         # Handle options:
-        if frames is None: # No frames specfied: load all
-            frames = list(range(self.timepoints))
-        elif type(frames) is not list and type(frames) is not tuple:
-            frames = [frames]
-            
         if positions is None: # No positions specified: load all
             positions = list(range(self.positions))
         elif type(positions) is not list and type(positions) is not tuple:
@@ -1250,6 +1337,26 @@ class xpreader:
                         raise ValueError(c+' is not a valid channel name.')   
         elif type(channels) is not list and type(channels) is not tuple:
             channels = [channels]
+        
+        if frames is None: # No frames specfied: load all
+            frames = list(range(self.timepoints))
+        elif type(frames) is not list and type(frames) is not tuple:
+            if frames == -1: # Read new frames from files watcher:
+                if self.watchfiles:
+                    if len(positions) > 1 or len(channels) > 1:
+                        raise ValueError('Can not load latest frames for more than one position/channel')
+                    new = self.watcher.new[positions[0]][channels[0]]
+                    frames = list(
+                        range(
+                            self.watcher.old[positions[0]][channels[0]]+1,
+                            new+1
+                            )
+                        )
+                    self.watcher.old[positions[0]][channels[0]] = new
+                else:
+                    frames = list(range(self.timepoints))
+            else:
+                frames = [frames]
             
         # Allocate memory:
         if rescale is None:
@@ -1276,8 +1383,7 @@ class xpreader:
                                                     asarray()
                     # Optionally resize and rescale:
                     if rotate is not None:
-                        M = cv2.getRotationMatrix2D((self.x/2,self.y/2), rotate, 1)
-                        frame = cv2.warpAffine(frame,M,(self.x,self.y),borderMode=cv2.BORDER_REPLICATE)
+                        frame = imrotate(frame, rotate)
                     if resize is not None:
                         frame = cv2.resize(frame, resize[::-1]) #cv2 inverts shape
                     if rescale is not None:
@@ -1292,3 +1398,48 @@ class xpreader:
         # Return:
         return np.squeeze(output) if squeeze_dimensions else output
     
+
+
+class files_watcher(Thread):
+    
+    def __init__(self, reader):
+        super().__init__()
+        self.daemon = True
+        self.reader = reader
+        self.old = []
+        self.new = []
+    
+    def run(self):
+        while(True):
+            
+            # Run through monitored positions:
+            for position in range(self.reader.positions):
+                
+                if len(self.old) <= position: # Position added / not done yet
+                    # Append empty lists to the end:
+                    self.old+=[[]]*(position+1-len(self.old))
+                    self.new+=[[]]*(position+1-len(self.new))
+                
+                # Run through monitored channels:
+                for channel in range(self.reader.channels):
+                    
+                    if len(self.old[position]) <= channel:
+                        # Append empty lists to the end:
+                        self.old[position]+=[-1]*(channel+1-len(self.old[position]))
+                        self.new[position]+=[-1]*(channel+1-len(self.new[position]))
+                    
+                    # Check if new files have been written:
+                    i = self.new[position][channel]
+                    while(
+                            os.path.exists(
+                                self.reader.getfilenamefromprototype(
+                                    position,
+                                    channel,
+                                    i+1
+                                    )
+                                )
+                            ): i+=1
+                    
+                    # Store new timepoint number:
+                    self.new[position][channel] = i
+            time.sleep(.1)
