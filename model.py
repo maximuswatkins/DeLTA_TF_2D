@@ -245,16 +245,16 @@ def unet_track(input_size = (256,32,4), class_weights = (1., 1., 1.)):
 
     '''
     
-    model = unet(input_size = input_size, final_activation = 'softmax', output_classes = 3)
+    model = unet(input_size = input_size, final_activation = 'sigmoid', output_classes = 1)
     model.compile(optimizer=Adam(lr = 1e-4), loss=class_weighted_categorical_crossentropy(class_weights), metrics = ['categorical_accuracy'])
 
     return model
 
 
 # Use the following model for segmentation:
-def unet_chambers(input_size = (512,512,1)):
+def unet_rois(input_size = (512,512,1)):
     '''
-    Chambers segmentation U-Net.
+    ROIs segmentation U-Net.
 
     Parameters
     ----------
@@ -265,7 +265,7 @@ def unet_chambers(input_size = (512,512,1)):
     Returns
     -------
     model : Model
-        Chambers ID U-Net (compiled).
+        ROIs ID U-Net (compiled).
 
     '''
     
