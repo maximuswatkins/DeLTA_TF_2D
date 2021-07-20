@@ -1227,7 +1227,7 @@ class xpreader:
     
     def __init__(
             self, 
-            filename,
+            filename=None,
             channelnames=None,
             use_bioformats=False,
             prototype=None,
