@@ -8,7 +8,7 @@ import tensorflow.keras as keras
 from tensorflow.keras import backend as K
 from tensorflow.python.ops import array_ops, math_ops
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, UpSampling2D, ZeroPadding2D, LeakyReLU, BatchNormalization, Concatenate, Add
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, UpSampling2D, Concatenate
 from tensorflow.keras.optimizers import Adam
 
 
@@ -215,14 +215,20 @@ def unet_seg(input_size = (256,32,1)):
 
     '''
     
-    model = unet(input_size = input_size, final_activation = 'sigmoid', output_classes = 1)
-    model.compile(optimizer = Adam(lr = 1e-4), loss = pixelwise_weighted_binary_crossentropy, metrics = [unstack_acc])
+    model = unet(
+        input_size=input_size, final_activation='sigmoid', output_classes=1
+        )
+    model.compile(
+        optimizer = Adam(lr = 1e-4), 
+        loss = pixelwise_weighted_binary_crossentropy,
+        metrics = [unstack_acc]
+        )
 
     return model
 
 
 # Use the following model for tracking and lineage reconstruction:
-def unet_track(input_size = (256,32,4), class_weights = (1., 1., 1.)):
+def unet_track(input_size = (256,32,4)):
     '''
     Tracking U-Net definition function.
 
@@ -231,12 +237,6 @@ def unet_track(input_size = (256,32,4), class_weights = (1., 1., 1.)):
     input_size : tuple of 3 ints, optional
         Dimensions of the input tensor, without batch size.
         The default is (256,32,4).
-    class_weights : tuple/list of floats, optional
-        Relative weights of each class. If daughters are very uncommon or each
-        single cell occupies a small part of the image, this can make the U-Net
-        converge to non-trivial solutions. (A trivial solution would be to 
-        systematically return a mask of 0s)
-        The default is (1., 1., 1.).
 
     Returns
     -------
@@ -245,8 +245,13 @@ def unet_track(input_size = (256,32,4), class_weights = (1., 1., 1.)):
 
     '''
     
-    model = unet(input_size = input_size, final_activation = 'sigmoid', output_classes = 1)
-    model.compile(optimizer=Adam(lr = 1e-4), loss=class_weighted_categorical_crossentropy(class_weights), metrics = ['categorical_accuracy'])
+    model = unet(
+        input_size=input_size, final_activation='sigmoid', output_classes=1
+        )
+    model.compile(
+        optimizer=Adam(lr = 1e-4), 
+        loss=pixelwise_weighted_binary_crossentropy, 
+        metrics = [unstack_acc])
 
     return model
 
@@ -269,7 +274,9 @@ def unet_rois(input_size = (512,512,1)):
 
     '''
     
-    model = unet(input_size = input_size, final_activation = 'sigmoid', output_classes = 1)
+    model = unet(
+        input_size=input_size, final_activation='sigmoid', output_classes=1
+        )
     model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy')
 
     return model

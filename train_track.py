@@ -3,56 +3,64 @@ This script trains the tracking U-Net.
 
 @author: jblugagne
 '''
+import config as cfg
+import os
 from model import unet_track
 from data import trainGenerator_track
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-import os
-import config as cfg
 
-# Parameters:
-class_weights = (1,1,1) # same weight for all classes
+# Files:
+training_set = cfg.training_set_track
+savefile = cfg.model_file_track
+
+# Training parameters:
 batch_size = 5
 epochs = 400
 steps_per_epoch = 250
 patience = 30
 
 #Data generator parameters:
-data_gen_args = dict(rotation = 1,
-                     shiftX=.05,
-                     shiftY=.05,
-                     zoom=.15,
-                     horizontal_flip=True,
-                     histogram_voodoo=True,
-                     illumination_voodoo=True)
+data_gen_args = dict(
+    rotation = 1,
+    zoom=.15,
+    horizontal_flip=True,
+    histogram_voodoo=True,
+    illumination_voodoo=True,
+    timeshiftX=.05,
+    timeshiftY=.05,
+    timeshift_prob=.1
+    )
 
 # Generator init:
-myGene = trainGenerator_track(batch_size,
-                              os.path.join(cfg.training_set_track,'img'),
-                              os.path.join(cfg.training_set_track,'seg'),
-                              os.path.join(cfg.training_set_track,'previmg'),
-                              os.path.join(cfg.training_set_track,'segall'),
-                              os.path.join(cfg.training_set_track,'mother'),
-                              os.path.join(cfg.training_set_track,'daughter'),
-                              data_gen_args,
-                              target_size = cfg.target_size_seg)
+myGene = trainGenerator_track(
+    batch_size,
+    os.path.join(training_set,'img'),
+    os.path.join(training_set,'seg'),
+    os.path.join(training_set,'previmg'),
+    os.path.join(training_set,'segall'),
+    os.path.join(training_set,'mot_dau'),
+    os.path.join(training_set,'wei'),
+    data_gen_args,
+    target_size = cfg.target_size_track,
+    crop_windows=cfg.crop_windows
+    )
 
 # Define model:
-model = unet_track(input_size = cfg.target_size_seg+(4,),
-                   class_weights = class_weights)
+model = unet_track(input_size = cfg.target_size_track+(4,))
 model.summary()
 
 # Callbacks:
-model_checkpoint = ModelCheckpoint(cfg.model_file_track,
-                                   monitor='loss',
-                                   verbose=1,
-                                   save_best_only=True)
-early_stopping = EarlyStopping(monitor='loss',
-                               mode='min',
-                               verbose=1,
-                               patience=patience)
+model_checkpoint = ModelCheckpoint(
+    savefile, monitor='loss', verbose=1, save_best_only=True
+    )
+early_stopping = EarlyStopping(
+    monitor='loss', mode='min', verbose=1, patience=patience
+    )
 
 # Train:
-history = model.fit_generator(myGene,
-                              steps_per_epoch=steps_per_epoch,
-                              epochs=epochs,
-                              callbacks=[model_checkpoint, early_stopping])
+history = model.fit_generator(
+    myGene,
+    steps_per_epoch=steps_per_epoch,
+    epochs=epochs,
+    callbacks=[model_checkpoint, early_stopping]
+    )

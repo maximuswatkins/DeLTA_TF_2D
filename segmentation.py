@@ -6,36 +6,35 @@ The images are processed by batches of 4096 to prevent memory issues.
 
 @author: jblugagne
 '''
+import config as cfg
+
 from data import saveResult_seg, predictGenerator_seg, postprocess
 from model import unet_seg
-from os import listdir
+import os
 
 # Files:
-DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
-inputs_folder = DeLTA_data + 'mother_machine/evaluation/preprocessed/img/'
-outputs_folder = DeLTA_data + 'mother_machine/evaluation/seg_output/'
-model_file = DeLTA_data + 'mother_machine/models/unet_moma_seg_multisets.hdf5'
-unprocessed = listdir(inputs_folder)
-
-# Parameters:
-target_size = (256, 32)
-input_size = target_size + (1,)
-process_size = 4096
+inputs_folder = 'D:/DeLTA_data/mother_machine/evaluation/preprocessed/img/'
+outputs_folder = 'D:/DeLTA_data/mother_machine/evaluation/seg_output/'
+unprocessed = os.listdir(inputs_folder)
 
 # Load up model:
-model = unet_seg(input_size = input_size)
-model.load_weights(model_file)
+model = unet_seg(input_size = cfg.target_size_seg+(1,))
+model.load_weights(cfg.model_file_seg)
 
 # Process
 while(unprocessed):
     # Pop out filenames
-    ps = min(process_size,len(unprocessed))
+    ps = min(4096,len(unprocessed)) #4096 at a time
     to_process = unprocessed[0:ps]
     del unprocessed[0:ps]
     
     # Predict:
-    predGene = predictGenerator_seg(inputs_folder, files_list = to_process, target_size = target_size)
-    results = model.predict_generator(predGene,len(to_process),verbose=1)
+    predGene = predictGenerator_seg(
+        inputs_folder, 
+        files_list = to_process,
+        target_size = cfg.target_size_seg
+        )
+    results = model.predict(predGene,verbose=1)
     
     # Post process results:
     results[:,:,:,0] = postprocess(results[:,:,:,0])

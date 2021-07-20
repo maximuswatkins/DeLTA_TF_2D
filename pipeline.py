@@ -59,6 +59,7 @@ class Pipeline(threading.Thread):
         self.rotation_correction = cfg.rotation_correction
         self.drift_correction = cfg.drift_correction
         self.crop_windows=cfg.crop_windows
+        self.save_format=cfg.save_format
         self.daemon=True
 
         # Load models:
@@ -177,7 +178,7 @@ class Pipeline(threading.Thread):
             positions = range(self.reader.positions)
 
         if features is None:
-            features = ['length','width','area']
+            features = ['length','width','area','perimeter','edges']
             for c in range(1,self.reader.channels):
                 features += ['fluo%d'%(c,)]
         
@@ -202,7 +203,8 @@ class Pipeline(threading.Thread):
             # Save to disk and clear memory:
             self.positions[p].save(
                 filename=os.path.join(self.resfolder,'Position%06d'%(p)),
-                frames = frames
+                frames = frames,
+                save_format=self.save_format
                 )
             self.positions[p].clear()
     
@@ -565,7 +567,7 @@ class Position:
         
         
     def features(
-            self,frames,features=('length','width','area')
+            self,frames,features=('length','width','area','perimeter','edges')
             ):
         '''
         Extract features for all ROIs in frames
@@ -620,9 +622,7 @@ class Position:
                     )
 
 
-    def save(
-            self,filename=None,frames=None,save_format='pickle',save_movie=True
-            ):
+    def save(self,filename=None,frames=None,save_format=('pickle','movie')):
         '''
         Save to disk
 
@@ -635,12 +635,10 @@ class Position:
         frames : list of int or None, optional
             List of frames to save in movie. If None, all frames are run.
             The default is None.
-        save_format : {'pickle', 'legacy'}, optional
-            Save to pickle file or to legacy Matlab .mat format. 
-            The default is 'pickle'.
-        save_movie : bool, optional
-            Save movie illustrating results.
-            The default is True.
+        save_format : tuple of str, optional
+            Formats to save the data to. Options are 'pickle', 'legacy' (ie
+            Matlab format), and 'movie' for saving an mp4 movie.
+            The default is ('pickle', 'movie').
 
         Returns
         -------
@@ -651,16 +649,20 @@ class Position:
         if filename is None:
             filename = './Position%06d'%(self.position_nb,)
         else:
-            os.path.splitext(filename)[0] # remove extension
-            
-        if save_format=='pickle':
+            os.path.splitext(filename)[0] # remove extension if any
+        
+        
+        if 'legacy' in save_format:
+            self._msg('Saving to legacy format\n%s'%filename+'.mat')
+            utils.legacysave(self, filename+'.mat')
+        
+        if 'pickle' in save_format:
+            self._msg('Saving to pickle format\n%s'%filename+'.pkl')
             import pickle
             pickle.dump(self, open(filename+'.pkl','wb'))
-        elif save_format=='legacy':
-            # TODO: re-implement legacy save
-            utils.legacysave(self)
         
-        if save_movie:
+        if 'movie' in save_format:
+            self._msg('Saving results movie\n%s'%filename+'.mp4')
             movie = utils.results_movie(self, frames=frames)
             utils.vidwrite(movie, filename+'.mp4', verbose=False)
     
@@ -689,7 +691,8 @@ class Position:
     
     def clear(self):
         '''
-        Clear most variables from memory (can be loaded back with load())
+        Clear Position-specific variables from memory (can be loaded back with 
+        load())
 
         Returns
         -------
@@ -697,6 +700,7 @@ class Position:
 
         '''
         
+        self._msg('Clearing variables from memory')
         for k in self.__dict__.keys():
                 if k not in self._pickle_skip:
                     exec('self.%s = None'%(k,))
@@ -735,6 +739,14 @@ class ROI:
         self.label_stack = []
         self.crop_windows = crop_windows
         self.verbose = 1
+        
+        if crop_windows:
+            self.scaling = None
+        else:
+            self.scaling = (
+                (box['ybr']-box['ytl'])/cfg.target_size_seg[0],
+                (box['xbr']-box['xtl'])/cfg.target_size_seg[1]
+                )
         
     
     def get_segmentation_inputs(self, img):
@@ -807,10 +819,13 @@ class ROI:
         if windows is None:
             y = y[0,:,:,0]
         else:
-            y = utils.stitch_pic(y[:,:,:,0], windows[0], windows[1])
+            y = utils.stitch_pic(y[...,0], windows[0], windows[1])
         
         # Binarize:
         y = (y>.5).astype(np.uint8)
+        
+        # Area filtering:
+        y = utils.opencv_areafilt(y, min_area=cfg.min_cell_area)
         
         # Append to segmentation results stack:
         if frame is None:
@@ -863,7 +878,7 @@ class ROI:
                 or len(self.lineage.cellnumbers[frame-1])==0:
                     
             # Cell poles
-            poles = utils.getpoles(self.seg_stack[frame])
+            poles = utils.getpoles(self.seg_stack[frame],scaling=self.scaling)
             
             # Create new orphan cells
             for c in range(len(poles)):
@@ -953,14 +968,15 @@ class ROI:
         # Get scores and attributions:
         labels = utils.label_seg(self.seg_stack[frame])
         scores = utils.getTrackingScores(
-            labels, y[:,:,:,0],
-            boxes=boxes if self.crop_windows else None)
+            labels, y[:,:,:,0], boxes=boxes if self.crop_windows else None
+            )
         if scores is None:
             self.lineage.update(None, frame)
+            return
         attributions = utils.getAttributions(scores)
         
         # Get poles:
-        poles = utils.getpoles(self.seg_stack[frame],labels)
+        poles = utils.getpoles(self.seg_stack[frame],labels,scaling=self.scaling)
         
         # Update lineage:
         # Go through old cells:
@@ -977,12 +993,12 @@ class ROI:
             if len(attrib)==0:
                 self.lineage.update(None, frame, attrib=[n], poles=new_cells_poles)
     
-    
+
     def extract_features(
         self,
         frame=None,
         fluo_frames=None,
-        features=('length','width','area')
+        features=('length','width','area','perimeter','edges')
         ):
         '''
         Extract single cell features
@@ -1037,23 +1053,37 @@ class ROI:
         
         # Get cells in resized frame:
         cells, contours = utils.getcellsinframe(
-            self.label_stack[frame], get_contours=True
+            self.label_stack[frame], return_contours=True
             )
 
         # Run through cells in resized frame:
-        for cell in cells:
+        for cell, cnt in zip(cells, contours):
             
-            c = cells.index(cell)
+            # Mark cell if it touches the edges of the ROI:
+            if 'edges' in features:
+                edge_str = ''
+                if any(cnt[:,0,0]==0):
+                    edge_str+='-x'
+                if any(cnt[:,0,0]==self.label_stack[frame].shape[1]-1):
+                    edge_str+='+x'
+                if any(cnt[:,0,1]==0):
+                    edge_str+='-y'
+                if any(cnt[:,0,1]==self.label_stack[frame].shape[0]-1):
+                    edge_str+='+y'
+                self.lineage.setvalue(cell,frame,'edges',edge_str)
+                
             
             # Morphological features:
             if 'length' in features or 'width' in features:
-                rotrect = cv2.minAreaRect(contours[c])
+                rotrect = cv2.minAreaRect(cnt)
                 if 'length' in features:
-                    self.lineage.setvalue(cell,'length',frame,max(rotrect[1]))
+                    self.lineage.setvalue(cell,frame,'length',max(rotrect[1]))
                 if 'width' in features:
-                    self.lineage.setvalue(cell,'width',frame,min(rotrect[1]))
+                    self.lineage.setvalue(cell,frame,'width',min(rotrect[1]))
             if 'area' in features:
-                self.lineage.setvalue(cell,'area',frame,cv2.contourArea(contours[c]))
+                self.lineage.setvalue(cell,frame,'area',cv2.contourArea(cnt))
+            if 'perimeter' in features:
+                self.lineage.setvalue(cell,frame,'perimeter',cnt.shape[0])
             
             # Fluorescence:
             fluo_features = [x for x in features if x[0:4]=='fluo']
@@ -1066,10 +1096,9 @@ class ROI:
                     f,
                     pixels[0]+self.box['ytl'] if self.box is not None else pixels[0],
                     pixels[1]+self.box['xtl'] if self.box is not None else pixels[1]
-                    ]
-                    )
+                    ])
                 # Update cell:
-                self.lineage.setvalue(cell,fluostr,frame,value)
+                self.lineage.setvalue(cell,frame,fluostr,value)
 
 
 if __name__ == "__main__":
@@ -1079,11 +1108,10 @@ if __name__ == "__main__":
     from pipeline import Pipeline
 
     # Init reader:
-    filename = 'D:/DeLTA_data/agar_pads/evaluation_movie/deg1.nd2'
-    xpreader = utils.xpreader(filename,use_bioformats=True)
+    xpreader = utils.xpreader()
     
     # Init pipeline:
     xp = Pipeline(xpreader)
     
     # Run it:
-    xp.process(positions=None, frames=[f for f in range(25)])
+    xp.process()

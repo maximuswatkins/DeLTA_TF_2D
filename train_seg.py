@@ -3,51 +3,65 @@ This script trains the cell segmentation U-Net
 
 @author: jblugagne
 '''
+import config as cfg
+
 from model import unet_seg
 from data import trainGenerator_seg
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import os
-import config as cfg
 
-# Parameters:
-batch_size = 10
-epochs = 200
-steps_per_epoch = 250
+# Files:
+training_set = cfg.training_set_seg
+savefile = cfg.model_file_seg
+
+# Training parameters:
+batch_size = 1
+epochs = 800
+steps_per_epoch = 300
 patience = 30
 
 #Data generator parameters:
-data_gen_args = dict(rotation = 0.5,
-                     shiftX=.05,
-                     shiftY=.05,
-                     zoom=.15,
-                     horizontal_flip=True,
-                     histogram_voodoo=True,
-                     illumination_voodoo=True)
+data_gen_args = dict(
+    rotation = 2,
+    rotations_90d = True,
+    shiftX=0,
+    shiftY=0,
+    zoom=.15,
+    horizontal_flip=True,
+    vertical_flip=True,
+    histogram_voodoo=False,
+    illumination_voodoo=True,
+    gaussian_noise = 0.03,
+    gaussian_blur = 1
+    )
 
 # Generator init:
-myGene = trainGenerator_seg(batch_size,
-                            os.path.join(cfg.training_set_seg,'img'),
-                            os.path.join(cfg.training_set_seg,'seg'),
-                            os.path.join(cfg.training_set_seg,'wei'),
-                            augment_params = data_gen_args,
-                            target_size = cfg.target_size_seg)
+myGene = trainGenerator_seg(
+    batch_size,
+    os.path.join(training_set,'img'),
+    os.path.join(training_set,'seg'),
+    os.path.join(training_set,'wei'),
+    augment_params = data_gen_args,
+    target_size = cfg.target_size_seg
+    )
 
+a = next(myGene)
 # Define model:
 model = unet_seg(input_size = cfg.target_size_seg+(1,))
 model.summary()
 
 # Callbacks:
-model_checkpoint = ModelCheckpoint(cfg.model_file_seg, 
-                                    monitor='loss',
-                                    verbose=2,
-                                    save_best_only=True)
-early_stopping = EarlyStopping(monitor='loss',
-                               mode='min',
-                               verbose=2,
-                               patience=patience)
+model_checkpoint = ModelCheckpoint(
+    savefile, monitor='loss', verbose=2, save_best_only=True
+    )
+early_stopping = EarlyStopping(
+    monitor='loss', mode='min', verbose=2, patience=patience
+    )
 
 # Train:
-history = model.fit_generator(myGene,
-                              steps_per_epoch=steps_per_epoch,
-                              epochs=epochs,
-                              callbacks=[model_checkpoint, early_stopping])
+history = model.fit_generator(
+    myGene,
+    steps_per_epoch=steps_per_epoch,
+    epochs=epochs,
+    callbacks=[model_checkpoint, early_stopping]
+    )

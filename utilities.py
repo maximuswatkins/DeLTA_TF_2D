@@ -9,12 +9,38 @@ import config as cfg
 import cv2, os, re, ffmpeg, time
 import numpy as np
 from scipy.io import savemat
-import tensorflow as tf
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from queue import Queue
 from threading import Thread
 from skimage.morphology import skeletonize
+
+
+
+#%% Image correction
+
+def rangescale(frame, rescale):
+    '''
+    Rescale image values to be within range
+
+    Parameters
+    ----------
+    frame : ND numpy array of uint8/uint16/float/bool
+        Input image(s).
+    rescale : Tuple of 2 values
+        Values range for the rescaled image.
+
+    Returns
+    -------
+    2D numpy array of floats
+        Rescaled image
+
+    '''
+    frame = frame.astype(np.float32)
+    if np.ptp(frame) > 0:
+        frame = ((frame-np.min(frame))/np.ptp(frame))*np.ptp(rescale)+rescale[0]
+    else:
+        frame = np.ones_like(frame)*(rescale[0]+rescale[1])/2
+    return frame
 
 
 def deskew(image):
@@ -35,8 +61,6 @@ def deskew(image):
         Rotation angle of the chambers for correction.
 
     '''
-    
-    from skimage.filters import gaussian, threshold_otsu
     from skimage.feature import canny
     from skimage.transform import probabilistic_hough_line
 
@@ -72,56 +96,6 @@ def deskew(image):
 
     return rotation_number
 
-def cropbox(img,box):
-    '''
-    Crop image
-
-    Parameters
-    ----------
-    img : 2D numpy array
-        Image to crop.
-    box : Dictionary
-        Dictionary describing the box to cut out, containing the following 
-        elements:
-            - 'xtl': Top-left corner X coordinate.
-            - 'ytl': Top-left corner Y coordinate.
-            - 'xbr': Bottom-right corner X coordinate.
-            - 'ybr': Bottom-right corner Y coordinate.
-
-    Returns
-    -------
-    2D numpy array
-        Cropped-out region.
-
-    '''
-    if box is None or all([v is None for v in box.values()]):
-        return img
-    else:
-        return img[box['ytl']:box['ybr'],box['xtl']:box['xbr']]
-
-def rangescale(frame, rescale):
-    '''
-    Rescale image values to be within range
-
-    Parameters
-    ----------
-    frame : ND numpy array of uint8/uint16/float/bool
-        Input image(s).
-    rescale : Tuple of 2 values
-        Values range for the rescaled image.
-
-    Returns
-    -------
-    2D numpy array of floats
-        Rescaled image
-
-    '''
-    frame = frame.astype(np.float32)
-    if np.ptp(frame) > 0:
-        frame = ((frame-np.min(frame))/np.ptp(frame))*np.ptp(rescale)+rescale[0]
-    else:
-        frame = np.ones_like(frame)*(rescale[0]+rescale[1])/2
-    return frame
 
 def imrotate(frame, rotate):
     '''
@@ -144,6 +118,7 @@ def imrotate(frame, rotate):
     frame = cv2.warpAffine(frame,M,(frame.shape[1],frame.shape[0]),borderMode=cv2.BORDER_REPLICATE)
     
     return frame
+
 
 def driftcorr(img,template=None,box=None, drift=None):
     '''
@@ -207,39 +182,6 @@ def driftcorr(img,template=None,box=None, drift=None):
         return img, (xcorr, ycorr)
 
 
-def getROIBoxes(chambersmask):
-    '''
-    This function extracts the bounding boxes of the chambers in thebinary mask
-    produced by the chambers identification unet
-
-    Parameters
-    ----------
-    chambersmask : 2D array of uint8/uint16/floats
-        The mask of the chambers as returned by the chambers id unet.
-
-    Returns
-    -------
-    chamberboxes : list of dictionaries
-        List of cropping box dictionaries (see cropbox()).
-
-    '''
-    chamberboxes = []
-    if chambersmask.dtype == bool:
-        chambersmask = chambersmask.astype(np.uint8)
-    else:
-        chambersmask = cv2.threshold(chambersmask,.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
-    contours = cv2.findContours(chambersmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
-    for chamber in contours:
-        xtl, ytl, boxwidth, boxheight = cv2.boundingRect(chamber)
-        chamberboxes.append(dict(
-                xtl = xtl,
-                ytl = int(ytl-(boxheight*.1)), # -10% of height to make sure the top isn't cropped
-                xbr = xtl+boxwidth,
-                ybr = ytl+boxheight)) # tl = top left, br = bottom right.
-    chamberboxes.sort(key=lambda elem: elem['xtl'])# Sorting by top-left X (normally sorted by Y top left)
-    return chamberboxes
-
-
 def getDriftTemplate(chamberboxes,img,whole_frame=False):
     '''
     This function retrieves a region above the chambers to use as drift template
@@ -278,881 +220,162 @@ def getDriftTemplate(chamberboxes,img,whole_frame=False):
         
     return cropbox(img,box)
 
-def getSinglecells(seg):
+
+def opencv_areafilt(I, min_area=20, max_area=None):
     '''
-    Return masks of single cells
+    Area filtering using openCV instead of skimage
 
     Parameters
     ----------
-    seg : array of uint8/uint16/float/bool
-        Mask of cells. Values >0.5 will be considered cell pixels
-
-    Returns
-    -------
-    singlecellseg : 3D array of uint8
-        Stack of single cell masks. Each single-cell mask is stacked along the
-        first axis (axis 0)
-
-    '''
-    if seg.dtype == bool:
-        seg = seg.astype(np.uint8)
-    else:
-        seg = cv2.threshold(seg,.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
-    contours = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
-    contours.sort(key=lambda elem: np.max(elem[:,0,1])) # Sorting along Y
-    singlecellseg = np.empty([len(contours),seg.shape[0],seg.shape[1]])
-    for c, contour in enumerate(contours):
-        singlecellseg[c] = cv2.drawContours(np.zeros((seg.shape[0],seg.shape[1]), dtype=np.uint8),[contour],0, color=1, thickness=-1)
-    return singlecellseg
-
-def getTrackingScores(labels, outputs, boxes=None):
-    '''
-    Get overlap scores between input/target cells and tracking outputs
-
-    Parameters
-    ----------
-    inputs : 2D array of floats
-        Segmentation mask of input/target cells that the tracking U-Net is 
-        tracking against. (ie segmentation mask of the 'current'/'new' frame)
-    outputs : 4D array of floats
-        Tracking U-Net output. For each cell in the 'old'/'previous' frame,
-        two masks were produced as potential mother and daughter cell outlines.
-        (plus a third, unused mask for background)
-
-    Returns
-    -------
-    scores : 3D array of floats
-        Overlap scores matrix between tracking predictions and current 
-        segmentation mask for each new-old cell, either as a mother or a 
-        daughter cell. Cells from the 'old' frame (axis 0) will get a tracking 
-        score that corresponds to how much the U-Net tracking output mask 
-        overlaps with the segmentation mask of each cell in the 'new' mask 
-        (axis 1). Each old cell gets a tracking scores for each new cell as 
-        either a potential daughter (mother-daughter relationship, index 1 on 
-        axis 2) or as just itself (mother-mother relationship, index 0 on axis
-        2)
-        Example:
-            attrib[1,3,0] == 1 means the 'mother' tracking output of cell #2 in
-            the old frame completely overlaps with the mask of cell #4 in the 
-            new frame.
-            attrib[4,6,1] == 0.7 means the 'daughter' tracking output of cell
-            #5 in the old frame overlaps with 70% of the mask of cell #7 in the
-            new frame.
-
-    '''
-
-    total_cell = np.max(labels)
-    if total_cell == 0:
-        return None
-    
-    # Get areas for each cell:
-    _, areas = np.unique(labels, return_counts=True)
-    areas = areas[1:]
-    
-    # Compile scores:
-    scores = np.zeros([outputs.shape[0],total_cell],dtype=np.float32)
-    for o, output in enumerate(outputs):
-        
-        # Find pixels with a score > .05:
-        nz = list((output>.05).nonzero())
-        if len(nz[0])==0:
-            continue
-        
-        # Find cells that are "hit" by those pixels in the labels image:
-        if boxes is None or\
-            boxes[o] is None or\
-                all([v is None for v in boxes[o][0].values()]):
-            cells, counts = np.unique(labels[nz], return_counts=True)
-            
-        else:
-            # Clean nz hits outside of fillbox:
-            cb, fb = boxes[o][:]
-            to_remove = np.logical_or.reduce(
-                (
-                    nz[0]<=fb['ytl'],
-                    nz[0]>=fb['ybr'],
-                    nz[1]<=fb['xtl'],
-                    nz[1]>=fb['xbr']
-                    )
-                )
-            nz[0] = np.delete(nz[0],to_remove.nonzero())
-            nz[1] = np.delete(nz[1],to_remove.nonzero())
-            
-            # Offset hits by cropbox-fillbox:
-            nz[0] = nz[0]+cb['ytl']-fb['ytl']
-            nz[1] = nz[1]+cb['xtl']-fb['xtl']
-            
-            # Compute number of hits per cell:
-            cells, counts = np.unique(labels[nz[0],nz[1]], return_counts=True)
-        
-        # Compile score for these cells:
-        for c, cell in enumerate(cells):
-            if cell > 0:
-                scores[o,cell-1]=counts[c]/areas[cell-1]
-    
-    return scores
-
-        
-def getOverlap(output,target):
-    '''
-    Get portion of tracking output overlapping on target cell
-
-    Parameters
-    ----------
-    output : array of uint8
-        Mask of tracking output.
-    target : array of uint8
-        Mask of target cell.
-
-    Returns
-    -------
-    float
-        Portion of target cell that is covered by the tracking output.
-
-    '''
-    return  cv2.sumElems(
-                    cv2.bitwise_and(output,
-                                    target)
-                )[0]/\
-            cv2.sumElems(
-                    target
-                )[0]
-
-def getMult(output, target):
-    '''
-    Average tracking output score in target cell mask.
-
-    Parameters
-    ----------
-    output : array of uint8
-        Mask of tracking output.
-    target : array of uint8
-        Mask of target cell.
-
-    Returns
-    -------
-    float
-        Average tracking output score per target cell pixel.
-
-    '''
-    
-    return np.sum(np.multiply(output,target))/np.sum(target)
-
-def getAttributions(scores):
-    '''
-    Get attribution matrix from tracking scores
-
-    Parameters
-    ----------
-    scores : numpy 3D array of floats
-        Tracking scores matrix as produced by the getTrackingScores function.
-
-    Returns
-    -------
-    attrib : numpy 3D array of bools
-        Attribution matrix. Cells from the old frame (axis 0) are attributed to
-        cells in the new frame (axis 1). Each new cell can be attributed to an
-        old cell as a "mother", ie the same cell (index 0 along axis 2), or as
-        a "daughter" of that old cell (index 1 along axis 2)
-        Example:
-            attrib[1,3,0] == True means cell #4 in the new frame (from top to 
-            bottom) is attributed to cell #2 in the old frame.
-            attrib[4,6,1] == True means cell #7 in the new frame is 
-            attributed as a daughter to cell #5 in the old frame.
-        Each 'old' cell can have only 0 or 1 'new' cell identified as itself 
-        (ie mother-mother relationship), and 0 or 1 'new' cell identified as a
-        daughter (ie mother-daughter relationship). Each 'new' cell can only be
-        attributed to 0 or 1 'old' cell, either as a 'mother' or 'daughter'.
-
-    '''
-    
-    attrib = np.zeros(scores.shape, dtype=int)
-    
-    for n in range(scores.shape[1]):
-        worst_old = np.argsort(scores[:,n]) # Worst-to-best score of old cells for n-th new cell
-        # Run through old cells from best to worst:
-        for o in range(-1,-scores.shape[0]-1,-1):
-            o_best = worst_old[o] # o-th best old cell 
-            s = scores[o_best,n]
-            # If score gets too low, stop
-            if s < .2:
-                break
-            # Check if new cell is at least 2nd best for this old cell:
-            worst_new = np.argsort(scores[o_best,:]) # Worst-to-best score of new cells for o_best old cell
-            if n in worst_new[-2:]:
-                attrib[o_best,n]=1
-                break
-                
-
-    return attrib
-
-def label_seg(seg,cellnumbers=None,get_contours=False,background=0):
-    '''
-    Label cells in segmentation mask
-
-    Parameters
-    ----------
-    seg : numpy 2D array of float/uint8/uint16/bool
-        Cells segmentation mask. Values >0.5 will be considered cell pixels
-    cellnumbers : list of ints, optional
-        Numbers to attribute to each cell mask, from top to bottom of image.
-        Because we are using uint16s, maximum cell number is 65535. If None is 
-        provided, the cells will be labeled 1,2,3,... Background is 0
+    I : 2D array
+        Segmentation mask.
+    min_area : int or None, optional
+        Minimum object area.
+        The default is 20
+    max_area : int or None, optional
+        Maximum object area.
         The default is None.
 
     Returns
     -------
-    label : 2D numpy array of uint16
-        Labelled image. Each cell in the image is marked by adjacent pixels 
-        with values given by cellnumbers
+    I : 2D array
+        Filtered mask.
 
     '''
-    if seg.dtype == bool:
-        seg = seg.astype(np.uint8)
+    
+    # Get contours:
+    contours ,_ = cv2.findContours(I, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    
+    # Loop through contours, flag them for deletion:
+    to_remove = []
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if (min_area is not None and area < min_area) or \
+            (max_area is not None and area > max_area):
+            to_remove += [cnt]
+    
+    # Delete all at once:
+    if len(to_remove)>0:
+        I = cv2.drawContours(I, to_remove, -1, 0, thickness=-1)
+    
+    return I
+
+
+#%% Image cropping & stitching
+
+def cropbox(img,box):
+    '''
+    Crop image
+
+    Parameters
+    ----------
+    img : 2D numpy array
+        Image to crop.
+    box : Dictionary
+        Dictionary describing the box to cut out, containing the following 
+        elements:
+            - 'xtl': Top-left corner X coordinate.
+            - 'ytl': Top-left corner Y coordinate.
+            - 'xbr': Bottom-right corner X coordinate.
+            - 'ybr': Bottom-right corner Y coordinate.
+
+    Returns
+    -------
+    2D numpy array
+        Cropped-out region.
+
+    '''
+    if box is None or all([v is None for v in box.values()]):
+        return img
     else:
-        seg = cv2.threshold(seg,.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
-    contours = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
-    contours.sort(key=lambda elem: np.max(elem[:,0,1])) # Sorting along Y
-    label = np.full(seg.shape,background,dtype=np.uint16)
-    for c, contour in enumerate(contours):
-        label = cv2.fillPoly(label,[contour],c+1 if cellnumbers is None else cellnumbers[c])
-    if get_contours:
-        return label, contours
-    else:
-        return label
+        return img[box['ytl']:box['ybr'],box['xtl']:box['xbr']]
 
-def updatelineage(newframe, stack, framenb=0, lineage=None, attrib=None):
+
+def create_windows(img, target_size = (512,512), min_overlap = 24):
     '''
-    Update lineage list and labels stack based on attribution matrix
+    Crop input image into windows of set size.
 
     Parameters
     ----------
-    newframe : numpy 2D array
-        Segmentation output for current frame.
-    stack : numpy 3D tensor of uint16
-        Labelled stack. Each frame until the current frame contains a numbered 
-        mask, with the number corresponding the cell number in the lineage. See
-        label_seg()
-    framenb : int, optional
-        Current frame number (0-based indexing).
-        The default is 0.
-    lineage : List of dicts, optional
-        List of all the cells encountered in the chamber. Each cell dict 
-        contains the following keys:
-            - mother, int: The number of the mother cell in the lineage 
-            (1-based indexing)
-            - framenbs, list of ints: The list of frames where the cell is 
-            present (1-based indexing)
-            - daughters, list of ints: A list of the same length as framenbs,
-            with each element equal to the number of the daughter in the 
-            lineage (1-based indexing) if a division occured at the 
-            corresponding frame number, and equal to 0 otherwise.
-        Note: We used 1-based indexing for compatibility with earlier code that
-        was written in Matlab.
-        If None is provided, the lineage will be initialized and all cells in 
-        the newframe image will be given 0 as a mother.
-        The default is None.
-    attrib : numpy 2D array of bool, optional
-        Attribution matrix for the current frame/timepoint as produced by 
-        number 0. If None, lineage and stack will not be updated.
-        getAttributions(). New cells with no attributions are given mother cell
-        The default is None.
+    img : 2D array
+        Input image.
+    target_size : tuple, optional
+        Dimensions of the windows to crop out.
+        The default is (512,512).
+    min_overlap : int, optional
+        Minimum overlap between windows in pixels.
+        Defaul is 24.
+        
 
     Returns
     -------
-    lineage : List of dicts
-        lineage updated for the current frame and attrib matrix. See lineage 
-        input description above.
-    stack : numpy 3D tensor of uint16
-        labelled stack updated for the current frame and attrib matrix. See 
-        lineage input description above..
+    
+    windows: 3D array
+        Cropped out images to feed into U-Net. Dimensions are
+        (nb_of_windows, target_size[0], target_size[1])
+    loc_y : list
+        List of lower and upper bounds for windows over the y axis
+    loc_x : list
+        List of lower and upper bounds for windows over the x axis
 
     '''
-    
-    if lineage==None: # Not initialized yet
-        lineage = []
-        stack[framenb] = label_seg(newframe)
-        cells = np.unique(stack[framenb])
-        for c in cells[1:]: # Avoiding cell==0 (background)
-            lineage.append(createcell(framenb+1)) # We're using framenb +1 to be compatible with old Matlab code
-    else: # Update according to attribution matrix
-        # Init cell numbers, retrieve previous stack frame:
-        cellnumbers = []
-        label_old = label_seg((stack[framenb-1]>0).astype(np.uint8))
-        
-        # If previous stack frame has no cells:
-        if not np.any(label_old>0): # This can happen if the chamber is empty and suddenly cells appear (can be a segmentation error, or a focus problem)
-            contours = cv2.findContours(newframe.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] # In this case just label
-            for _ in range(len(contours)):
-                lineage.append(createcell(framenb+1))
-                cellnumbers.append(len(lineage))
-                
-        # If previous stack frame has cells:
-        else:
-            for i in range(attrib.shape[1]): # Go through new cells
-                if np.any(attrib[:,i,0]): # If cell is tracked from an old cell: (mother-mother)
-                    cellnum = int(stack[framenb-1][label_old==(np.nonzero(attrib[:,i,0])[0]+1)[0]][0]) # retrieving "mother" cell number from old stack frame
-                    lineage[cellnum-1]['framenbs'].append(float(framenb+1)) # Update frame number list
-                    if len(lineage[cellnum-1]['daughters']) < len(lineage[cellnum-1]['framenbs']): # If framenbs hasn't been updated (in case somehow daughter goes through before mother)
-                        lineage[cellnum-1]['daughters'].append(0.)
-                    cellnumbers.append(cellnum)
-                elif np.any(attrib[:,i,1]): # Cell is tracked as a daughter cell (mother-daughter)
-                    mothernb = int(stack[framenb-1][label_old==(np.nonzero(attrib[:,i,1])[0]+1)[0]][0]) # retrieving cell number from stack
-                    # Create new cell, as daughter of mother:
-                    lineage.append(createcell(framenb+1,mothernb))
-                    cellnumbers.append(len(lineage))
-                    # Update 'daughters' key of mother cell:
-                    if len(lineage[mothernb-1]['daughters']) < len(lineage[mothernb-1]['framenbs']): # This situation should never happen actually
-                        lineage[mothernb-1]['daughters'].append(float(cellnumbers[-1]))
-                    else:
-                        lineage[mothernb-1]['daughters'][-1] = float(cellnumbers[-1])
-                else: # Orphan cell
-                    lineage.append(createcell(framenb+1))
-                    cellnumbers.append(len(lineage))
-                    
-        # Compile new labeled frame, push to stack:
-        stack[framenb] = label_seg(newframe,cellnumbers=cellnumbers)
-    return lineage, stack
-        
-
-def createcell(framenb, mothernb=0):
-    '''
-    Create cell to append to lineage list
-
-    Parameters
-    ----------
-    framenb : int
-        Frame that the cell first appears (1-based indexing).
-    mothernb : int, optional
-        Number of the mother cell in the lineage (1-based indexing).
-        The default is 0. (ie unknown mother)
-
-    Returns
-    -------
-    dict
-        Initialized cell dictionary.
-
-    '''
-    return dict(framenbs=[float(framenb)], # For compatibility with old version of the pipeline
-                mothernb=mothernb,
-                daughters=[0.])
-
-def loadmodels(toload=cfg.models):
-    '''
-    Load models (as specified in config.py)
-
-    Parameters
-    ----------
-    toload : list of str, optional
-        Which of the 3 models to load. 
-        The default is ['rois','segmentation','tracking'].
-
-    Returns
-    -------
-    models : dict
-        Dictionary containing the models specified.
-
-    '''
-    
-    
-    from model import unet_rois, unet_seg, unet_track
-    models = dict()
-    
-    if 'rois' in toload:
-        models['rois'] = unet_rois(input_size = cfg.target_size_rois + (1,))
-        models['rois'].load_weights(cfg.model_file_rois)
-    
-    if 'segmentation' in toload:
-        models['segmentation'] = unet_seg(input_size = cfg.target_size_seg + (1,))
-        models['segmentation'].load_weights(cfg.model_file_seg)
-    
-    if 'tracking' in toload:
-        models['tracking'] = unet_track(input_size = cfg.target_size_track + (4,))
-        models['tracking'].load_weights(cfg.model_file_track)
-    
-    return models
-
-def legacysave(res_file, 
-               xpfile, 
-               delta_res, 
-               chamberboxes, 
-               rot_corr, 
-               driftvalues,
-               moviedimensions):
-    '''
-    Save single position pipeline results in the legacy Matlab format
-
-    Parameters
-    ----------
-    res_file : str
-        Path to save the data to.
-    xpfile : str
-        Path to the experimental folder.
-    res : list
-        List of dicts for each chamber produced by delta pipeline.
-    chamberboxes : list
-        List of dicts describing single chambers positions in the image.
-    rot_corr : float
-        Rotation applied to images to get the chambers horizontal.
-    driftvalues : list
-        XY drift values computed by pipeline preprocessing step.
-
-    Returns
-    -------
-    None.
-
-    '''
-    
-    if delta_res is not None:
-        savemat(res_file,
-                {'res': delta_res,
-                 'tiffile': xpfile,
-                 'moviedimensions': moviedimensions,
-                 'proc': {'rotation': rot_corr,
-                          'chambers': np.array([[c['xtl'],c['ytl'],c['xbr']-c['xtl'],c['ybr']-c['ytl']] for c in chamberboxes],dtype=np.float64),
-                          'XYdrift': np.flip(np.transpose(-np.array(driftvalues)),axis=1)}
-                 })
-    
-    else:
-        savemat(res_file,
-                {'res': [],
-                 'tiffile': xpfile,
-                 'moviedimensions': moviedimensions,
-                 'proc': {'rotation': rot_corr,
-                          'chambers': [],
-                          'XYdrift': []}
-                 })
-
-#TODO
-def getxppathdialog(ask_folder=False):
-    '''
-    Pop up window to select experiment file or folder.
-
-    Parameters
-    ----------
-    ask_folder : bool, optional
-        Folder selection window will pop up instead of file selection.
-        The default is False.
-
-    Returns
-    -------
-    file_path : str
-        Path to experiment file or folder.
-
-    '''
-    
-    import tkinter as tk
-    from tkinter import filedialog
-    
-    root = tk.Tk()
-    # root.withdraw() # For some reason this doesn't work with askdirectory?
-    if ask_folder:
-        file_path = filedialog.askdirectory(title='Please select experiment folder(s)',
-                                              mustexist=True)
-        
-    else:
-        file_path = filedialog.askopenfilenames(title='Please select experiment files(s)')
-    
-    root.destroy()
-        
-    return file_path
-
-
-def getcellsinframe(labels, get_contours=False, background=0):
-    '''
-    Get numbers of cells present in frame, sorted along Y axis
-
-    Parameters
-    ----------
-    labels : 2D numpy array of ints
-        Single frame from labels stack.
-    get_contours : bool, optional
-        Flag to get cv2 contours.
-
-    Returns
-    -------
-    cells : list
-        Cell numbers (0-based indexing).
-    contours : list
-        List of cv2 contours for each cell. Returned if get_contours==True.
-
-    '''
-    
-    cells, ind = np.unique(labels,return_index=True)
-    cells = [cell-1 for _,cell in sorted(zip(ind,cells))] # Sorting along Y axis, 1-based to 0-based, & removing 1st value (background)
-    cells = [cell for cell in cells if cell!=background-1] # Remove background
-    
-    # Get opencv contours:
-    if get_contours:
-        contours = []
-        for c, cell in enumerate(cells):
-            # Have to do it this way to avoid cases where border is shrunk out
-            cnt, _ = cv2.findContours(
-                (labels==cell+1).astype(np.uint8),
-                cv2.RETR_EXTERNAL,
-                cv2.CHAIN_APPROX_SIMPLE
-                )
-            contours += cnt
-        return cells, contours
-    else:
-        return cells
-
-def results_movie(position, frames=None):
-        
-    
-        # Re-read trans frames:
-        trans_frames = position.reader.getframes(
-            positions=position.position_nb,
-            channels=0,
-            frames=frames,
-            rescale=(0, 1),
-            squeeze_dimensions=False,
-            rotate=position.rotate
-            )
-        trans_frames = trans_frames[0,:,0]
-        if position.drift_correction:
-            trans_frames, _ = driftcorr(
-                trans_frames, drift=position.drift_values
-                )
-        movie = []
-        
-        # Run through frames, compile movie:
-        for f, fnb in enumerate(frames):
             
-            frame = trans_frames[f]
-            
-            #RGB-ify:
-            frame = np.repeat(frame[:,:,np.newaxis],3,axis=-1)
-            
-            # Add frame number text:
-            frame = cv2.putText(
-                frame,
-                text='frame %06d' %(fnb,),
-                org=(int(frame.shape[0]*.05),int(frame.shape[0]*.97)),
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=1,
-                color=(1, 1, 1, 1),
-                thickness=2
-                )
-            
-            for r, roi in enumerate(position.rois):
-                    
-                    # Get chamber-specific variables:
-                    colors = getrandomcolors(len(roi.lineage.cells), seed=r)
-                    cells, contours = getcellsinframe(
-                        roi.label_stack[fnb],
-                        get_contours=True
-                        )
-                    
-                    if roi.box is None:
-                        xtl, ytl = (0, 0)
-                    else:
-                        xtl, ytl = (roi.box['xtl'], roi.box['ytl'])
-                    
-                    # Run through cells in labelled frame:
-                    for c, cell in enumerate(cells):
-                        
-                        # Draw contours:
-                        frame = cv2.drawContours(
-                            frame,
-                            contours,
-                            c,
-                            color=colors[cell],
-                            thickness=1,
-                            offset=(xtl,ytl)
-                            )
-                        
-                        # Draw poles:
-                        oldpole = roi.lineage.getvalue(cell,'old_pole',fnb)
-                        frame = cv2.drawMarker(
-                            frame, 
-                            tuple(oldpole[::-1]), 
-                            color=colors[cell],
-                            markerType=cv2.MARKER_TILTED_CROSS,
-                            markerSize=3,
-                            thickness=1
-                            )
-                        
-                        daughter = roi.lineage.getvalue(cell,'daughters',fnb)
-                        bornago = roi.lineage.cells[cell]['frames'].index(fnb)
-                        
-                        if daughter is None and bornago>0:
-                            newpole = roi.lineage.getvalue(cell,'new_pole',fnb)
-                            frame = cv2.drawMarker(
-                                frame,
-                                tuple(newpole[::-1]),
-                                color=[1,1,1], 
-                                markerType=cv2.MARKER_TILTED_CROSS,
-                                markerSize=3,
-                                thickness=1
-                                )
-                        
-                        # Plot division arrow:
-                        if daughter is not None:
-                            
-                            newpole = roi.lineage.getvalue(cell,'new_pole',fnb)
-                            daupole = roi.lineage.getvalue(daughter,'new_pole',fnb)
-                            # Plot arrow:
-                            frame = cv2.arrowedLine(
-                                frame,
-                                tuple(newpole[::-1]),
-                                tuple(daupole[::-1]),
-                                color=(1,1,1),
-                                thickness=1
-                                )
-            
-            # Add to movie array:
-            movie+= [(frame*255).astype(np.uint8)]
-        
-        return movie
-
-def getrandomcolors(num_colors, seed=0):
-    '''
-    Pseudo-randomly generate list of random hsv colors.
-
-    Parameters
-    ----------
-    num_colors : int
-        Number of desired colors.
-    seed : None or int, optional
-        Seed to use with numpy.random.seed(). 
-        The default is 0.
-
-    Returns
-    -------
-    colors : list
-        List of RGB values (0-1 interval).
-
-    '''
-    
-    # Get colors:
-    cmap = cm.get_cmap('hsv', lut=num_colors)
-    colors = [cmap(i)[0:3] for i in range(num_colors)]
-    
-    # Pseudo randomly shuffle colors:
-    if seed is not None:
-        np.random.seed(seed)
-    np.random.shuffle(colors)
-    
-    return colors
-
-def getcentroid(contour):
-    '''
-    Get centroid of cv2 contour
-
-    Parameters
-    ----------
-    contour : 3D numpy array
-        Blob contour generated by cv2.findContours().
-
-    Returns
-    -------
-    cx : int
-        X-axis coordinate of centroid.
-    cy : int
-        Y-axis coordinate of centroid.
-
-    '''
-    
-    if contour.shape[0]>2: # Looks like cv2.moments treats it as an image
-        # Calculate moments for each contour
-        M = cv2.moments(contour)
-        # Calculate x,y coordinate of center
-        if M["m00"] != 0:
-            cx = int(M["m10"] / M["m00"])
-            cy = int(M["m01"] / M["m00"])
-        else:
-            cx, cy = 0, 0
-    else:
-        cx = int(np.mean(contour[:,:,0]))
-        cy = int(np.mean(contour[:,:,1]))
-        
-    return cx,cy
-
-
-
-def vidwrite(images, filename, crf=20, verbose=1):
-    '''
-    Write images stack to video file with h264 compression.
-
-    Parameters
-    ----------
-    images : 4D numpy array
-        Stack of RGB images to write to video file.
-    filename : str
-        File name to write video to. (Overwritten if exists)
-    crf : int, optional
-        Compression rate. 'Sane' values are 17-28. See 
-        https://trac.ffmpeg.org/wiki/Encode/H.264
-        The default is 23.
-    verbose : int, optional
-        Verbosity of console output. 
-        The default is 1.
-
-    Returns
-    -------
-    None.
-
-    '''
-    
-    # Initialize ffmpeg parameters:
-    height,width,_ = images[0].shape
-    quiet = [] if verbose else ['-loglevel', 'error', '-hide_banner']
-    process = (
-        ffmpeg
-            .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height),r=7)
-            .output(filename, pix_fmt='yuv420p', vcodec='libx264', crf=crf, preset='veryslow')
-            .global_args(*quiet)
-            .overwrite_output()
-            .run_async(pipe_stdin=True)
-    )
-    
-    # Write frames:
-    for frame in images:
-        process.stdin.write(
-            frame
-                .astype(np.uint8)
-                .tobytes()
+    # Decide how many images vertically the image is split into
+    ny = int(
+        1+float(img.shape[0]-min_overlap)/float(target_size[0]-min_overlap)
+        )
+    nx = int(
+        1+float(img.shape[1]-min_overlap)/float(target_size[1]-min_overlap)
         )
     
-    # Close file stream:
-    process.stdin.close()
+    # Compute y-axis indices:
+    ovlp_y = -(img.shape[0]-ny*target_size[0])/(ny-1)
+    loc_y = []
+    for n in range(ny-1):
+        loc_y += [
+            (int(target_size[0]*n-ovlp_y*n),int(target_size[0]*(n+1)-ovlp_y*n))
+            ]
+    loc_y += [(img.shape[0]-target_size[0],img.shape[0])]
     
-    # Wait for processing + close to complete:
-    process.wait()
+    # Compute x-axis indices:
+    ovlp_x = -(img.shape[1]-nx*target_size[1])/(nx-1)
+    loc_x = []
+    for n in range(nx-1):
+        loc_x += [
+            (int(target_size[1]*n-ovlp_x*n),int(target_size[1]*(n+1)-ovlp_x*n))
+            ]
+    loc_x += [(img.shape[1]-target_size[1],img.shape[1])]
+    
+    # Store all cropped images into one numpy array called windows
+    windows = np.zeros(((nx*ny,)+target_size),dtype=img.dtype)
+    for i in range(len(loc_y)):
+        for j in range(len(loc_x)):
+            windows[i*len(loc_x)+j,:,:] = img[
+                loc_y[i][0]:loc_y[i][1],
+                loc_x[j][0]:loc_x[j][1]
+                ]
+
+    return windows, loc_y, loc_x
 
 
-def updatelineage(newframe, stack, framenb=0, lineage=None, attrib=None):
+def stitch_pic(results,loc_y,loc_x):
     '''
-    Update lineage list and labels stack based on attribution matrix
+    Stitch segmentation back together from the windows of create_windows()
 
     Parameters
     ----------
-    newframe : numpy 2D array
-        Segmentation output for current frame.
-    stack : numpy 3D tensor of uint16
-        Labelled stack. Each frame until the current frame contains a numbered 
-        mask, with the number corresponding the cell number in the lineage. See
-        label_seg()
-    framenb : int, optional
-        Current frame number (0-based indexing).
-        The default is 0.
-    lineage : List of dicts, optional
-        List of all the cells encountered in the chamber. Each cell dict 
-        contains the following keys:
-            - mother, int: The number of the mother cell in the lineage 
-            (1-based indexing)
-            - framenbs, list of ints: The list of frames where the cell is 
-            present (1-based indexing)
-            - daughters, list of ints: A list of the same length as framenbs,
-            with each element equal to the number of the daughter in the 
-            lineage (1-based indexing) if a division occured at the 
-            corresponding frame number, and equal to 0 otherwise.
-        Note: We used 1-based indexing for compatibility with earlier code that
-        was written in Matlab.
-        If None is provided, the lineage will be initialized and all cells in 
-        the newframe image will be given 0 as a mother.
-        The default is None.
-    attrib : numpy 2D array of bool, optional
-        Attribution matrix for the current frame/timepoint as produced by 
-        number 0. If None, lineage and stack will not be updated.
-        getAttributions(). New cells with no attributions are given mother cell
-        The default is None.
+    results : 3D array
+        Segmentation outputs from the seg model with dimensions 
+        (nb_of_windows, target_size[0], target_size[1])
+    loc_y : list
+        List of lower and upper bounds for windows over the y axis
+    loc_x : list
+        List of lower and upper bounds for windows over the x axis
 
     Returns
     -------
-    lineage : List of dicts
-        lineage updated for the current frame and attrib matrix. See lineage 
-        input description above.
-    stack : numpy 3D tensor of uint16
-        labelled stack updated for the current frame and attrib matrix. See 
-        lineage input description above..
-
-    '''
-    
-    if lineage==None: # Not initialized yet
-        lineage = []
-        stack[framenb] = label_seg(newframe)
-        cells = np.unique(stack[framenb])
-        for c in cells[1:]: # Avoiding cell==0 (background)
-            lineage.append(createcell(framenb+1)) # We're using framenb +1 to be compatible with old Matlab code
-    else: # Update according to attribution matrix
-        # Init cell numbers, retrieve previous stack frame:
-        cellnumbers = []
-        label_old = label_seg((stack[framenb-1]>0).astype(np.uint8))
-        
-        # If previous stack frame has no cells:
-        if not np.any(label_old>0): # This can happen if the chamber is empty and suddenly cells appear (can be a segmentation error, or a focus problem)
-            contours = cv2.findContours(newframe.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] # In this case just label
-            for _ in range(len(contours)):
-                lineage.append(createcell(framenb+1))
-                cellnumbers.append(len(lineage))
-                
-        # If previous stack frame has cells:
-        else:
-            for i in range(attrib.shape[1]): # Go through new cells
-                if np.any(attrib[:,i,0]): # If cell is tracked from an old cell: (mother-mother)
-                    cellnum = int(stack[framenb-1][label_old==(np.nonzero(attrib[:,i,0])[0]+1)[0]][0]) # retrieving "mother" cell number from old stack frame
-                    lineage[cellnum-1]['framenbs'].append(float(framenb+1)) # Update frame number list
-                    if len(lineage[cellnum-1]['daughters']) < len(lineage[cellnum-1]['framenbs']): # If framenbs hasn't been updated (in case somehow daughter goes through before mother)
-                        lineage[cellnum-1]['daughters'].append(0.)
-                    cellnumbers.append(cellnum)
-                elif np.any(attrib[:,i,1]): # Cell is tracked as a daughter cell (mother-daughter)
-                    mothernb = int(stack[framenb-1][label_old==(np.nonzero(attrib[:,i,1])[0]+1)[0]][0]) # retrieving cell number from stack
-                    # Create new cell, as daughter of mother:
-                    lineage.append(createcell(framenb+1,mothernb))
-                    cellnumbers.append(len(lineage))
-                    # Update 'daughters' key of mother cell:
-                    if len(lineage[mothernb-1]['daughters']) < len(lineage[mothernb-1]['framenbs']): # This situation should never happen actually
-                        lineage[mothernb-1]['daughters'].append(float(cellnumbers[-1]))
-                    else:
-                        lineage[mothernb-1]['daughters'][-1] = float(cellnumbers[-1])
-                else: # Orphan cell
-                    lineage.append(createcell(framenb+1))
-                    cellnumbers.append(len(lineage))
-                    
-        # Compile new labeled frame, push to stack:
-        stack[framenb] = label_seg(newframe,cellnumbers=cellnumbers)
-    return lineage, stack
-
-def findfirst(mylist):
-    return next((i for i, x in enumerate(mylist) if x>0), None)
-
-def load_position(filename):
-    
-    import pickle
-    f = open(filename, 'rb')
-    p = pickle.load(f)
-    f.close()
-    return p
-
-
-def stitch_pic(results,loc_y,loc_x,target_size = (512,512),overlap = False):
-    
-    '''
-
-    Parameters
-    ----------
-    results : 4D numpy array
-        Segmentation outputs from the seg model with dimensions #_of_windows -by- target_size[0] -by- target_size[1] -by- 1
-        results contain all cropped segmentations from one image.
-    loc_y_slice : numpy array with size = (2, number of windows)
-        Give the location of the slices in axis = 0. (Split the image vertically)
-    loc_x_slice : numpy array with size = (2, number of windows)
-        Give the location of teh slices in axis = 1. (Split the image horizontally)
-    target_size : tuple of 2 int, optional
-        target_size is used to reconstruct the segmented image.
-        The default is (512,512).
-    overlap : bool, optional
-        If True, when segmentations are overlapping, the average will be taken.
-        If False, segmentations will be cropped so none are overlapping.
-        The default is False.
-        False is recommened as the model does not do as well near the edges 
-
-    Returns
-    -------
-    stitch_norm : numpy array 3D with shape (original image shape + (1,))
-        returns the stitched segmented image as a 3D numpy array with values between 0 and 1.
+    stitch_norm : 2D array
+        Stitched image.
 
     '''
     
@@ -1193,80 +416,36 @@ def stitch_pic(results,loc_y,loc_x,target_size = (512,512),overlap = False):
     return stitch
 
 
-def create_windows(img, target_size = (512,512), min_overlap = 24):
+def gettrackingboxes(cell, frame_shape=None, target_size=cfg.target_size_track):
     '''
-    The model only takes one input size.
-    This function gets the location of indeces of how the image will split mulitple windows.
-    Then it will crop the image into multiple windows based on these indeces
+    Get a crop box and a fill box around a cell that fits the tracking target 
+    size
 
     Parameters
     ----------
-    img : 2D or 3D numpy array
-        For segmentation, the model only accepts images with size (512,512). 
-        The image needs to be split into windows of size (512,512) that cover the whole image.
-    target_size : tuple, optional
-        The target size is the size of the windows which wil be fed into the mdoel.
-        The default is (512,512).
-    overlap : int, optional
-        Overlap determines how much overlap between windows.
-        Defaul is 24 pixels.
-        
+    cell : 2D array of uint8
+        Mask of the cell to track.
+    frame_shape : tuple of 2 ints or None, optional
+        Original dimensions of the  image. If None, cell.shape is used.
+        The default is None.
+    target_size : tuple of 2 ints, optional
+        Target dimensions of the cropped image. 
+        The default is cfg.target_size_track.
 
     Returns
     -------
-    
-    windows: numpy arr with size (# of slices in the y direction, # of slices in the x direction, img.shape[0], img.shape[1], 1)
-        Gives the image cropped into the target size needed to feed the model
-    loc_y_slice : numpy array with size = (2, number of windows)
-        Give the location of the slices in axis = 0. (Split the image vertically)
-    loc_x_slice : numpy array with size = (2, number of windows)
-        Give the location of teh slices in axis = 1. (Split the image horizontally)
-
-    Window n is:
-        img[loc_y_slice[n,0] : loc_y_slice[n,1], loc_x_slice[n,0] : loc_x_slice[n,1]]
-
-    The loc_y_slice & loc_x_slice are needed as outputs to stitch the segmented images back together
+    cropbox : dict
+        Crop box in the cropbox() input format.
+        The crop box determines which part of the full-size frame to crop out.
+    fillbox : dict
+        Fill box in the cropbox() input format.
+        The fill box determines which part of the target-size input to fill with
+        the cropped out image.
 
     '''
-            
-    # Decides how many images vertically the image is split into
-    ny = int(
-        1+float(img.shape[0]-min_overlap)/float(target_size[0]-min_overlap)
-        )
-    nx = int(
-        1+float(img.shape[1]-min_overlap)/float(target_size[1]-min_overlap)
-        )
     
-    # Compute y-axis indices:
-    ovlp_y = -(img.shape[0]-ny*target_size[0])/(ny-1)
-    loc_y = []
-    for n in range(ny-1):
-        loc_y += [
-            (int(target_size[0]*n-ovlp_y*n),int(target_size[0]*(n+1)-ovlp_y*n))
-            ]
-    loc_y += [(img.shape[0]-target_size[0],img.shape[0])]
-    
-    # Compute x-axis indices:
-    ovlp_x = -(img.shape[1]-nx*target_size[1])/(nx-1)
-    loc_x = []
-    for n in range(nx-1):
-        loc_x += [
-            (int(target_size[1]*n-ovlp_x*n),int(target_size[1]*(n+1)-ovlp_x*n))
-            ]
-    loc_x += [(img.shape[1]-target_size[1],img.shape[1])]
-    
-    # Store all cropped images into one numpy array called windows
-    windows = np.zeros(((nx*ny,)+target_size),dtype=img.dtype)
-    for i in range(len(loc_y)):
-        for j in range(len(loc_x)):
-            windows[i*len(loc_x)+j,:,:] = img[
-                loc_y[i][0]:loc_y[i][1],
-                loc_x[j][0]:loc_x[j][1]
-                ]
-
-    return windows, loc_y, loc_x
-
-def gettrackingboxes(cell, frame_shape, target_size=cfg.target_size_track):
+    if frame_shape is None:
+        frame_shape = cell.shape
     
     cx, cy = getcentroid(cell)
     
@@ -1289,27 +468,203 @@ def gettrackingboxes(cell, frame_shape, target_size=cfg.target_size_track):
     return cropbox, fillbox
 
 
-def getpoles(seg, labels=None):
+#%% Masks, labels, objects identification
+
+def getROIBoxes(chambersmask):
+    '''
+    Extract the bounding boxes of the chambers in the binary mask
+    produced by the chambers identification unet
+
+    Parameters
+    ----------
+    chambersmask : 2D array of uint8/uint16/floats
+        The mask of the chambers as returned by the chambers id unet.
+
+    Returns
+    -------
+    chamberboxes : list of dictionaries
+        List of cropping box dictionaries (see cropbox()).
+
+    '''
+    chamberboxes = []
+    if chambersmask.dtype == bool:
+        chambersmask = chambersmask.astype(np.uint8)
+    else:
+        chambersmask = cv2.threshold(chambersmask,.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
+    contours = cv2.findContours(chambersmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+    for chamber in contours:
+        xtl, ytl, boxwidth, boxheight = cv2.boundingRect(chamber)
+        chamberboxes.append(dict(
+                xtl = xtl,
+                ytl = int(ytl-(boxheight*.1)), # -10% of height to make sure the top isn't cropped
+                xbr = xtl+boxwidth,
+                ybr = ytl+boxheight)) # tl = top left, br = bottom right.
+    chamberboxes.sort(key=lambda elem: elem['xtl'])# Sorting by top-left X (normally sorted by Y top left)
+    return chamberboxes
+
+
+def label_seg(seg,cellnumbers=None,return_contours=False,background=0):
+    '''
+    Label cells in segmentation mask
+
+    Parameters
+    ----------
+    seg : numpy 2D array of float/uint8/uint16/bool
+        Cells segmentation mask. Values >0.5 will be considered cell pixels
+    cellnumbers : list of ints, optional
+        Numbers to attribute to each cell mask, from top to bottom of image.
+        Because we are using uint16s, maximum cell number is 65535. If None is 
+        provided, the cells will be labeled 1,2,3,... Background is 0
+        The default is None.
+
+    Returns
+    -------
+    label : 2D numpy array of uint16
+        Labelled image. Each cell in the image is marked by adjacent pixels 
+        with values given by cellnumbers
+
+    '''
+    if seg.dtype == bool:
+        seg = seg.astype(np.uint8)
+    else:
+        seg = cv2.threshold(seg,.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
+    contours = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+    contours.sort(key=lambda elem: np.max(elem[:,0,1])) # Sorting along Y
+    label = np.full(seg.shape,background,dtype=np.uint16)
+    for c, contour in enumerate(contours):
+        label = cv2.fillPoly(label,[contour],c+1 if cellnumbers is None else cellnumbers[c])
+    if return_contours:
+        return label, contours
+    else:
+        return label
+
+
+def getcellsinframe(labels, return_contours=False, background=0):
+    '''
+    Get numbers of cells present in frame, sorted along Y axis
+
+    Parameters
+    ----------
+    labels : 2D numpy array of ints
+        Single frame from labels stack.
+    return_contours : bool, optional
+        Flag to get cv2 contours.
+
+    Returns
+    -------
+    cells : list
+        Cell numbers (0-based indexing).
+    contours : list
+        List of cv2 contours for each cell. Returned if return_contours==True.
+
+    '''
     
+    cells, ind = np.unique(labels,return_index=True)
+    cells = [cell-1 for _,cell in sorted(zip(ind,cells))] # Sorting along Y axis, 1-based to 0-based, & removing 1st value (background)
+    cells = [cell for cell in cells if cell!=background-1] # Remove background
+    
+    # Get opencv contours:
+    if return_contours:
+        contours = []
+        for c, cell in enumerate(cells):
+            # Have to do it this way to avoid cases where border is shrunk out
+            cnt, _ = cv2.findContours(
+                (labels==cell+1).astype(np.uint8),
+                cv2.RETR_EXTERNAL,
+                cv2.CHAIN_APPROX_NONE
+                )
+            contours += cnt
+        return cells, contours
+    else:
+        return cells
+
+
+def getcentroid(contour):
+    '''
+    Get centroid of cv2 contour
+
+    Parameters
+    ----------
+    contour : 3D numpy array
+        Blob contour generated by cv2.findContours().
+
+    Returns
+    -------
+    cx : int
+        X-axis coordinate of centroid.
+    cy : int
+        Y-axis coordinate of centroid.
+
+    '''
+    
+    if contour.shape[0]>2: # Looks like cv2.moments treats it as an image
+        # Calculate moments for each contour
+        M = cv2.moments(contour)
+        # Calculate x,y coordinate of center
+        if M["m00"] != 0:
+            cx = int(M["m10"] / M["m00"])
+            cy = int(M["m01"] / M["m00"])
+        else:
+            cx, cy = 0, 0
+    else:
+        cx = int(np.mean(contour[:,:,0]))
+        cy = int(np.mean(contour[:,:,1]))
+        
+    return cx,cy
+
+
+#%% Poles
+
+def getpoles(seg, labels=None, scaling=None):
+    '''
+    Get cell poles
+
+    Parameters
+    ----------
+    seg : 2D array of uint8
+        Cell segmentation mask.
+    labels : 2D array of int, optional
+        Cell labels map. If None, label_seg() will be applied to seg
+        The default is None.
+
+    Returns
+    -------
+    poles : list
+        List of poles per cell. Each cell in the list has exactly 2 poles.
+
+    '''
+    
+    # No label provided:
     if labels is None:
         labels = label_seg(seg)
+    
+    # Get poles using skeleton method:
     skel = skeletonize(seg, method='lee')
-    ends = skeleton_poles(skel)
-    poles = extract_poles(ends, labels)
+    ends_map = skeleton_poles(skel)
+    poles = extract_poles(ends_map, labels)
+    
+    # Make sure cells have 2 poles each:
     for p in range(len(poles)):
         if len(poles[p])>2:
-            poles[p] = check_two_endpoints(poles[p])
+            poles[p] = two_poles(poles[p])
         if len(poles[p])<2: # Sometimes skeletonize fails
-            poles[p] = extrema_poles(labels==p+1)
+            poles[p] = extrema_poles(labels==p+1, scaling=scaling)
+    
+    # Apply scaling:
+    if scaling:
+        for c in poles:
+            for p in c:
+                p[:] = [int(yx*scale) for yx, scale in zip(p,scaling)]
     
     return poles
+
 
 def skeleton_poles(skel):
     """
     This function was adapted from stackoverflow
     #https://stackoverflow.com/questions/26537313/how-can-i-find-endpoints-of-binary-skeleton-image-in-opencv
 
-    It uses a kernel to filter out the endpoints
+    It uses a kernel to filter out the poles
 
     Parameters
     ----------
@@ -1319,7 +674,7 @@ def skeleton_poles(skel):
     Returns
     -------
     out : 2D numpy array 
-        Contains the endpoints of the skeletons from the input (skel).
+        Contains the poles of the skeletons from the input (skel).
         
     """
 
@@ -1331,15 +686,34 @@ def skeleton_poles(skel):
     filtered = cv2.filter2D(skel,src_depth,kernel)
 
     # now look through to find the value of 11
-    # this returns a mask of the endpoints, but if you just want the coordinates, you could simply return np.where(filtered==11)
+    # this returns a mask of the poles
     out = np.zeros_like(skel)
     out[np.where(filtered==11)] = 1
+    
     return out
 
-def extrema_poles(cellmask):
+
+def extrema_poles(cellmask, scaling=None):
+    '''
+    A slower and more rudimentary version of poles finding but that is 
+    guaranteed to find exactly 2 poles
+
+    Parameters
+    ----------
+    cellmask : 2D array of int
+        Segmentation mask of a single cell.
+
+    Returns
+    -------
+    poles : list of 2 1D arrays
+        List of two poles, each being a 2-element array of y-x coordinates.
+
+    '''
+    
+    scaling = scaling or (1,1)
     
     y,x = cellmask.nonzero()
-    if np.ptp(y)>np.ptp(x): # Vertical cell
+    if np.ptp(y)*scaling[0]>np.ptp(x)*scaling[1]: # Vertical cell
         i = np.lexsort((x,y))
     else: # Horizontal cell
         i = np.lexsort((y,x))    
@@ -1347,48 +721,63 @@ def extrema_poles(cellmask):
     
     return poles
 
-def check_two_endpoints(endpoints):
+
+def two_poles(poles):
     '''
-    
-    Sometimes the skeleton of a segmentation of a single cell will give multiple endpoints
-    This function takes one of the endpoints at random and finds the other endpoint with the longest distance. Then it will find the endpoint with the longest distance from that endpoint
-    This function will do nothing if the number of endpoints are 2    
+    Sometimes the skeleton produces more than 2 poles.
+    Thus function selects only 2 poles in the skeleton.
 
     Parameters
     ----------
-    endpoints : 2D numpy array
+    poles : list
         Coordinates for the mother/daughter poles for a single cell
-        Dimension is #_of_endpoints -by- [y_coordiante x_coordinate] (2) 
+        Dimension is (#_of_poles, [y_coordiante, x_coordinate])
         
 
     Returns
     -------
-    endpoints : 2D numpy array
-        Dimensions are 2 -by- [y_coordiante x_coordinate] (2). It is not known which pole is the mother/daughter pole
+    poles : List of 2 1D array
+        List of two poles, each being a 2-element array of y-x coordinates.
 
     '''
 
     dist = 0
-    # Measure the distance from the first endpoint to all the other endpoints
-    for i in range(1,len(endpoints)):
-        d = eucl(endpoints[0],endpoints[i])
+    # Measure the distance from the first endpoint to all the other poles
+    for i in range(1,len(poles)):
+        d = eucl(poles[0],poles[i])
         if d > dist:
             dist = d
             i_max = i
     
     # Redo the same thing starting from the furthest endpoint:
     dist = 0
-    for j in range(len(endpoints)):
+    for j in range(len(poles)):
         if j != i_max: # skip same point
-            d = eucl(endpoints[i_max],endpoints[j])
+            d = eucl(poles[i_max],poles[j])
             if d > dist:
                 dist = d
                 j_max = j
 
-    return [endpoints[i_max],endpoints[j_max]]
+    return [poles[i_max],poles[j_max]]
     
 def extract_poles(end_img, labels):
-    
+    '''
+    Extract poles per cell from ends image
+
+    Parameters
+    ----------
+    end_img : 2D array of bool
+        'Mask' of the poles in the image.
+    labels : 2D array of int
+        Cell labels map.
+
+    Returns
+    -------
+    poles : list of tuples of 2 1D numpy arrays
+        For each cell, tuple of 2 numpy arrays with the y-x coordinates 
+        of the poles.
+
+    '''
     locations = end_img.nonzero()
     poles = [[] for _ in range(np.max(labels))]
     for p in range(len(locations[0])):
@@ -1398,17 +787,180 @@ def extract_poles(end_img, labels):
     
     return poles
 
+
 def eucl(p1,p2):
+    '''
+    Euclidean point to point distance
+
+    Parameters
+    ----------
+    p1 : 1D array
+        Coordinates of first point.
+    p2 : 1D array
+        Coordinates of second point.
+
+    Returns
+    -------
+    float
+        Euclidean distance between p1 and p2.
+
+    '''
     return np.linalg.norm(p1-p2)
 
+
+#%% Lineage
+
+def getTrackingScores(labels, outputs, boxes=None):
+    '''
+    Get overlap scores between input/target cells and tracking outputs
+
+    Parameters
+    ----------
+    inputs : 2D array of floats
+        Segmentation mask of input/target cells that the tracking U-Net is 
+        tracking against. (ie segmentation mask of the 'current'/'new' frame)
+    outputs : 4D array of floats
+        Tracking U-Net output.
+
+    Returns
+    -------
+    scores : 2D array of floats
+        Overlap scores matrix between tracking predictions and current 
+        segmentation mask for each new-old cell.
+
+    '''
+
+    total_cell = np.max(labels)
+    if total_cell == 0:
+        return None
+    
+    # Get areas for each cell:
+    _, areas = np.unique(labels, return_counts=True)
+    areas = areas[1:]
+    
+    # Compile scores:
+    scores = np.zeros([outputs.shape[0],total_cell],dtype=np.float32)
+    for o, output in enumerate(outputs):
+        
+        # Find pixels with a score > .05:
+        nz = list((output>.05).nonzero())
+        if len(nz[0])==0:
+            continue
+        
+        # Find cells that are "hit" by those pixels in the labels image:
+        if boxes is None or\
+            boxes[o] is None or\
+                all([v is None for v in boxes[o][0].values()]):
+            cells, counts = np.unique(labels[tuple(nz)], return_counts=True)
+            
+        else:
+            # Clean nz hits outside of fillbox:
+            cb, fb = boxes[o][:]
+            to_remove = np.logical_or.reduce(
+                (
+                    nz[0]<=fb['ytl'],
+                    nz[0]>=fb['ybr'],
+                    nz[1]<=fb['xtl'],
+                    nz[1]>=fb['xbr']
+                    )
+                )
+            nz[0] = np.delete(nz[0],to_remove.nonzero())
+            nz[1] = np.delete(nz[1],to_remove.nonzero())
+            
+            # Offset hits by cropbox-fillbox:
+            nz[0] = nz[0]+cb['ytl']-fb['ytl']
+            nz[1] = nz[1]+cb['xtl']-fb['xtl']
+            
+            # Compute number of hits per cell:
+            cells, counts = np.unique(labels[nz[0],nz[1]], return_counts=True)
+        
+        # Compile score for these cells:
+        for c, cell in enumerate(cells):
+            if cell > 0:
+                scores[o,cell-1]=counts[c]/areas[cell-1]
+    
+    return scores
+
+
+def getAttributions(scores):
+    '''
+    Get attribution matrix from tracking scores
+
+    Parameters
+    ----------
+    scores : 2D array of floats
+        Tracking scores matrix as produced by the getTrackingScores function.
+
+    Returns
+    -------
+    attrib : 2D array of bools
+        Attribution matrix. Cells from the old frame (axis 0) are attributed to
+        cells in the new frame (axis 1). Each old cell can be attributed to 1 
+        or 2 new cells.
+
+    '''
+    
+    attrib = np.zeros(scores.shape, dtype=int)
+    
+    for n in range(scores.shape[1]):
+        worst_old = np.argsort(scores[:,n]) # Worst-to-best score of old cells for n-th new cell
+        # Run through old cells from best to worst:
+        for o in range(-1,-scores.shape[0]-1,-1):
+            o_best = worst_old[o] # o-th best old cell 
+            s = scores[o_best,n]
+            # If score gets too low, stop:
+            if s < .2:
+                break
+            # Check if new cell is at least 2nd best for this old cell:
+            worst_new = np.argsort(scores[o_best,:]) # Worst-to-best score of new cells for o_best old cell
+            if n in worst_new[-2:]:
+                attrib[o_best,n]=1
+                break
+                
+    return attrib
+
+
 class Lineage:
+    '''
+    Class for cell lineages contained in each ROI
+    '''
     
     def __init__(self):
+        '''
+        Initialize object.
+
+        Returns
+        -------
+        None.
+
+        '''
         self.cells = []
         self.stack = []
         self.cellnumbers = []
     
     def update(self, cell, frame, attrib=[], poles=[]):
+        '''
+        Attribute cell from previous frame to cell(s) in new frame.
+
+        Parameters
+        ----------
+        cell : int or None
+            Cell index in previous frame to update. If None, the cells in the
+            new frame are treated as orphans.
+        frame : int
+            Frame / timepoint number.
+        attrib : list of int, optional
+            Cell index(es) in current frame to attribute the previous cell to.
+            The default is [].
+        poles : list of lists of 1D numpy arrays, optional
+            List of poles for the cells in the new frame.
+            The default is [].
+
+        Returns
+        -------
+        None.
+
+        '''
         
         # Check cell numbers list:
         if len(self.cellnumbers)<=frame:
@@ -1418,6 +970,7 @@ class Lineage:
         
         # If no attribution: (new/orphan cell)
         if cell is None and len(attrib)>0:
+            poles[0].sort(key=lambda p: p[0], reverse=True)
             cellnum = self.createcell(frame,new_pole=poles[0][0],old_pole=poles[0][1])
             self.cellnumbers[frame][attrib[0]]=cellnum
         
@@ -1426,8 +979,8 @@ class Lineage:
             cellnum = self.cellnumbers[frame-1][cell] # Get old cell number
             self.cellnumbers[frame][attrib[0]]=cellnum
             # Poles of mother/previous/old cell:
-            prev_old = self.getvalue(cellnum, 'old_pole', frame-1)
-            prev_new = self.getvalue(cellnum, 'new_pole', frame-1)
+            prev_old = self.getvalue(cellnum, frame-1, 'old_pole')
+            prev_new = self.getvalue(cellnum, frame-1, 'new_pole')
             # Find which pole is new vs old:
             if eucl(poles[0][0],prev_old)+eucl(poles[0][1],prev_new)\
                 < eucl(poles[0][0],prev_new)+eucl(poles[0][1],prev_old):
@@ -1444,8 +997,8 @@ class Lineage:
         elif len(attrib)==2:
             mothernum = self.cellnumbers[frame-1][cell] # Get old cell number
             # Poles of mother/previous/old cell:
-            prev_old = self.getvalue(mothernum, 'old_pole', frame-1)
-            prev_new = self.getvalue(mothernum, 'new_pole', frame-1)
+            prev_old = self.getvalue(mothernum, frame-1, 'old_pole')
+            prev_new = self.getvalue(mothernum, frame-1, 'new_pole')
             # Find new new poles (2 closest of the poles of the new cells):
             min_dist = np.inf
             for c1 in range(2):
@@ -1498,8 +1051,6 @@ class Lineage:
                     )
                 self.cellnumbers[frame][attrib[1]]=mothernum
             
-            if daughternum not in self.cellnumbers[frame]:
-                raise RuntimeError('daughter not added')
             
     def createcell(self, frame, new_pole=None, old_pole=None, mother=None):
         '''
@@ -1535,13 +1086,59 @@ class Lineage:
     def updatecell(
             self, cell, frame, daughter=None, new_pole=None, old_pole=None
             ):
+        '''
+        Update cell lineage values
+
+        Parameters
+        ----------
+        cell : int
+            Cell number in lineage.
+        frame : int
+            Frame / timepoint number.
+        daughter : int or None, optional
+            Daughter cell number if division just happened.
+            The default is None.
+        new_pole : list, optional
+            New pole location. The default is None.
+        old_pole : list, optional
+            Old pole location. The default is None.
+
+        Returns
+        -------
+        None.
+
+        '''
         
         self.cells[cell]['frames']+=[frame] # Update frame number list
         self.cells[cell]['daughters']+=[daughter]
         self.cells[cell]['old_pole']+=[old_pole]
         self.cells[cell]['new_pole']+=[new_pole]
     
-    def setvalue(self,cell,feature,frame,value):
+    def setvalue(self,cell,frame,feature,value):
+        '''
+        Set feature value for specific cell and frame/timepoint
+
+        Parameters
+        ----------
+        cell : int
+            Cell number in lineage.
+        frame : int
+            Frame / timepoint number.
+        feature : str
+            Feature to set value for.
+        value : int, float, str
+            Value to assign.
+
+        Raises
+        ------
+        ValueError
+            Raised if the cell has not been detected in the frame.
+
+        Returns
+        -------
+        None.
+
+        '''
         
         try:
             i = self.cells[cell]['frames'].index(frame)
@@ -1558,7 +1155,30 @@ class Lineage:
         # Add value:
         cell[feature][i]=value
     
-    def getvalue(self,cell,feature,frame):
+    def getvalue(self,cell,frame,feature):
+        '''
+        Get feature value for specific timepoint/frame
+
+        Parameters
+        ----------
+        cell : int
+            Cell number in lineage.
+        frame : int
+            Frame / timepoint number.
+        feature : str
+            Feature to get value for.
+
+        Raises
+        ------
+        ValueError
+            Raised if the cell has not been detected in the frame.
+
+        Returns
+        -------
+        int, float, str
+            Value for feature at frame.
+
+        '''
         
         try:
             i = self.cells[cell]['frames'].index(frame)
@@ -1566,6 +1186,42 @@ class Lineage:
             raise ValueError('Cell %d is not present in frame %f'%(cell,frame))
         
         return self.cells[cell][feature][i]
+
+
+#%% Image files
+
+def getxppathdialog(ask_folder=False):
+    '''
+    Pop up window to select experiment file or folder.
+
+    Parameters
+    ----------
+    ask_folder : bool, optional
+        Folder selection window will pop up instead of file selection.
+        The default is False.
+
+    Returns
+    -------
+    file_path : str
+        Path to experiment file or folder.
+
+    '''
+    import tkinter as tk
+    from tkinter import filedialog
+    
+    root = tk.Tk()
+    # root.withdraw() # For some reason this doesn't work with askdirectory?
+    if ask_folder:
+        file_path = filedialog.askdirectory(title='Please select experiment folder(s)',
+                                              mustexist=True)
+        
+    else:
+        file_path = filedialog.askopenfilename(title='Please select experiment files(s)')
+    
+    root.destroy()
+        
+    return file_path
+
 
 class xpreader:
     
@@ -1584,11 +1240,12 @@ class xpreader:
 
         Parameters
         ----------
-        filename : String
-            Path to experiment tif file or directory.If the path leads to a
+        filename : String or None
+            Path to experiment file or directory. If the path leads to a
             directory, the experiment folder is expected to contain exclusively
-            single-page tif images. If no prototype is provided, the filenames 
-            are expected to be of the following C-style format: 
+            single-page tif images. If None, an interactive selection dialog
+            will be used. If no prototype is provided, the filenames are
+            expected to be of the following C-style format: 
             %s%d%s%d%s%d.tif, with the 3 %d digit strings being zero-padded 
             decimal representation of the position, channel and frame/timepoint
             number of each image file.
@@ -1636,17 +1293,29 @@ class xpreader:
 
         '''
         
-        _, file_extension = os.path.splitext(filename)
-        self.filename = filename
-        self.use_bioformats = use_bioformats
+        if filename is None:
+            # Interactive selection and pop up window:
+            self._interactive_init()
+        else:
+            self.filename = filename
+            self.use_bioformats = use_bioformats
+            self.fileorder = fileorder
+            self.filenamesindexing = filenamesindexing
+            self.prototype = prototype
+        
         self.channelnames = channelnames
         self.watchfiles = watchfiles
-        if use_bioformats:
+        
+        _, file_extension = os.path.splitext(self.filename)
+        
+        if self.use_bioformats:
             import bioformats, javabridge
             javabridge.start_vm(class_path=bioformats.JARS)
             self.filetype = file_extension.lower()[1:]
-            self.filehandle = bioformats.ImageReader(filename)
-            md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=filename))
+            self.filehandle = bioformats.ImageReader(self.filename)
+            md = bioformats.OMEXML(
+                bioformats.get_omexml_metadata(path=self.filename)
+                )
             self.positions = md.get_image_count()
             self.timepoints = md.image(0).Pixels.SizeT # Here I'm going to assume all series have the same number of timepoints
             self.channels = md.image(0).Pixels.channel_count
@@ -1655,14 +1324,12 @@ class xpreader:
             # Get first image to get datatype (there's probably a better way to do this...)
             self.dtype = self.filehandle.read(rescale=False,c=0).dtype
         
-        elif os.path.isdir(filename): # Experiment is stored as individual image TIFF files in a folder
+        elif os.path.isdir(self.filename): # Experiment is stored as individual image TIFF files in a folder
             self.filetype = 'dir'
-            self.filehandle = filename
-            self.fileorder = fileorder
-            self.filenamesindexing = filenamesindexing
+            self.filehandle = self.filename
             # If filename prototype is not provided, guess it from the first file:
-            if prototype is None:
-                imgfiles = [x for x in os.listdir(filename) if os.path.splitext(x)[1].lower() in ('.tif','.tiff')]
+            if self.prototype is None:
+                imgfiles = [x for x in os.listdir(self.filename) if os.path.splitext(x)[1].lower() in ('.tif','.tiff')]
                 # Here we assume all images in the folder follow the same naming convention:
                 numstrs = re.findall("\d+", imgfiles[0]) # Get digits sequences in first filename
                 charstrs = re.findall("\D+", imgfiles[0]) # Get character sequences in first filename
@@ -1674,8 +1341,6 @@ class xpreader:
                                     charstrs[1]+'%0'+str(len(numstrs[1]))+'d'+\
                                     charstrs[2]+'%0'+str(len(numstrs[2]))+'d'+\
                                     charstrs[3]
-            else:
-                self.prototype = prototype
             # Get experiment settings by testing if relevant files exist: 
             # Get number of positions:
             if 'p' in self.fileorder:
@@ -1710,7 +1375,7 @@ class xpreader:
         elif (file_extension.lower() == '.tif' or file_extension.lower() == '.tiff'): # Works with single-series tif & mutli-series ome.tif
             from skimage.external.tifffile import TiffFile
             self.filetype = 'tif'
-            self.filehandle = TiffFile(filename)
+            self.filehandle = TiffFile(self.filename)
             self.positions = len(self.filehandle.series)
             s = self.filehandle.series[0] # Here I'm going to assume all series have the same format
             self.timepoints = s.shape[s.axes.find('T')]
@@ -1718,6 +1383,60 @@ class xpreader:
             self.x = s.shape[s.axes.find('X')]
             self.y = s.shape[s.axes.find('Y')]
             self.dtype = s.pages[0].asarray().dtype
+    
+    
+    def _interactive_init(self):
+        
+        # Get xp settings:
+        print(('Experiment type?\n'
+              '1 - Bio-Formats compatible (.nd2, .oib, .czi, .ome.tif...)\n'
+              '2 - bioformats2sequence (folder)\n'
+              '3 - micromanager (folder)\n'
+              '4 - high-throughput (folder)\n'
+              '0 - other (folder)\n'
+              'Enter a number: '),end='')
+        answer = int(input())
+        print()
+        
+        # If bioformats file(s):
+        if answer is None or answer == 1:
+            print('Please select experiment file(s)...')
+            self.filename = getxppathdialog(ask_folder=False)
+            self.use_bioformats = True
+            self.prototype = None
+            self.filenamesindexing = 1
+            self.fileorder = 'pct'
+
+        # If folder:
+        else:
+            print('Please select experiment folder...')
+            self.filename = getxppathdialog(ask_folder=True)
+            self.use_bioformats = False
+            if answer is None or answer == 2:
+                self.prototype = None
+                self.fileorder = 'pct'
+                self.filenamesindexing=1
+            elif answer == 3:
+                self.prototype = 'Pos%01d/img_channel%03d_position%03d_time%09d_z000.tif'
+                self.fileorder = 'pcpt'
+                self.filenamesindexing=0
+            elif answer == 4:
+                self.prototype = 'chan%02d_img/Position%06d_Frame%06d.tif'
+                self.fileorder = 'cpt'
+                self.filenamesindexing=1
+            elif answer == 0:
+                print('Enter files prototype: ', end='')
+                self.prototype = input()
+                print()
+                print('Enter files order: ', end='')
+                self.fileorder = input()
+                print()
+                print('Enter files indexing: ', end='')
+                self.filenamesindexing = int(input())
+                print()
+            else:
+                raise ValueError('Invalid experiment type')
+            print()
                 
     def close(self):
         if self.use_bioformats:
@@ -1914,10 +1633,12 @@ class xpreader:
 
         # Return:
         return np.squeeze(output) if squeeze_dimensions else output
-    
 
 
 class files_watcher(Thread):
+    '''
+    Daemon to watch experiment files and signal new ones
+    '''
     
     def __init__(self, reader):
         super().__init__()
@@ -1964,6 +1685,15 @@ class files_watcher(Thread):
             time.sleep(.01)
             
     def newfiles(self):
+        '''
+        Get list of new files position and channel
+
+        Returns
+        -------
+        newfiles : list of tuples
+            List containing all new files position and channel.
+
+        '''
         
         newfiles = []
         for p, pos_old in enumerate(self.old):
@@ -1971,3 +1701,402 @@ class files_watcher(Thread):
                 if latest_read < self.new[p][c]:
                     newfiles += [(p,c)]
         return newfiles
+
+
+#%% Saving & Loading results
+
+def loadmodels(toload=cfg.models):
+    '''
+    Load models (as specified in config.py)
+
+    Parameters
+    ----------
+    toload : list of str, optional
+        Which of the 3 models to load. 
+        The default is ['rois','segmentation','tracking'].
+
+    Returns
+    -------
+    models : dict
+        Dictionary containing the models specified.
+
+    '''
+    
+    
+    from model import unet_rois, unet_seg, unet_track
+    models = dict()
+    
+    if 'rois' in toload:
+        models['rois'] = unet_rois(input_size = cfg.target_size_rois + (1,))
+        models['rois'].load_weights(cfg.model_file_rois)
+    
+    if 'segmentation' in toload:
+        models['segmentation'] = unet_seg(input_size = cfg.target_size_seg + (1,))
+        models['segmentation'].load_weights(cfg.model_file_seg)
+    
+    if 'tracking' in toload:
+        models['tracking'] = unet_track(input_size = cfg.target_size_track + (4,))
+        models['tracking'].load_weights(cfg.model_file_track)
+    
+    return models
+
+
+def legacysave(position, res_file):
+    '''
+    Save pipeline data in the legacy Matlab format
+
+    Parameters
+    ----------
+    position : pipeline.Position object
+        Position object to save data for.
+    res_file : str
+        Path to save file.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    # File reader info
+    moviedimensions = [
+                position.reader.y,
+                position.reader.x,
+                position.reader.channels,
+                position.reader.timepoints
+                ]
+    xpfile = position.reader.filename
+    
+    # If No ROIs detected for position:
+    if len(position.rois)==0:
+        savemat(
+            res_file,
+            {'res': [],
+             'tiffile': xpfile,
+             'moviedimensions': moviedimensions,
+             'proc': {'rotation': position.rotate,
+                      'chambers': [],
+                      'XYdrift': []}
+             }
+            )
+        return
+    
+    # Initialize data structure/dict:
+    data = dict(moviedimensions=moviedimensions,tifffile=xpfile)
+    
+    # Proc dict/structure:
+    data['proc'] = dict(
+        rotation=position.rotate,
+        XYdrift=np.array(position.drift_values, dtype=np.float64),
+        chambers=np.array(
+            [[r.box['xtl'],
+              r.box['ytl'],
+              r.box['xbr']-r.box['xtl'],
+              r.box['ybr']-r.box['ytl']] for r in position.rois],
+            dtype=np.float64)
+        )
+    
+    # Lineages:
+    data['res'] = []
+    for r in position.rois:
+        res = dict()
+        
+        # Resized labels stack: (ie original ROI size)
+        res['labelsstack_resized'] = np.array(r.label_stack,dtype=np.uint16)
+        
+        # Not resized stack: (ie U-Net seg target size)
+        label_stack = []
+        for f, cellnbs in enumerate(r.lineage.cellnumbers):
+            label_stack += [label_seg(r.seg_stack[f],[c+1 for c in cellnbs])]
+        res['labelsstack'] = np.array(label_stack,dtype=np.uint16)
+        
+        # Run through cells, update to 1-based indexing
+        cells = r.lineage.cells
+        lin = []
+        for c in cells:
+            lin += [dict()]
+            # Base lineage:
+            lin[-1]['mothernb'] = c['mother']+1 if c['mother'] is not None else 0
+            lin[-1]['framenbs'] = np.array(c['frames'],dtype=np.float32)+1
+            lin[-1]['daughters'] = np.array(c['daughters'],dtype=np.float32)+1
+            lin[-1]['daughters'][np.isnan(lin[-1]['daughters'])]=0
+            if 'edges' in c:
+                lin[-1]['edges'] = c['edges']
+            # Morphological features:
+            if 'area' in c:
+                lin[-1]['area'] = np.array(c['area'],dtype=np.float32)
+            if 'width' in c:
+                lin[-1]['width'] = np.array(c['width'],dtype=np.float32)
+            if 'length' in c:
+                lin[-1]['length'] = np.array(c['length'],dtype=np.float32)
+            if 'perimeter' in c:
+                lin[-1]['perimeter'] = np.array(c['perimeter'],dtype=np.float32)
+            # Loop through potential fluo channels:
+            fluo = 0
+            while True:
+                fluo+=1
+                fluostr = 'fluo%d'%fluo
+                if fluostr in c:
+                    lin[-1][fluostr] = np.array(c[fluostr],dtype=np.float32)
+                else:
+                    break
+        # Store into res dict:
+        res['lineage'] = lin
+        
+        # Store into data structure:
+        data['res'] += [res]
+    
+    # Finally, save to disk:
+    savemat(res_file, data)
+        
+
+def results_movie(position, frames=None):
+    '''
+    Generate movie illustrating segmentation and tracking
+
+    Parameters
+    ----------
+    position : pipeline.Position object
+        Position object to save data for.
+    frames : list of int or None, optional
+        Frames to generate the movie for. If None, all frames are run. 
+        The default is None.
+
+    Returns
+    -------
+    movie : TYPE
+        DESCRIPTION.
+
+    '''
+
+    # Re-read trans frames:
+    trans_frames = position.reader.getframes(
+        positions=position.position_nb,
+        channels=0,
+        frames=frames,
+        rescale=(0, 1),
+        squeeze_dimensions=False,
+        rotate=position.rotate
+        )
+    trans_frames = trans_frames[0,:,0]
+    if position.drift_correction:
+        trans_frames, _ = driftcorr(
+            trans_frames, drift=position.drift_values
+            )
+    movie = []
+    
+    # Run through frames, compile movie:
+    for f, fnb in enumerate(frames):
+        
+        frame = trans_frames[f]
+        
+        #RGB-ify:
+        frame = np.repeat(frame[:,:,np.newaxis],3,axis=-1)
+        
+        # Add frame number text:
+        frame = cv2.putText(
+            frame,
+            text='frame %06d' %(fnb,),
+            org=(int(frame.shape[0]*.05),int(frame.shape[0]*.97)),
+            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+            fontScale=1,
+            color=(1, 1, 1, 1),
+            thickness=2
+            )
+        
+        for r, roi in enumerate(position.rois):
+                
+                # Get chamber-specific variables:
+                colors = getrandomcolors(len(roi.lineage.cells), seed=r)
+                cells, contours = getcellsinframe(
+                    roi.label_stack[fnb],
+                    return_contours=True
+                    )
+                
+                if roi.box is None:
+                    xtl, ytl = (0, 0)
+                else:
+                    xtl, ytl = (roi.box['xtl'], roi.box['ytl'])
+                
+                # Run through cells in labelled frame:
+                for c, cell in enumerate(cells):
+                    
+                    # Draw contours:
+                    frame = cv2.drawContours(
+                        frame,
+                        contours,
+                        c,
+                        color=colors[cell],
+                        thickness=1,
+                        offset=(xtl,ytl)
+                        )
+                    
+                    # Draw poles:
+                    oldpole = roi.lineage.getvalue(cell,fnb,'old_pole')
+                    frame = cv2.drawMarker(
+                        frame, 
+                        (oldpole[1]+xtl,oldpole[0]+ytl),
+                        color=colors[cell],
+                        markerType=cv2.MARKER_TILTED_CROSS,
+                        markerSize=3,
+                        thickness=1
+                        )
+                    
+                    daughter = roi.lineage.getvalue(cell,fnb,'daughters')
+                    bornago = roi.lineage.cells[cell]['frames'].index(fnb)
+                    mother = roi.lineage.cells[cell]['mother']
+                    
+                    if daughter is None and (bornago>0 or mother is None):
+                        newpole = roi.lineage.getvalue(cell,fnb,'new_pole')
+                        frame = cv2.drawMarker(
+                            frame,
+                            (newpole[1]+xtl,newpole[0]+ytl),
+                            color=[1,1,1], 
+                            markerType=cv2.MARKER_TILTED_CROSS,
+                            markerSize=3,
+                            thickness=1
+                            )
+                    
+                    # Plot division arrow:
+                    if daughter is not None:
+                        
+                        newpole = roi.lineage.getvalue(cell,fnb,'new_pole')
+                        daupole = roi.lineage.getvalue(daughter,fnb,'new_pole')
+                        # Plot arrow:
+                        frame = cv2.arrowedLine(
+                            frame,
+                            (newpole[1]+xtl,newpole[0]+ytl),
+                            (daupole[1]+xtl,daupole[0]+ytl),
+                            color=(1,1,1),
+                            thickness=1
+                            )
+        
+        # Add to movie array:
+        movie+= [(frame*255).astype(np.uint8)]
+    
+    return movie
+
+
+def getrandomcolors(num_colors, seed=0):
+    '''
+    Pseudo-randomly generate list of random hsv colors.
+
+    Parameters
+    ----------
+    num_colors : int
+        Number of desired colors.
+    seed : None or int, optional
+        Seed to use with numpy.random.seed(). 
+        The default is 0.
+
+    Returns
+    -------
+    colors : list
+        List of RGB values (0-1 interval).
+
+    '''
+    
+    # Get colors:
+    cmap = cm.get_cmap('hsv', lut=num_colors)
+    colors = [cmap(i)[0:3] for i in range(num_colors)]
+    
+    # Pseudo randomly shuffle colors:
+    if seed is not None:
+        np.random.seed(seed)
+    np.random.shuffle(colors)
+    
+    return colors
+
+
+def vidwrite(images, filename, crf=20, verbose=1):
+    '''
+    Write images stack to video file with h264 compression.
+
+    Parameters
+    ----------
+    images : 4D numpy array
+        Stack of RGB images to write to video file.
+    filename : str
+        File name to write video to. (Overwritten if exists)
+    crf : int, optional
+        Compression rate. 'Sane' values are 17-28. See 
+        https://trac.ffmpeg.org/wiki/Encode/H.264
+        The default is 20.
+    verbose : int, optional
+        Verbosity of console output. 
+        The default is 1.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    # Initialize ffmpeg parameters:
+    height,width,_ = images[0].shape
+    quiet = [] if verbose else ['-loglevel', 'error', '-hide_banner']
+    process = (
+        ffmpeg
+            .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height),r=7)
+            .output(filename, pix_fmt='yuv420p', vcodec='libx264', crf=crf, preset='veryslow')
+            .global_args(*quiet)
+            .overwrite_output()
+            .run_async(pipe_stdin=True)
+    )
+    
+    # Write frames:
+    for frame in images:
+        process.stdin.write(
+            frame
+                .astype(np.uint8)
+                .tobytes()
+        )
+    
+    # Close file stream:
+    process.stdin.close()
+    
+    # Wait for processing + close to complete:
+    process.wait()
+
+
+def load_position(filename):
+    '''
+    Load position object from pickle file
+
+    Parameters
+    ----------
+    filename : str
+        Path to saved pickle file.
+
+    Returns
+    -------
+    p : pipeline.Position object
+        Reloaded Position object. (without reader and models)
+
+    '''
+    
+    import pickle
+    f = open(filename, 'rb')
+    p = pickle.load(f)
+    f.close()
+    return p
+
+
+#%% Misc
+
+def findfirst(mylist):
+    '''
+    Find first non-zero element of list
+
+    Parameters
+    ----------
+    mylist : list
+        List of elements to scan through.
+
+    Returns
+    -------
+    int
+        index of first non-zero element (or None).
+
+    '''
+    return next((i for i, x in enumerate(mylist) if x>0), None)

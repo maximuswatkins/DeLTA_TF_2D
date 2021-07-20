@@ -7,38 +7,36 @@ image.
 
 @author: jblugagne
 '''
+import config as cfg
+
 from data import saveResult_track, predictCompilefromseg_track
 from model import unet_track
 from os import listdir
 
 # Files:
-DeLTA_data = 'C:/DeepLearning/DeLTA_data/'
-images_folder = DeLTA_data + 'mother_machine/evaluation/preprocessed/img/'
-segmentation_folder = DeLTA_data + 'mother_machine/evaluation/seg_output/'
-outputs_folder = DeLTA_data + 'mother_machine/evaluation/track_output/'
-model_file = DeLTA_data + 'mother_machine/models/unet_moma_track_multisets.hdf5'
+images_folder = 'D:/DeLTA_data/mother_machine/evaluation/preprocessed/img/'
+segmentation_folder = 'D:/DeLTA_data/mother_machine/evaluation/seg_output/'
+outputs_folder = 'D:/DeLTA_data/mother_machine/evaluation/track_output/'
 unprocessed = listdir(images_folder)
 
-# Parameters:
-target_size = (256, 32)
-input_size = target_size + (4,)
-process_size = 512 # This is the number of frames to consider _BEFORE_ each sample has been subdivided into cell-specific tracking samples
-
 # Load up model:
-model = unet_track(input_size = input_size)
-model.load_weights(model_file)
+model = unet_track(input_size = cfg.target_size_track+(4,))
+model.load_weights(cfg.model_file_track)
 
 # Process
 while(unprocessed):
     # Pop out filenames
-    ps = min(process_size,len(unprocessed))
+    ps = min(512,len(unprocessed))
     to_process = unprocessed[0:ps]
     del unprocessed[0:ps]
     
     # Get data:
-    inputs, seg_filenames = predictCompilefromseg_track(images_folder, segmentation_folder,
-                                                        files_list = to_process, 
-                                                        target_size = target_size)
+    inputs, seg_filenames = predictCompilefromseg_track(
+        images_folder, 
+        segmentation_folder,
+        files_list = to_process, 
+        target_size = cfg.target_size_track
+        )
     
     # Predict:
     results = model.predict(inputs,verbose=1)

@@ -14,52 +14,44 @@ if presets == 'mothermachine':
     models = ['rois', 'segmentation', 'tracking']
     model_file_rois = 'D:/DeLTA_data/mother_machine/models/chambers_id_tessiechamp.hdf5'
     model_file_seg = 'D:/DeLTA_data/mother_machine/models/unet_moma_seg_multisets.hdf5'
-    model_file_track = 'D:/DeLTA_data/mother_machine/models/unet_moma_track_multisets.hdf5'
+    model_file_track = 'D:/DeLTA_data/mother_machine/models/unet_moma_track_v2.hdf5'
     target_size_rois = (512, 512)
     target_size_seg = (256, 32)
-    target_size_track = (256, 32)
+    target_size_track = target_size_seg
+    
+    # Training sets:
+    training_set_rois = 'D:/DeLTA_data/mother_machine/training/chambers_seg_set/train'
+    training_set_seg = 'D:/DeLTA_data/mother_machine/training/segmentation_set/train_multisets/'
+    training_set_track = 'D:/DeLTA_data/mother_machine/training/tracking_set/train_multisets'
+    
+    # Pipeline parameters:
     rotation_correction = True # Whether to perform automated image rotation correction
     drift_correction = True # Whether to perform image drift correction
     crop_windows = False # Whether to crop out windows for segmentation and tracking
+    min_roi_area = 500 # Minimum size of ROIs in pixels for area filtering (0 to +Inf)
     
 elif presets == '2D':
     models = ['segmentation', 'tracking']
-    model_file_seg = 'D:/20210314_20210318_noSalCdiffBsub_7.hdf5'
-    model_file_track = 'D:/Ecoli_track_TS_track_total_20210225.hdf5'
+    model_file_seg = 'D:/DeLTA_data/agar_pads/20210314_20210318_noSalCdiffBsub_7.hdf5'
+    model_file_track = 'D:/DeLTA_data/agar_pads/Ecoli_track_TS_track_total_20210225.hdf5'
     target_size_seg = (512, 512)
     target_size_track = (256, 256)
+    
+    # Training sets:
+    training_set_seg = 'D:/DeLTA_data/agar_pads/trainingset_seg_20210304/'
+    training_set_track = 'D:/DeLTA_data/agar_pads/tracking_set'
+    
+    # Pipeline parameters:
     rotation_correction = False # Whether to perform automated image rotation correction
     drift_correction = False # Whether to perform image drift correction
     crop_windows = True # Whether to crop out windows for segmentation and tracking
 
-# Training sets:
-training_set_rois = 'C:/DeepLearning/DeLTA_data/mother_machine/training/chambers_seg_set/train'
-training_set_seg = 'C:/DeepLearning/DeLTA_data/mother_machine/training/segmentation_set/train_multisets/'
-training_set_track = 'C:/DeepLearning/DeLTA_data/mother_machine/training/tracking_set/train_multisets/'
-
-# Misc:
+# Other pipeline parameters:
 whole_frame_drift = False # Whether to use the whole frame for drift correction
-min_roi_area = 500 # Minimum size of ROIs in pixels for area filtering (0 to +Inf)
-min_cell_area = None # Minimum area of cells *IN THE 256x32 SEGMENTATION OUTPUT MASK OF THE UNET*
-write_mp4_movies = True # Whether to save MP4 movies showing the DeLTA segmentation & tracking results
-features = ( # Features to extract in pipeline
-    'length',
-    'width',
-    'area',
-    'fluo1'
-    )
-save_format = 'pickle' # Format to save the data. Either 'pickle' or 'legacy' (legacy is old matlab format)
-crop_windows = True
-# crop_windows = False
+min_cell_area = 20 # Minimum area of cells in pixels
+save_format = ('pickle', 'legacy', 'movie') # Format(s)) to save the data to.
 
-# Image files specs (if running pipeline on-the-fly):
-import numpy as np
-imgs_specs = {
-    'x_size':2048,
-    'y_size':2048,
-    'dtype':np.uint16
-    }
-
+#%% Tensorflow technical parameters:
 # Debugging messages level from Tensorflow ('0' = most verbose to '3' = not verbose)
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
