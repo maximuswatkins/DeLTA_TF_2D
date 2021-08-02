@@ -770,10 +770,10 @@ class ROI:
         
         # Crop and scale:
         i = utils.rangescale(utils.cropbox(img, self.box),rescale=(0,1))
+        # Append i as is to input images stack:
+        self.img_stack.append(i)
         
         if self.crop_windows:
-            # Append i as is to input images stack:
-            self.img_stack.append(i)
             # Crop out windows:
             x, windows_y, windows_x = utils.create_windows(
                 i, target_size=cfg.target_size_seg
@@ -786,8 +786,6 @@ class ROI:
             # Resize to unet input size
             x = cv2.resize(i,dsize=cfg.target_size_seg[::-1])
             windows = None
-            # Append resized x to input images stack:
-            self.img_stack.append(x)
             # Shape x to expected format:
             x = x[np.newaxis,:,:,np.newaxis]
         
@@ -903,17 +901,25 @@ class ROI:
         for c, cell in enumerate(cells):
             
             if self.crop_windows:
+                curr_img = self.img_stack[frame]
+                prev_img = self.img_stack[frame-1]
                 # Cell-centered crop boxes:
-                cb, fb = utils.gettrackingboxes(cell, self.img_stack[frame].shape)
+                cb, fb = utils.gettrackingboxes(cell, curr_img.shape)
                 draw_offset = (-cb['xtl']+fb['xtl'],-cb['ytl']+fb['ytl'])
             else:
+                curr_img = cv2.resize(
+                    self.img_stack[frame],dsize=cfg.target_size_seg[::-1]
+                    )
+                prev_img = cv2.resize(
+                    self.img_stack[frame-1],dsize=cfg.target_size_seg[::-1]
+                    )
                 cb = fb = dict(ytl=None, xtl=None, ybr=None, xbr=None)
                 draw_offset=None
             boxes += [(cb, fb)]
             
             # Current image
             x[c,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],0] = utils.cropbox(
-                self.img_stack[frame], cb
+                curr_img, cb
                 )
             
             # Segmentation mask of one previous cell (seed)
@@ -928,7 +934,7 @@ class ROI:
             
             # Previous image
             x[c,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],2] = utils.cropbox(
-                self.img_stack[frame-1], cb
+                prev_img, cb
                 )
             
             # Segmentation of all current cells
@@ -1114,4 +1120,4 @@ if __name__ == "__main__":
     xp = Pipeline(xpreader)
     
     # Run it:
-    xp.process()
+    xp.process(frames=list(range(30)))
