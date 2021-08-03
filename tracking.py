@@ -5,7 +5,7 @@ Images are processed in batches of 512, although the number of actual samples
 run through the tracking U-Net will depend on the number of cells in each 
 image.
 
-Format of images needs to be position-number-chamber-number-frame-number-fext or position-number-frame-number-fext
+Format of images needs to be Position-Number-Chamber-Number-Frame-Number.fext or Position-Number-Frame-Number.fext
 
 If there are chambers, then it is assumed to be run in the mothermachine. 
 If there are no chambers, then images will be cropped as done for DeLTA 2D
@@ -16,11 +16,6 @@ import config as cfg
 from data import saveResult_track, predictCompilefromseg_track
 from model import unet_track
 import os, cv2
-
-# Files:
-# images_folder = '/project/dunlop/owen/DeLTA_agarpads/Evaluation/img/'
-# segmentation_folder = '/project/dunlop/owen/DeLTA_agarpads/Evaluation/seg_output/'
-# outputs_folder = '/project/dunlop/owen/DeLTA_agarpads/Evaluation/track_output/'
 
 images_folder = '/project/dunlop/owen/DeLTA_agarpads/pipeline/moma/img'
 segmentation_folder = '/project/dunlop/owen/DeLTA_agarpads/pipeline/moma/seg_output/'
