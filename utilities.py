@@ -467,7 +467,36 @@ def gettrackingboxes(cell, frame_shape=None, target_size=cfg.target_size_track):
     
     return cropbox, fillbox
 
+def getshiftvalues(shift,img_shape,cb):
+    ''' 
 
+    Parameters
+    ----------
+    shift : int
+        Max amount of pixels cropbox to be shifted in the y / x direction.
+    img_shape : tuple
+        Shape of the image / input that will be cropped.
+    cropbox : dict
+        Crop box in the cropbox() input format.
+        The crop box determines which part of the full-size frame to crop out.
+
+    Returns
+    -------
+    shiftY : int
+        Number of pixels to shift cropbox in the y irection
+    shiftX : int
+        Number of pixels to shift cropbox in the x direction.
+
+    '''
+    upperY = np.min((shift,img_shape[0] - cb['ybr']))
+    lowerY = np.min((shift,cb['ytl']))
+    shiftY = int(np.random.uniform(-lowerY,upperY))
+    
+    upperX = np.min((shift,img_shape[1] - cb['xbr']))
+    lowerX = np.min((shift,cb['xtl']))
+    shiftX = int(np.random.uniform(-lowerX,upperX))
+
+    return shiftY, shiftX
 #%% Masks, labels, objects identification
 
 def getROIBoxes(chambersmask):
