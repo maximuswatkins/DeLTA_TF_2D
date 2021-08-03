@@ -6,7 +6,7 @@ operations.
 '''
 from __future__ import print_function
 import numpy as np 
-import os, glob, re, random, warnings, copy, importlib
+import os, glob, re, random, warnings, copy, importlib, cv2
 import skimage.io as io
 import tifffile
 import skimage.transform as trans
@@ -14,6 +14,7 @@ from skimage.measure import label
 import skimage.morphology as morph
 from scipy import interpolate
 import utilities as utils
+
 
 # Try to import elastic deformations, issue warning if not found:
 if importlib.util.find_spec("elasticdeform") is None:
@@ -476,7 +477,8 @@ def trainGenerator_seg(
         target_size = (256,32),
         augment_params = {},
         preload = False,
-        seed = 1
+        seed = 1,
+        crop_windows = False
         ):
     '''
     Generator for training the segmentation U-Net.
@@ -527,10 +529,10 @@ def trainGenerator_seg(
     # If preloading, load the images and compute weight maps:
     if preload:
         for filename in image_name_arr:
-            preload_img.append(readreshape(filename, target_size = target_size, order = 1))
-            preload_mask.append(readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False))
+            preload_img.append(readreshape(filename, target_size = target_size, order = 1, crop = crop_windows))
+            preload_mask.append(readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False, crop = crop_windows))
             if weight_path is not None:
-                preload_weight.append(readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0), rangescale = False)
+                preload_weight.append(readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0), rangescale = False, crop = crop_windows)
     
     # Reset the pseudo-random generator:
     random.seed(a=seed)
@@ -556,14 +558,26 @@ def trainGenerator_seg(
             else:
                 # Read images:
                 filename = image_name_arr[index]
-                img = readreshape(filename, target_size = target_size, order = 1)
-                mask = readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False)
+                img = readreshape(filename, target_size = target_size, order = 1, crop = crop_windows)
+                mask = readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False, crop = crop_windows)
                 if weight_path is not None:
-                    weight = readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0, rangescale = False)
+                    weight = readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0, rangescale = False, crop = crop_windows)
                 else:
                     weight = []
                     
-
+            if crop_windows:
+                y0 = np.random.randint(0,img.shape[0] - (target_size[0] - 1))
+                y1 = y0 + target_size[0]
+                x0 = np.random.randint(0,img.shape[1] - (target_size[1] - 1))
+                x1 = x0 + target_size[1]
+                
+                img = img[y0:y1,x0:x1]
+                mask = mask[y0:y1,x0:x1]
+                if weight_path is not None:
+                    weight = weight[y0:y1,x0:x1]
+                else:
+                    weight = []
+            
             # Data augmentation:
             if weight_path is not None:
                 [img, mask, weight] = data_augmentation([img, mask, weight], augment_params, order=[1,0,0])
@@ -713,7 +727,67 @@ def seg_weights(mask, classweights=(1,1), w0=12, sigma=2):
     weightmap = np.add(weightmap,(mask[:,:,0]==1)*classweights[1])
     
     return weightmap
+
+def kernel(n):
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(n,n))
+    return kernel
+    
+def seg_weights_2D(mask, classweights=(1,1)):
+    '''
+    
+    This function computes custom weightmaps designed for bacterial images where borders are difficult to distinguish
+    
+    Parameters
+    ----------
+    mask : 2D array
+        Training output segmentation mask.
+    classweights : tuple of 2 int/floats, optional
+        Weights to apply to cells and border
+        The default is (1,1)
+      
+
+    Returns
+    -------
+    weightmap : 2D array
+        Weights map image.
+
+    '''
+    # Extract all pixels that include the cells and it's border 
+    border = (cv2.morphologyEx(mask,cv2.MORPH_CLOSE,kernel(20))) 
+    # Set all pixels that include the cells to zero to leave behind the border only
+    border[mask>0] = 0   
+    
+    # Erode the segmentation to avoid putting high emphasiss on edges of cells 
+    mask_erode = cv2.erode(mask,kernel(2))   
+    
+    # Get the skeleton of the segmentation and border
+    mask_skel = morph.skeletonize(mask_erode > 0)  
+    border_skel = morph.skeletonize(border > 0)  
+    
+    # Find the distances from the skeleton of the segmention and border
+    s , border_dist = morph.medial_axis(border_skel < 1, return_distance=True)  
+    s , mask_dist = morph.medial_axis(mask_skel < 1, return_distance=True)      
+    
+    # Use the distance from the skeletons to create a gradient towards the skeleton
+    border_gra = border * (classweights[1]) / (border_dist + 1)**2             
+    mask_gra = (mask/ (mask_dist + 1)**2)
         
+    # Set up weights array
+    weightmap = np.zeros((mask.shape))
+    
+    # Add the gradients for the segmentation and border into the weights array
+    weightmap[mask_erode>0] = mask_gra[mask_erode>0] 
+    weightmap[border>0] = border_gra[border>0] 
+    
+    # Set the skeletons of the segmentation and borders to the maximum values
+    weightmap[mask_skel>0] = classweights[0]
+    weightmap[border_skel>0] = classweights[1]
+        
+    # Keep the background zero and set the erode values in the seg/border to a minimum of 1
+    bkgd = np.ones((mask.shape)) - mask - border
+    weightmap[((weightmap == 0) * (bkgd < 1))] = 1 / 255
+    
+    return weightmap
 
 def estimateClassweights(gene, num_samples = 30):
     '''
@@ -905,7 +979,7 @@ def trainGenerator_track(
             
             if crop_windows:
                 cb, fb = utils.gettrackingboxes(seg)
-                shiftY, shiftX = utils.getshiftvalues(shiftcropbox,seg.shape,cb,fb)
+                shiftY, shiftX = utils.getshiftvalues(shiftcropbox,seg.shape,cb)
             else:
                 cb = fb = dict(ytl=None, xtl=None, ybr=None, xbr=None)
                 shiftY, shiftX = 0,0
