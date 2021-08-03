@@ -6,7 +6,7 @@ operations.
 '''
 from __future__ import print_function
 import numpy as np 
-import os, glob, re, random, warnings, copy, importlib, cv2
+import os, glob, re, random, warnings, copy, importlib
 import skimage.io as io
 import tifffile
 import skimage.transform as trans
@@ -44,8 +44,8 @@ def binarizerange(i):
     '''
     
     newi = i
-    newi[i > (np.amin(i)+np.amax(i)) * (9/10)] = 1
-    newi[i <= (np.amin(i)+np.amax(i)) * (9/10)] = 0
+    newi[i > (np.amin(i)+np.amax(i))/2] = 1
+    newi[i <= (np.amin(i)+np.amax(i))/2] = 0
     return newi
 
 def readreshape(filename, target_size = (256,32), binarize = False, order = 1, rangescale = True, crop = False):
