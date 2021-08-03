@@ -6,7 +6,7 @@ operations.
 '''
 from __future__ import print_function
 import numpy as np 
-import os, glob, re, random, warnings, copy, importlib
+import os, glob, re, random, warnings, copy, importlib, cv2
 import skimage.io as io
 import tifffile
 import skimage.transform as trans
@@ -42,12 +42,13 @@ def binarizerange(i):
         Binarized image.
 
     '''
+    
     newi = i
-    newi[i > (np.amin(i)+np.amax(i))/2] = 1
-    newi[i <= (np.amin(i)+np.amax(i))/2] = 0
+    newi[i > (np.amin(i)+np.amax(i)) * (9/10)] = 1
+    newi[i <= (np.amin(i)+np.amax(i)) * (9/10)] = 0
     return newi
 
-def readreshape(filename, target_size = (256,32), binarize = False, order = 1, rangescale = True):
+def readreshape(filename, target_size = (256,32), binarize = False, order = 1, rangescale = True, crop = False):
     '''
     Read image from disk and format it
 
@@ -69,7 +70,8 @@ def readreshape(filename, target_size = (256,32), binarize = False, order = 1, r
     rangescale : bool, optional
         Scale array image values to 0-1 if True. 
         The default is True.
-
+    mode : str, optional
+        Resize the 
     Raises
     ------
     ValueError
@@ -88,16 +90,25 @@ def readreshape(filename, target_size = (256,32), binarize = False, order = 1, r
         i = tifffile.imread(filename)
     else:
         raise ValueError('Only PNG, JPG or single-page TIF files accepted')
-    
-    if target_size is not None:
-        i = trans.resize(i, target_size, anti_aliasing=True, order=order)
-    if binarize:
-        i = binarizerange(i)
-    if rangescale:
-        i = (i-np.min(i))/np.ptp(i)
-    return i
+    if i.ndim == 3:
+        i = i[:,:,0]
+    # For DeLTA mothermachine, all images are resized in 256x32
+    if not crop:
+        img = trans.resize(i, target_size, anti_aliasing=True, order=order)
+    # For DeLTA 2D, black space is added if img is smaller than target_size
+    else: 
+        fill_shape = [target_size[j] if i.shape[j] < target_size[j] else i.shape[j] for j in range(2)]
+        img = np.zeros((fill_shape[0],fill_shape[1]))
+        img[0:i.shape[0],0:i.shape[1]] = i 
 
-def postprocess(images,square_size=5,min_size=None):
+    if binarize:
+        img = binarizerange(img)
+    if rangescale:
+        if np.ptp(img) != 0:
+            img = (img-np.min(img))/np.ptp(img)
+    return img
+
+def postprocess(images,square_size=5,min_size=None, crop = False):
     '''
     A generic binary image cleaning function based on mathematical morphology.
 
@@ -131,7 +142,8 @@ def postprocess(images,square_size=5,min_size=None):
     # Go through stack:
     for index, I in enumerate(images):
         I = binarizerange(I)
-        I = morph.binary_opening(I,selem=selem)
+        if not crop:
+            I = morph.binary_opening(I,selem=selem)
         if min_size is not None:
             I = morph.remove_small_objects(I,min_size=min_size)
         images[index,:,:] = I
@@ -611,7 +623,7 @@ def saveResult_seg(save_path,npyfile, files_list = [], multipage=False):
                 io.imsave(filename,(img*255).astype(np.uint8))
 
 
-def predictGenerator_seg(files_path, files_list = None, target_size = (256,32)):
+def predictGenerator_seg(files_path, files_list = None, target_size = (256,32),crop=False):
     '''
     Get a generator for predicting segmentation on new image files 
     once the segmentation U-Net has been trained.
@@ -637,17 +649,19 @@ def predictGenerator_seg(files_path, files_list = None, target_size = (256,32)):
     '''
     
     
-    files_list = files_list or os.listdir(files_path)
+    files_list = files_list or sorted(os.listdir(files_path))
 
         
     def generator(files_path, files_list, target_size):
         for index, fname in enumerate(files_list):
             img = readreshape(os.path.join(files_path,fname),
                               target_size=target_size,
-                              order=1)
+                              order=1,
+                              crop = crop)
             img = np.reshape(img,(1,)+img.shape) # Tensorflow needs one extra single dimension (so that it is a 4D tensor)
+            
             yield img
-                
+
     mygen = generator(files_path, files_list, target_size)
     return mygen
     
@@ -760,6 +774,7 @@ def trainGenerator_track(
         augment_params = {},
         crop_windows = False,
         target_size = (256,32),
+        shiftcropbox = 0,
         seed = 1
         ):
     '''
@@ -794,6 +809,8 @@ def trainGenerator_track(
     target_size : tuple of 2 ints, optional
         Input and output image size. 
         The default is (256,32).
+    shiftcropbox: int
+        Determine the max number of pixels that the cropbox for the current frames (img,segall,mot_dau,wei) inputs will be shifted
     seed : int, optional
         Seed for numpy's random generator. see numpy.random.seed() doc
         The default is 1.
@@ -816,7 +833,6 @@ def trainGenerator_track(
                         glob.glob(os.path.join(img_path,"*.tif"))
     X = np.empty((batch_size,) + target_size + (4,), dtype=np.float32)
     Y = np.empty((batch_size,) + target_size + (2,), dtype=np.float32)
-    resize = target_size if not crop_windows else None
     
     # Reset the pseudo-random generator:
     random.seed(a=seed)
@@ -832,33 +848,37 @@ def trainGenerator_track(
             filename = image_name_arr[index]
             
             # Read images:
-            img = readreshape(filename, target_size = resize, order = 1)
+            img = readreshape(filename, target_size = target_size, order = 1, crop=True)
             seg = readreshape(
                 os.path.join(seg_path,os.path.basename(filename)),
-                target_size = resize, 
+                target_size = target_size, 
                 binarize = True, 
                 order = 0, 
-                rangescale = False
+                rangescale = False,
+                crop=True
                 )
             previmg = readreshape(
                 os.path.join(previmg_path,os.path.basename(filename)), 
-                target_size = resize, 
-                order = 1
+                target_size = target_size, 
+                order = 1,
+                crop=True
                 )
             segall = readreshape(
                 os.path.join(segall_path,os.path.basename(filename)), 
-                target_size = resize, 
+                target_size = target_size, 
                 binarize = True, 
                 order = 0, 
-                rangescale = False
+                rangescale = False,
+                crop=True
                 )
 
             track = readreshape(
                 os.path.join(track_path,os.path.basename(filename)),
-                target_size = resize, 
+                target_size = target_size, 
                 binarize = True, 
                 order = 0, 
-                rangescale = False
+                rangescale = False,
+                crop=True
                 )
             if weights_path is not None:
                 if weights_path == 'online':
@@ -866,14 +886,15 @@ def trainGenerator_track(
                 else:
                     weights = readreshape(
                         os.path.join(weights_path,os.path.basename(filename)),
-                        target_size = resize, 
+                        target_size = target_size, 
                         binarize = False, 
                         order = 0, 
-                        rangescale = False
+                        rangescale = False,
+                        crop=True
                         )
             else:
                 weights = np.ones_like(track)
-            
+                        
             # Data augmentation:
             [img, seg, previmg, segall, track, weights] = data_augmentation(
                 [img, seg, previmg, segall, track, weights],
@@ -884,18 +905,26 @@ def trainGenerator_track(
             
             if crop_windows:
                 cb, fb = utils.gettrackingboxes(seg)
+                shiftY, shiftX = utils.getshiftvalues(shiftcropbox,seg.shape,cb,fb)
             else:
                 cb = fb = dict(ytl=None, xtl=None, ybr=None, xbr=None)
+                shiftY, shiftX = 0,0
             
             # Add into arrays:
-            X[b,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],0] = utils.cropbox(
-                img, cb
-                )
+
             X[b,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],1] = utils.cropbox(
                 seg, cb
                 )
             X[b,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],2] = utils.cropbox(
                 previmg, cb
+                )
+            
+            # Shift crop box for current frame inputs
+            cb['xtl'] += shiftX; cb['xbr'] += shiftX
+            cb['ytl'] += shiftY; cb['ybr'] += shiftY
+
+            X[b,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],0] = utils.cropbox(
+                img, cb
                 )
             X[b,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],3] = utils.cropbox(
                 segall, cb
@@ -911,9 +940,47 @@ def trainGenerator_track(
         # Yield batch:
         yield X, Y
 
+def getfnfromprototype(prototype,fileorder,position,chamber,frame,cellnb = None):
+    '''
+    Generate full filename for specific frame based on file path, 
+    prototype, fileorder, and filenamesindexing
+
+    Parameters
+    ----------
+    position : int
+        Position/series index (0-based indexing).
+    channel : int
+        Imaging chamber index (0-based indexing).
+    frame : int
+        Frame/timepoint index (0-based indexing).
+
+    Returns
+    -------
+    string
+        Filename.
+
+    '''
+    filenumbers = []
+    
+    for i in fileorder:
+        if i=='p':
+            filenumbers.append(position)
+        if i=='c':
+            filenumbers.append(chamber)
+        if i=='t':
+            filenumbers.append(frame)
+        if i=='n':
+            filenumbers.append(cellnb)
+    
+    if cellnb is not None:
+        prototype = os.path.splitext(prototype)[0] + 'Cell%06d' + os.path.splitext(prototype)[1]
+    
+    filename = prototype % tuple(filenumbers)
+    
+    return filename
 
 def predictCompilefromseg_track(
-        img_path,seg_path, files_list = [], target_size = (256,32)
+        img_path,seg_path, files_list = [], target_size = (256,32), crop = False
         ):
     '''
     Compile an inputs array for tracking prediction with the tracking U-Net, 
@@ -951,46 +1018,99 @@ def predictCompilefromseg_track(
 
     '''
     
-    img_arr = []
-    seg_arr = []
-    previmg_arr = []
-    segall_arr = []
     seg_name_list = []
-    
+    crop = False
     if not files_list:
-        files_list = os.listdir(img_path)
-        
+        files_list = sorted(os.listdir(img_path))
+    
+    ind = 0
+    
+    numstrs = re.findall("\d+", files_list[0]) # Get digits sequences in first filename
+    charstrs = re.findall("\D+", files_list[0]) # Get character sequences in first filename
+    
+    # Create the string prototype to be used to generate filenames on the fly:
+    if not (len(numstrs)==3 and len(charstrs)==4 or len(numstrs) == 2 and len(charstrs) == 3):
+        raise ValueError('Filename formatting error. See documentation for image sequence formatting')
+    elif len(numstrs)==3 and len(charstrs)==4:
+    # Order is position, chamber, frame/timepoint
+        prototype = charstrs[0]+'%0'+str(len(numstrs[0]))+'d'+\
+                   charstrs[1]+'%0'+str(len(numstrs[1]))+'d'+\
+                   charstrs[2]+'%0'+str(len(numstrs[2]))+'d'+\
+                   charstrs[3] 
+        fileorder = 'pct'
+    elif len(numstrs)==2 and len(charstrs)==3:
+    # Order is position, frame/timepoint
+        prototype = charstrs[0]+'%0'+str(len(numstrs[0]))+'d'+\
+                    charstrs[1]+'%0'+str(len(numstrs[1]))+'d'+\
+                    charstrs[2]
+        fileorder = 'pt'
+        crop = True
+    fileordercell = fileorder + 'n'
     for index, item in enumerate(files_list):
             filename = os.path.basename(item)
             # Get position, chamber & frame numbers:
-            (pos, cha, fra) = list(map(int, re.findall("\d+",filename)))
+            if fileorder == 'pct':
+                (pos, cha, fra) = list(map(int, re.findall("\d+",filename)))
+            elif fileorder == 'pt':
+                (pos, fra) = list(map(int, re.findall("\d+",filename)))
+                cha = None
+            
             if fra > 1:
-                prevframename = 'Position%02d_Chamber%02d_Frame%03d.png'%(
-                    pos,cha,fra-1
-                    )
-                img = readreshape(os.path.join(img_path,filename), target_size = target_size, order = 1)
-                segall = readreshape(os.path.join(seg_path,filename), target_size = target_size, order = 0, binarize = True, rangescale = False)
-                previmg = readreshape(os.path.join(img_path,prevframename), target_size = target_size, order = 1)
-                prevsegall = readreshape(os.path.join(seg_path,prevframename), target_size = target_size, order = 0, binarize = True, rangescale = False)
+                
+                prevframename = getfnfromprototype(prototype,fileorder,position=pos,chamber=cha,frame=fra-1)
+                   
+                img = readreshape(os.path.join(img_path,filename), target_size = target_size, order = 1, crop = crop)
+                segall = readreshape(os.path.join(seg_path,filename), target_size = target_size, order = 0, binarize = True, rangescale = False, crop = crop)
+                previmg = readreshape(os.path.join(img_path,prevframename), target_size = target_size, order = 1, crop = crop)
+                prevsegall = readreshape(os.path.join(seg_path,prevframename), target_size = target_size, order = 0, binarize = True, rangescale = False, crop = crop)
                 
                 lblimg,lblnb = label(prevsegall,connectivity=1,return_num=True)
                 
-                for lbl in range(1,lblnb+1):
-                    segfilename = 'Position%02d_Chamber%02d_Frame%03d_Cell%06d.png'%(
-                    pos,cha,fra-1,lbl
+                x = np.empty(
+                    shape=(lblnb,)+target_size+(4,),
+                    dtype=np.float32
                     )
-                    
+                boxes = []
+                
+                for lbl in range(1,lblnb+1):
                     seg = lblimg == lbl
-                    seg.astype(segall.dtype) # Output is boolean otherwise
+                    seg = seg.astype(np.uint8) # Output is boolean otherwise
+                    
+                    # Cell-centered crop boxes:
+                    if crop:
+                        cb, fb = utils.gettrackingboxes(seg, img.shape)
+                    else:
+                        cb = fb = dict(ytl=None, xtl=None, ybr=None, xbr=None)
+                    boxes += [(cb, fb)]
+                    
+                    # Current image
+                    x[lbl-1,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],0] = utils.cropbox(
+                        img, cb
+                        )
+                    
+                    x[lbl-1,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],1] = utils.cropbox(
+                        seg, cb
+                        )            
+                    # Previous image
+                    x[lbl-1,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],2] = utils.cropbox(
+                        previmg, cb
+                        )
+                    
+                    # Segmentation of all current cells
+                    x[lbl-1,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],3] = utils.cropbox(
+                        segall, cb
+                        )
+                    
+                    segfilename = getfnfromprototype(prototype,fileordercell,position=pos,chamber=cha,frame=fra-1,cellnb=lbl)
 
-                    seg_arr.append(seg)
-                    img_arr.append(img)
-                    previmg_arr.append(previmg)
-                    segall_arr.append(segall)
                     seg_name_list.append(segfilename)
-    
-    inputs_arr = np.stack((img_arr,seg_arr,previmg_arr,segall_arr),axis=-1)
-    return inputs_arr, seg_name_list
+                                    
+                if ind == 0:
+                    inputs_arr = x
+                    ind = 1
+                else:
+                    inputs_arr = np.concatenate((inputs_arr,x),axis=0)
+    return inputs_arr, seg_name_list, boxes
 
 
 def tracking_weights(track, segall, halo_distance = 50):
