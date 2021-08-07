@@ -107,6 +107,8 @@ def readreshape(filename, target_size = (256,32), binarize = False, order = 1, r
     if rangescale:
         if np.ptp(img) != 0:
             img = (img-np.min(img))/np.ptp(img)
+    if np.max(img) == 255:
+        img = img / 255
     return img
 
 def postprocess(images,square_size=5,min_size=None, crop = False):
@@ -226,12 +228,6 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
     else:
         orderlist = list(order)
     
-    if np.isscalar(time) or len(time)==1:
-        timelist = [time] * len(images_input)
-    else:
-        timelist = list(time)
-    timepoints = np.unique(timelist)
-    
     # Apply augmentation operations:
     
     if "illumination_voodoo" in aug_par:
@@ -307,35 +303,14 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
     else:
         shiftY = 0
     
-    if 'timeshift_prob' in aug_par \
-        and np.random.uniform() > 1-aug_par["timeshift_prob"]:
-        timeshiftX = []
-        timeshiftY = []
-        for _ in timepoints:
-            if 'timeshiftX' in aug_par:
-                timeshiftX += [
-                    random.uniform(-aug_par["timeshiftX"],aug_par["timeshiftX"])
-                    ]
-            else:
-                timeshiftX += [0]
-            if 'timeshiftY' in aug_par:
-                timeshiftY += [
-                    random.uniform(-aug_par["timeshiftY"],aug_par["timeshiftY"])
-                    ]
-            else:
-                timeshiftY += [0]
-    else:
-        timeshiftX = [0]*len(timepoints)
-        timeshiftY = [0]*len(timepoints)
-    
     # Apply zoom & shifts:
-    if any([abs(x)>0 for x in [zoom,shiftX,shiftY,*timeshiftX,*timeshiftY]]):
+    if any([abs(x)>0 for x in [zoom,shiftX,shiftY]]):
         for index, item in enumerate(output):
             output[index] = zoomshift(
                 item,
                 zoom+1,
-                shiftX+timeshiftX[timelist[index]],
-                shiftY+timeshiftY[timelist[index]],
+                shiftX,
+                shiftY,
                 order=orderlist[index]
                 )
     
@@ -729,8 +704,82 @@ def seg_weights(mask, classweights=(1,1), w0=12, sigma=2):
     return weightmap
 
 def kernel(n):
+    '''
+    
+
+    Parameters
+    ----------
+    n : Int
+        Determine size of kernel.
+
+    Returns
+    -------
+    kernel : Array of unit8
+        Returns a kernal with size of n.
+
+    '''
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(n,n))
     return kernel
+
+def estimate_seg2D_classweights(mask_path, sample_size = None):
+    '''
+    
+    Parameters
+    ----------
+    mask_path : str
+        Path to folder containing segmentations.
+    sample_size : int, optional
+        Determines the size of the training set that will be used to calcualte class weights. The default is None.
+
+    Returns
+    -------
+    class1 : Int
+        weight of class 1.
+    class2 : Int
+        weight of class 2.
+
+    '''
+    mask_name_arr = glob.glob(os.path.join(mask_path,'*.png')) + \
+                    glob.glob(os.path.join(mask_path,'*.tif'))
+                    
+    # Take a sample size of training set to reduce computation time. 
+    if sample_size:
+        mask_name_arr = random.sample(mask_name_arr,sample_size)
+        
+    c1 = 0
+    c2 = 0
+    
+    for mask_name in mask_name_arr:
+        
+        mask = cv2.imread(mask_name,0) / 255
+        # Extract all pixels that include the cells and it's border (no background)
+        border = (cv2.morphologyEx(mask,cv2.MORPH_CLOSE,kernel(20))) 
+        # Set all pixels that include the cells to zero to leave behind the border only
+        border[mask>0] = 0   
+             
+        # Bkgd (background) is just the image minus the cells + border
+        bkgd = np.ones((mask.shape))
+        bkgd = bkgd - (mask + border)   
+        
+        # Erode the segmentation to avoid putting high emphasiss on edges of cells 
+        mask_erode = cv2.erode(mask,kernel(2))   
+        mask_dil = cv2.dilate(mask,kernel(3))
+        border_erode = (mask_dil < 1) * (border > 0) * 1 
+        
+        skel = morph.skeletonize(mask_erode>0) * 1
+        skel_border = morph.skeletonize(border_erode>0) * 1
+            
+        c1 = c1 + np.sum(np.sum(skel.astype(np.float64)))    
+        c2 = c2 + np.sum(np.sum(skel_border.astype(np.float64)))  
+        
+    if c1 > c2:
+        class1 = c2 / c1
+        class2 = 1
+    else:
+        class1 = 1
+        class2 = 1 * c1 / c2
+    
+    return class1, class2
     
 def seg_weights_2D(mask, classweights=(1,1)):
     '''
@@ -752,8 +801,13 @@ def seg_weights_2D(mask, classweights=(1,1)):
         Weights map image.
 
     '''
+    if mask.ndim == 3:
+        mask = mask[:,:,0]
+    if np.max(mask) == 255:
+        mask = mask / 255
+        
     # Extract all pixels that include the cells and it's border 
-    border = (cv2.morphologyEx(mask,cv2.MORPH_CLOSE,kernel(20))) 
+    border = cv2.morphologyEx(mask,cv2.MORPH_CLOSE,kernel(20)) 
     # Set all pixels that include the cells to zero to leave behind the border only
     border[mask>0] = 0   
     
@@ -773,7 +827,7 @@ def seg_weights_2D(mask, classweights=(1,1)):
     mask_gra = (mask/ (mask_dist + 1)**2)
         
     # Set up weights array
-    weightmap = np.zeros((mask.shape))
+    weightmap = np.zeros((mask.shape),dtype=np.float32)
     
     # Add the gradients for the segmentation and border into the weights array
     weightmap[mask_erode>0] = mask_gra[mask_erode>0] 
@@ -973,8 +1027,7 @@ def trainGenerator_track(
             [img, seg, previmg, segall, track, weights] = data_augmentation(
                 [img, seg, previmg, segall, track, weights],
                 augment_params, 
-                order=[1,0,1,0,0,0],
-                time=[1,0,0,1,1,1]
+                order=[1,0,1,0,0,0]
                 )
             
             if crop_windows:
@@ -1225,16 +1278,17 @@ def tracking_weights(track, segall, halo_distance = 50):
     skel = morph.skeletonize(track,method='lee')
     
     # Tracked Cell weights are distance from edges + skeleton at 255 in the center
-    weights = utils.rangescale(dist_in+1,(1,84))
+    weights = utils.rangescale(dist_in+1,(1,42))
     weights[skel>0] = 255
     
     # Rest of the image is weighed according to distance from tracked cell:
-    weights+= 127*(dist_from/halo_distance) \
+    weights+= 63*(dist_from/halo_distance) \
         *(segall>0).astype(np.float32)\
             *(track==0).astype(np.float32)
     
-    # weights = utils.rangescale(weights,(1/255,1))
-    
+    weights*=100
+    weights[dist_from<1] = 1
+        
     return weights
     
     
@@ -1261,7 +1315,6 @@ def saveResult_track(save_path,npyfile, files_list = None):
     '''
     
     mothers = npyfile[:,:,:,0]
-    # daughters = npyfile[:,:,:,1]
     for i,mother in enumerate(mothers):
         if files_list:
             filenameMo = os.path.join(save_path,files_list[i])
@@ -1270,11 +1323,3 @@ def saveResult_track(save_path,npyfile, files_list = None):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             io.imsave(filenameMo,(mother*255).astype(np.uint8))
-    # for i,daughter in enumerate(daughters):
-    #     if files_list:
-    #         filenameDa = os.path.join(save_path,'daughter_' + files_list[i])
-    #     else:
-    #         filenameDa = os.path.join(save_path,"%daughter_09d.png"%i)
-    #     with warnings.catch_warnings():
-    #         warnings.simplefilter("ignore")
-    #         io.imsave(filenameDa,(daughter*255).astype(np.uint8))
