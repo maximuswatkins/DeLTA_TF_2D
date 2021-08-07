@@ -91,14 +91,6 @@ def pixelwise_weighted_binary_crossentropy_track(y_true,y_pred):
     except:
         pass
         
-    # Make background weigths 100x less
-    bool_bkgd = (weight == 1/255)
-    weight = tf.where(bool_bkgd,0.01/255,weight)
-    
-    # Double weight for cell being tracked
-    bool_track = (weight == 1)
-    weight = tf.where(bool_track,2.,weight)     
-        
     epsilon = tf.convert_to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
     y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
     y_pred = tf.math.log(y_pred / (1 - y_pred))
