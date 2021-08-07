@@ -18,18 +18,15 @@ savefile = cfg.model_file_seg
 batch_size = 1
 epochs = 800
 steps_per_epoch = 300
-patience = 30
+patience = 50
 
 #Data generator parameters:
 data_gen_args = dict(
     rotation = 2,
     rotations_90d = True,
-    shiftX=0,
-    shiftY=0,
     zoom=.15,
     horizontal_flip=True,
     vertical_flip=True,
-    histogram_voodoo=False,
     illumination_voodoo=True,
     gaussian_noise = 0.03,
     gaussian_blur = 1
@@ -42,10 +39,10 @@ myGene = trainGenerator_seg(
     os.path.join(training_set,'seg'),
     os.path.join(training_set,'wei'),
     augment_params = data_gen_args,
-    target_size = cfg.target_size_seg
+    target_size = cfg.target_size_seg,
+    crop_windows = cfg.crop_windows
     )
 
-a = next(myGene)
 # Define model:
 model = unet_seg(input_size = cfg.target_size_seg+(1,))
 model.summary()
@@ -59,7 +56,7 @@ early_stopping = EarlyStopping(
     )
 
 # Train:
-history = model.fit_generator(
+history = model.fit(
     myGene,
     steps_per_epoch=steps_per_epoch,
     epochs=epochs,

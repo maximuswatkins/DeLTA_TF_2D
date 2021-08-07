@@ -14,7 +14,8 @@ from tensorflow.keras.optimizers import Adam
 
 
 #%% Losses/metrics
-def pixelwise_weighted_binary_crossentropy(y_true, y_pred):
+
+def pixelwise_weighted_binary_crossentropy_seg(y_true,y_pred):
     '''
     Pixel-wise weighted binary cross-entropy loss.
     The code is adapted from the Keras TF backend.
@@ -33,7 +34,6 @@ def pixelwise_weighted_binary_crossentropy(y_true, y_pred):
         Pixel-wise weight binary cross-entropy between inputs.
 
     '''
-    
     try:
         # The weights are passed as part of the y_true tensor:
         [seg, weight] = tf.unstack(y_true, 2, axis=-1)
@@ -42,7 +42,11 @@ def pixelwise_weighted_binary_crossentropy(y_true, y_pred):
         weight = tf.expand_dims(weight, -1)
     except:
         pass
-
+    
+    # Make background weights be equal to the model's prediction
+    bool_bkgd = (weight == 0/255)
+    weight = tf.where(bool_bkgd,y_pred,weight) 
+        
     epsilon = tf.convert_to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
     y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
     y_pred = tf.math.log(y_pred / (1 - y_pred))
@@ -53,9 +57,63 @@ def pixelwise_weighted_binary_crossentropy(y_true, y_pred):
     neg_abs_logits = math_ops.select(cond, -y_pred, y_pred)
     entropy = math_ops.add(relu_logits - y_pred * seg, math_ops.log1p(math_ops.exp(neg_abs_logits)), name=None)
     
-    # This is essentially the only part that is different from the Keras code:
-    return K.mean(math_ops.multiply(weight, entropy), axis=-1)
+    loss = K.mean(math_ops.multiply(weight, entropy), axis=-1)
+    
+    loss = tf.scalar_mul(10**6,tf.scalar_mul(1 / tf.math.sqrt(tf.math.reduce_sum(weight)), loss ))       
+       
+    return loss
 
+def pixelwise_weighted_binary_crossentropy_track(y_true,y_pred):
+    '''
+    Pixel-wise weighted binary cross-entropy loss.
+    The code is adapted from the Keras TF backend.
+    (see their github)
+    
+    Parameters
+    ----------
+    y_true : Tensor
+        Stack of groundtruth segmentation masks + weight maps.
+    y_pred : Tensor
+        Predicted segmentation masks.
+
+    Returns
+    -------
+    Tensor
+        Pixel-wise weight binary cross-entropy between inputs.
+
+    '''
+    try:
+        # The weights are passed as part of the y_true tensor:
+        [seg, weight] = tf.unstack(y_true, 2, axis=-1)
+
+        seg = tf.expand_dims(seg, -1)
+        weight = tf.expand_dims(weight, -1)
+    except:
+        pass
+        
+    # Make background weigths 100x less
+    bool_bkgd = (weight == 1/255)
+    weight = tf.where(bool_bkgd,0.01/255,weight)
+    
+    # Double weight for cell being tracked
+    bool_track = (weight == 1)
+    weight = tf.where(bool_track,2.,weight)     
+        
+    epsilon = tf.convert_to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
+    y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
+    y_pred = tf.math.log(y_pred / (1 - y_pred))
+
+    zeros = array_ops.zeros_like(y_pred, dtype=y_pred.dtype)
+    cond = (y_pred >= zeros)
+    relu_logits = math_ops.select(cond, y_pred, zeros)
+    neg_abs_logits = math_ops.select(cond, -y_pred, y_pred)
+    entropy = math_ops.add(relu_logits - y_pred * seg, math_ops.log1p(math_ops.exp(neg_abs_logits)), name=None)
+    
+    loss = K.mean(math_ops.multiply(weight, entropy), axis=-1)
+    
+    loss = tf.scalar_mul(10**6,tf.scalar_mul(1 / tf.math.sqrt(tf.math.reduce_sum(weight)), loss ))       
+        
+    return loss
 
 def class_weighted_categorical_crossentropy(class_weights):
     '''
@@ -198,12 +256,15 @@ def unet(input_size = (256,32,1), final_activation = 'sigmoid', output_classes =
 
 
 # Use the following model for segmentation:
-def unet_seg(input_size = (256,32,1)):
+def unet_seg(pretrained_weights = None, input_size = (256,32,1)):
     '''
     Cell segmentation U-Net definition function.
 
     Parameters
     ----------
+    pretrained_weights : hdf5 file, optional
+        Model will load weights from hdf5 and start training. 
+        The default is None
     input_size : tuple of 3 ints, optional
         Dimensions of the input tensor, without batch size.
         The default is (256,32,1).
@@ -218,22 +279,29 @@ def unet_seg(input_size = (256,32,1)):
     model = unet(
         input_size=input_size, final_activation='sigmoid', output_classes=1
         )
+        
     model.compile(
         optimizer = Adam(lr = 1e-4), 
-        loss = pixelwise_weighted_binary_crossentropy,
+        loss = pixelwise_weighted_binary_crossentropy_seg,
         metrics = [unstack_acc]
         )
-
+    
+    if(pretrained_weights):
+    	model.load_weights(pretrained_weights)
+        
     return model
 
 
 # Use the following model for tracking and lineage reconstruction:
-def unet_track(input_size = (256,32,4)):
+def unet_track(pretrained_weights = None,input_size = (256,32,4)):
     '''
     Tracking U-Net definition function.
 
     Parameters
     ----------
+    pretrained_weights : hdf5 file, optional
+        Model will load weights from hdf5 and start training. 
+        The default is None
     input_size : tuple of 3 ints, optional
         Dimensions of the input tensor, without batch size.
         The default is (256,32,4).
@@ -248,11 +316,15 @@ def unet_track(input_size = (256,32,4)):
     model = unet(
         input_size=input_size, final_activation='sigmoid', output_classes=1
         )
+        
     model.compile(
-        optimizer=Adam(lr = 1e-4), 
-        loss=pixelwise_weighted_binary_crossentropy, 
+        optimizer=Adam(lr = 1e-5), 
+        loss=pixelwise_weighted_binary_crossentropy_track, 
         metrics = [unstack_acc])
-
+    
+    if(pretrained_weights):
+    	model.load_weights(pretrained_weights)
+        
     return model
 
 

@@ -14,10 +14,10 @@ training_set = cfg.training_set_track
 savefile = cfg.model_file_track
 
 # Training parameters:
-batch_size = 5
-epochs = 400
-steps_per_epoch = 250
-patience = 30
+batch_size = 2
+epochs = 500
+steps_per_epoch = 300
+patience = 50
 
 #Data generator parameters:
 data_gen_args = dict(
@@ -26,9 +26,6 @@ data_gen_args = dict(
     horizontal_flip=True,
     histogram_voodoo=True,
     illumination_voodoo=True,
-    timeshiftX=.05,
-    timeshiftY=.05,
-    timeshift_prob=.1
     )
 
 # Generator init:
@@ -42,8 +39,10 @@ myGene = trainGenerator_track(
     os.path.join(training_set,'wei'),
     data_gen_args,
     target_size = cfg.target_size_track,
-    crop_windows=cfg.crop_windows
+    crop_windows=cfg.crop_windows,
+    shiftcropbox = 5
     )
+   
 
 # Define model:
 model = unet_track(input_size = cfg.target_size_track+(4,))
@@ -58,7 +57,7 @@ early_stopping = EarlyStopping(
     )
 
 # Train:
-history = model.fit_generator(
+history = model.fit(
     myGene,
     steps_per_epoch=steps_per_epoch,
     epochs=epochs,
