@@ -1060,9 +1060,9 @@ class Lineage:
         ----------
         frame : int
             Frame that the cell first appears (1-based indexing).
-        mother : int, optional
+        mother : int or None, optional
             Number of the mother cell in the lineage (1-based indexing).
-            The default is 0. (ie unknown mother)
+            The default is None. (ie unknown mother)
     
         Returns
         -------
@@ -1183,7 +1183,7 @@ class Lineage:
         try:
             i = self.cells[cell]['frames'].index(frame)
         except ValueError:
-            raise ValueError('Cell %d is not present in frame %f'%(cell,frame))
+            raise ValueError('Cell %d is not present in frame %d'%(cell,frame))
         
         return self.cells[cell][feature][i]
 
@@ -2034,6 +2034,10 @@ def vidwrite(images, filename, crf=20, verbose=1):
     
     # Initialize ffmpeg parameters:
     height,width,_ = images[0].shape
+    if height%2==1:
+        height-=1
+    if width%2==1:
+        width-=1
     quiet = [] if verbose else ['-loglevel', 'error', '-hide_banner']
     process = (
         ffmpeg
@@ -2047,7 +2051,7 @@ def vidwrite(images, filename, crf=20, verbose=1):
     # Write frames:
     for frame in images:
         process.stdin.write(
-            frame
+            frame[:height,:width]
                 .astype(np.uint8)
                 .tobytes()
         )
