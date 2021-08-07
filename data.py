@@ -1034,7 +1034,7 @@ def trainGenerator_track(
                 cb, fb = utils.gettrackingboxes(seg)
                 shiftY, shiftX = utils.getshiftvalues(shiftcropbox,seg.shape,cb)
             else:
-                cb = fb = dict(ytl=None, xtl=None, ybr=None, xbr=None)
+                cb = fb = dict(ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1])
                 shiftY, shiftX = 0,0
             
             # Add into arrays:
