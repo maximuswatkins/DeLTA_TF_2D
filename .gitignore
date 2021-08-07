@@ -7,3 +7,6 @@ __pycache__
 
 # Ignore debugging file:
 debugging.py
+
+# Ignore config file:
+config.py
