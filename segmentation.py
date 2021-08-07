@@ -8,14 +8,20 @@ The images are processed by batches of 4096 to prevent memory issues.
 '''
 import config as cfg
 
-from data import saveResult_seg, predictGenerator_seg, postprocess
+from data import saveResult_seg, predictGenerator_seg, postprocess, readreshape
 from model import unet_seg
 import os
+import utilities as utils
+import numpy as np
 
 # Files:
-inputs_folder = 'D:/DeLTA_data/mother_machine/evaluation/preprocessed/img/'
-outputs_folder = 'D:/DeLTA_data/mother_machine/evaluation/seg_output/'
-unprocessed = os.listdir(inputs_folder)
+inputs_folder = '/project/dunlop/owen/DeLTA_agarpads/pipeline/moma/img'
+outputs_folder = '/project/dunlop/owen/DeLTA_agarpads/pipeline/moma/seg_output'
+
+if not os.path.exists(outputs_folder):
+    os.mkdir(outputs_folder)
+    
+unprocessed = sorted(os.listdir(inputs_folder))
 
 # Load up model:
 model = unet_seg(input_size = cfg.target_size_seg+(1,))
@@ -30,14 +36,29 @@ while(unprocessed):
     
     # Predict:
     predGene = predictGenerator_seg(
-        inputs_folder, 
-        files_list = to_process,
-        target_size = cfg.target_size_seg
-        )
-    results = model.predict(predGene,verbose=1)
-    
+                                    inputs_folder, 
+                                    files_list = to_process,
+                                    target_size = cfg.target_size_seg,
+                                    crop = cfg.crop_windows)
+    # Use mother machine model
+    if not cfg.crop_windows:
+        results = model.predict(predGene,verbose=1)[:,:,:,0]
+    # Use 2D surfaces model
+    else:
+        # Create array to store predictions
+        img = readreshape(os.path.join(inputs_folder,to_process[0]),crop=True)
+        results = np.zeros((len(to_process),img.shape[0],img.shape[1],1))
+        # Crop, segment, stitch and store predictions in results
+        for i in range(len(to_process)):
+            windows, loc_y, loc_x = utils.create_windows(next(predGene)[0,:,:], target_size=cfg.target_size_seg                                                        )
+            windows = windows[:,:,:,np.newaxis]
+            pred = model.predict(windows,verbose=1,steps=windows.shape[0])
+            pred = utils.stitch_pic(pred[:,:,:,0],loc_y,loc_x)[np.newaxis,:,:,np.newaxis]
+            
+            results[i] = pred
+                
     # Post process results:
-    results[:,:,:,0] = postprocess(results[:,:,:,0])
+    results = postprocess(results, crop = cfg.crop_windows)
     
     # Save to disk:
     saveResult_seg(outputs_folder,results, files_list = to_process)

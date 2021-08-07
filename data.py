@@ -6,7 +6,7 @@ operations.
 '''
 from __future__ import print_function
 import numpy as np 
-import os, glob, re, random, warnings, copy, importlib
+import os, glob, re, random, warnings, copy, importlib, cv2
 import skimage.io as io
 import tifffile
 import skimage.transform as trans
@@ -14,6 +14,7 @@ from skimage.measure import label
 import skimage.morphology as morph
 from scipy import interpolate
 import utilities as utils
+
 
 # Try to import elastic deformations, issue warning if not found:
 if importlib.util.find_spec("elasticdeform") is None:
@@ -42,12 +43,13 @@ def binarizerange(i):
         Binarized image.
 
     '''
+    
     newi = i
     newi[i > (np.amin(i)+np.amax(i))/2] = 1
     newi[i <= (np.amin(i)+np.amax(i))/2] = 0
     return newi
 
-def readreshape(filename, target_size = (256,32), binarize = False, order = 1, rangescale = True):
+def readreshape(filename, target_size = (256,32), binarize = False, order = 1, rangescale = True, crop = False):
     '''
     Read image from disk and format it
 
@@ -69,7 +71,8 @@ def readreshape(filename, target_size = (256,32), binarize = False, order = 1, r
     rangescale : bool, optional
         Scale array image values to 0-1 if True. 
         The default is True.
-
+    mode : str, optional
+        Resize the 
     Raises
     ------
     ValueError
@@ -88,16 +91,27 @@ def readreshape(filename, target_size = (256,32), binarize = False, order = 1, r
         i = tifffile.imread(filename)
     else:
         raise ValueError('Only PNG, JPG or single-page TIF files accepted')
-    
-    if target_size is not None:
-        i = trans.resize(i, target_size, anti_aliasing=True, order=order)
-    if binarize:
-        i = binarizerange(i)
-    if rangescale:
-        i = (i-np.min(i))/np.ptp(i)
-    return i
+    if i.ndim == 3:
+        i = i[:,:,0]
+    # For DeLTA mothermachine, all images are resized in 256x32
+    if not crop:
+        img = trans.resize(i, target_size, anti_aliasing=True, order=order)
+    # For DeLTA 2D, black space is added if img is smaller than target_size
+    else: 
+        fill_shape = [target_size[j] if i.shape[j] < target_size[j] else i.shape[j] for j in range(2)]
+        img = np.zeros((fill_shape[0],fill_shape[1]))
+        img[0:i.shape[0],0:i.shape[1]] = i 
 
-def postprocess(images,square_size=5,min_size=None):
+    if binarize:
+        img = binarizerange(img)
+    if rangescale:
+        if np.ptp(img) != 0:
+            img = (img-np.min(img))/np.ptp(img)
+    if np.max(img) == 255:
+        img = img / 255
+    return img
+
+def postprocess(images,square_size=5,min_size=None, crop = False):
     '''
     A generic binary image cleaning function based on mathematical morphology.
 
@@ -131,7 +145,8 @@ def postprocess(images,square_size=5,min_size=None):
     # Go through stack:
     for index, I in enumerate(images):
         I = binarizerange(I)
-        I = morph.binary_opening(I,selem=selem)
+        if not crop:
+            I = morph.binary_opening(I,selem=selem)
         if min_size is not None:
             I = morph.remove_small_objects(I,min_size=min_size)
         images[index,:,:] = I
@@ -213,12 +228,6 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
     else:
         orderlist = list(order)
     
-    if np.isscalar(time) or len(time)==1:
-        timelist = [time] * len(images_input)
-    else:
-        timelist = list(time)
-    timepoints = np.unique(timelist)
-    
     # Apply augmentation operations:
     
     if "illumination_voodoo" in aug_par:
@@ -294,35 +303,14 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
     else:
         shiftY = 0
     
-    if 'timeshift_prob' in aug_par \
-        and np.random.uniform() > 1-aug_par["timeshift_prob"]:
-        timeshiftX = []
-        timeshiftY = []
-        for _ in timepoints:
-            if 'timeshiftX' in aug_par:
-                timeshiftX += [
-                    random.uniform(-aug_par["timeshiftX"],aug_par["timeshiftX"])
-                    ]
-            else:
-                timeshiftX += [0]
-            if 'timeshiftY' in aug_par:
-                timeshiftY += [
-                    random.uniform(-aug_par["timeshiftY"],aug_par["timeshiftY"])
-                    ]
-            else:
-                timeshiftY += [0]
-    else:
-        timeshiftX = [0]*len(timepoints)
-        timeshiftY = [0]*len(timepoints)
-    
     # Apply zoom & shifts:
-    if any([abs(x)>0 for x in [zoom,shiftX,shiftY,*timeshiftX,*timeshiftY]]):
+    if any([abs(x)>0 for x in [zoom,shiftX,shiftY]]):
         for index, item in enumerate(output):
             output[index] = zoomshift(
                 item,
                 zoom+1,
-                shiftX+timeshiftX[timelist[index]],
-                shiftY+timeshiftY[timelist[index]],
+                shiftX,
+                shiftY,
                 order=orderlist[index]
                 )
     
@@ -464,7 +452,8 @@ def trainGenerator_seg(
         target_size = (256,32),
         augment_params = {},
         preload = False,
-        seed = 1
+        seed = 1,
+        crop_windows = False
         ):
     '''
     Generator for training the segmentation U-Net.
@@ -515,10 +504,10 @@ def trainGenerator_seg(
     # If preloading, load the images and compute weight maps:
     if preload:
         for filename in image_name_arr:
-            preload_img.append(readreshape(filename, target_size = target_size, order = 1))
-            preload_mask.append(readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False))
+            preload_img.append(readreshape(filename, target_size = target_size, order = 1, crop = crop_windows))
+            preload_mask.append(readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False, crop = crop_windows))
             if weight_path is not None:
-                preload_weight.append(readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0), rangescale = False)
+                preload_weight.append(readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0), rangescale = False, crop = crop_windows)
     
     # Reset the pseudo-random generator:
     random.seed(a=seed)
@@ -544,14 +533,26 @@ def trainGenerator_seg(
             else:
                 # Read images:
                 filename = image_name_arr[index]
-                img = readreshape(filename, target_size = target_size, order = 1)
-                mask = readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False)
+                img = readreshape(filename, target_size = target_size, order = 1, crop = crop_windows)
+                mask = readreshape(os.path.join(mask_path,os.path.basename(filename)), target_size = target_size, binarize = True, order = 0, rangescale = False, crop = crop_windows)
                 if weight_path is not None:
-                    weight = readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0, rangescale = False)
+                    weight = readreshape(os.path.join(weight_path,os.path.basename(filename)), target_size = target_size, order = 0, rangescale = False, crop = crop_windows)
                 else:
                     weight = []
                     
-
+            if crop_windows:
+                y0 = np.random.randint(0,img.shape[0] - (target_size[0] - 1))
+                y1 = y0 + target_size[0]
+                x0 = np.random.randint(0,img.shape[1] - (target_size[1] - 1))
+                x1 = x0 + target_size[1]
+                
+                img = img[y0:y1,x0:x1]
+                mask = mask[y0:y1,x0:x1]
+                if weight_path is not None:
+                    weight = weight[y0:y1,x0:x1]
+                else:
+                    weight = []
+            
             # Data augmentation:
             if weight_path is not None:
                 [img, mask, weight] = data_augmentation([img, mask, weight], augment_params, order=[1,0,0])
@@ -611,7 +612,7 @@ def saveResult_seg(save_path,npyfile, files_list = [], multipage=False):
                 io.imsave(filename,(img*255).astype(np.uint8))
 
 
-def predictGenerator_seg(files_path, files_list = None, target_size = (256,32)):
+def predictGenerator_seg(files_path, files_list = None, target_size = (256,32),crop=False):
     '''
     Get a generator for predicting segmentation on new image files 
     once the segmentation U-Net has been trained.
@@ -637,17 +638,19 @@ def predictGenerator_seg(files_path, files_list = None, target_size = (256,32)):
     '''
     
     
-    files_list = files_list or os.listdir(files_path)
+    files_list = files_list or sorted(os.listdir(files_path))
 
         
     def generator(files_path, files_list, target_size):
         for index, fname in enumerate(files_list):
             img = readreshape(os.path.join(files_path,fname),
                               target_size=target_size,
-                              order=1)
+                              order=1,
+                              crop = crop)
             img = np.reshape(img,(1,)+img.shape) # Tensorflow needs one extra single dimension (so that it is a 4D tensor)
+            
             yield img
-                
+
     mygen = generator(files_path, files_list, target_size)
     return mygen
     
@@ -699,7 +702,146 @@ def seg_weights(mask, classweights=(1,1), w0=12, sigma=2):
     weightmap = np.add(weightmap,(mask[:,:,0]==1)*classweights[1])
     
     return weightmap
+
+def kernel(n):
+    '''
+    
+
+    Parameters
+    ----------
+    n : Int
+        Determine size of kernel.
+
+    Returns
+    -------
+    kernel : Array of unit8
+        Returns a kernal with size of n.
+
+    '''
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(n,n))
+    return kernel
+
+def estimate_seg2D_classweights(mask_path, sample_size = None):
+    '''
+    
+    Parameters
+    ----------
+    mask_path : str
+        Path to folder containing segmentations.
+    sample_size : int, optional
+        Determines the size of the training set that will be used to calcualte class weights. The default is None.
+
+    Returns
+    -------
+    class1 : Int
+        weight of class 1.
+    class2 : Int
+        weight of class 2.
+
+    '''
+    mask_name_arr = glob.glob(os.path.join(mask_path,'*.png')) + \
+                    glob.glob(os.path.join(mask_path,'*.tif'))
+                    
+    # Take a sample size of training set to reduce computation time. 
+    if sample_size:
+        mask_name_arr = random.sample(mask_name_arr,sample_size)
         
+    c1 = 0
+    c2 = 0
+    
+    for mask_name in mask_name_arr:
+        
+        mask = cv2.imread(mask_name,0) / 255
+        # Extract all pixels that include the cells and it's border (no background)
+        border = (cv2.morphologyEx(mask,cv2.MORPH_CLOSE,kernel(20))) 
+        # Set all pixels that include the cells to zero to leave behind the border only
+        border[mask>0] = 0   
+             
+        # Bkgd (background) is just the image minus the cells + border
+        bkgd = np.ones((mask.shape))
+        bkgd = bkgd - (mask + border)   
+        
+        # Erode the segmentation to avoid putting high emphasiss on edges of cells 
+        mask_erode = cv2.erode(mask,kernel(2))   
+        mask_dil = cv2.dilate(mask,kernel(3))
+        border_erode = (mask_dil < 1) * (border > 0) * 1 
+        
+        skel = morph.skeletonize(mask_erode>0) * 1
+        skel_border = morph.skeletonize(border_erode>0) * 1
+            
+        c1 = c1 + np.sum(np.sum(skel.astype(np.float64)))    
+        c2 = c2 + np.sum(np.sum(skel_border.astype(np.float64)))  
+        
+    if c1 > c2:
+        class1 = c2 / c1
+        class2 = 1
+    else:
+        class1 = 1
+        class2 = 1 * c1 / c2
+    
+    return class1, class2
+    
+def seg_weights_2D(mask, classweights=(1,1)):
+    '''
+    
+    This function computes custom weightmaps designed for bacterial images where borders are difficult to distinguish
+    
+    Parameters
+    ----------
+    mask : 2D array
+        Training output segmentation mask.
+    classweights : tuple of 2 int/floats, optional
+        Weights to apply to cells and border
+        The default is (1,1)
+      
+
+    Returns
+    -------
+    weightmap : 2D array
+        Weights map image.
+
+    '''
+    if mask.ndim == 3:
+        mask = mask[:,:,0]
+    if np.max(mask) == 255:
+        mask = mask / 255
+        
+    # Extract all pixels that include the cells and it's border 
+    border = cv2.morphologyEx(mask,cv2.MORPH_CLOSE,kernel(20)) 
+    # Set all pixels that include the cells to zero to leave behind the border only
+    border[mask>0] = 0   
+    
+    # Erode the segmentation to avoid putting high emphasiss on edges of cells 
+    mask_erode = cv2.erode(mask,kernel(2))   
+    
+    # Get the skeleton of the segmentation and border
+    mask_skel = morph.skeletonize(mask_erode > 0)  
+    border_skel = morph.skeletonize(border > 0)  
+    
+    # Find the distances from the skeleton of the segmention and border
+    s , border_dist = morph.medial_axis(border_skel < 1, return_distance=True)  
+    s , mask_dist = morph.medial_axis(mask_skel < 1, return_distance=True)      
+    
+    # Use the distance from the skeletons to create a gradient towards the skeleton
+    border_gra = border * (classweights[1]) / (border_dist + 1)**2             
+    mask_gra = (mask/ (mask_dist + 1)**2)
+        
+    # Set up weights array
+    weightmap = np.zeros((mask.shape),dtype=np.float32)
+    
+    # Add the gradients for the segmentation and border into the weights array
+    weightmap[mask_erode>0] = mask_gra[mask_erode>0] 
+    weightmap[border>0] = border_gra[border>0] 
+    
+    # Set the skeletons of the segmentation and borders to the maximum values
+    weightmap[mask_skel>0] = classweights[0]
+    weightmap[border_skel>0] = classweights[1]
+        
+    # Keep the background zero and set the erode values in the seg/border to a minimum of 1
+    bkgd = np.ones((mask.shape)) - mask - border
+    weightmap[((weightmap == 0) * (bkgd < 1))] = 1 / 255
+    
+    return weightmap
 
 def estimateClassweights(gene, num_samples = 30):
     '''
@@ -760,6 +902,7 @@ def trainGenerator_track(
         augment_params = {},
         crop_windows = False,
         target_size = (256,32),
+        shiftcropbox = 0,
         seed = 1
         ):
     '''
@@ -794,6 +937,8 @@ def trainGenerator_track(
     target_size : tuple of 2 ints, optional
         Input and output image size. 
         The default is (256,32).
+    shiftcropbox: int
+        Determine the max number of pixels that the cropbox for the current frames (img,segall,mot_dau,wei) inputs will be shifted
     seed : int, optional
         Seed for numpy's random generator. see numpy.random.seed() doc
         The default is 1.
@@ -816,7 +961,6 @@ def trainGenerator_track(
                         glob.glob(os.path.join(img_path,"*.tif"))
     X = np.empty((batch_size,) + target_size + (4,), dtype=np.float32)
     Y = np.empty((batch_size,) + target_size + (2,), dtype=np.float32)
-    resize = target_size if not crop_windows else None
     
     # Reset the pseudo-random generator:
     random.seed(a=seed)
@@ -832,33 +976,37 @@ def trainGenerator_track(
             filename = image_name_arr[index]
             
             # Read images:
-            img = readreshape(filename, target_size = resize, order = 1)
+            img = readreshape(filename, target_size = target_size, order = 1, crop=True)
             seg = readreshape(
                 os.path.join(seg_path,os.path.basename(filename)),
-                target_size = resize, 
+                target_size = target_size, 
                 binarize = True, 
                 order = 0, 
-                rangescale = False
+                rangescale = False,
+                crop=True
                 )
             previmg = readreshape(
                 os.path.join(previmg_path,os.path.basename(filename)), 
-                target_size = resize, 
-                order = 1
+                target_size = target_size, 
+                order = 1,
+                crop=True
                 )
             segall = readreshape(
                 os.path.join(segall_path,os.path.basename(filename)), 
-                target_size = resize, 
+                target_size = target_size, 
                 binarize = True, 
                 order = 0, 
-                rangescale = False
+                rangescale = False,
+                crop=True
                 )
 
             track = readreshape(
                 os.path.join(track_path,os.path.basename(filename)),
-                target_size = resize, 
+                target_size = target_size, 
                 binarize = True, 
                 order = 0, 
-                rangescale = False
+                rangescale = False,
+                crop=True
                 )
             if weights_path is not None:
                 if weights_path == 'online':
@@ -866,36 +1014,44 @@ def trainGenerator_track(
                 else:
                     weights = readreshape(
                         os.path.join(weights_path,os.path.basename(filename)),
-                        target_size = resize, 
+                        target_size = target_size, 
                         binarize = False, 
                         order = 0, 
-                        rangescale = False
+                        rangescale = False,
+                        crop=True
                         )
             else:
                 weights = np.ones_like(track)
-            
+                        
             # Data augmentation:
             [img, seg, previmg, segall, track, weights] = data_augmentation(
                 [img, seg, previmg, segall, track, weights],
                 augment_params, 
-                order=[1,0,1,0,0,0],
-                time=[1,0,0,1,1,1]
+                order=[1,0,1,0,0,0]
                 )
             
             if crop_windows:
                 cb, fb = utils.gettrackingboxes(seg)
+                shiftY, shiftX = utils.getshiftvalues(shiftcropbox,seg.shape,cb)
             else:
                 cb = fb = dict(ytl=None, xtl=None, ybr=None, xbr=None)
+                shiftY, shiftX = 0,0
             
             # Add into arrays:
-            X[b,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],0] = utils.cropbox(
-                img, cb
-                )
+
             X[b,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],1] = utils.cropbox(
                 seg, cb
                 )
             X[b,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],2] = utils.cropbox(
                 previmg, cb
+                )
+            
+            # Shift crop box for current frame inputs
+            cb['xtl'] += shiftX; cb['xbr'] += shiftX
+            cb['ytl'] += shiftY; cb['ybr'] += shiftY
+
+            X[b,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],0] = utils.cropbox(
+                img, cb
                 )
             X[b,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],3] = utils.cropbox(
                 segall, cb
@@ -911,9 +1067,47 @@ def trainGenerator_track(
         # Yield batch:
         yield X, Y
 
+def getfnfromprototype(prototype,fileorder,position,chamber,frame,cellnb = None):
+    '''
+    Generate full filename for specific frame based on file path, 
+    prototype, fileorder, and filenamesindexing
+
+    Parameters
+    ----------
+    position : int
+        Position/series index (0-based indexing).
+    channel : int
+        Imaging chamber index (0-based indexing).
+    frame : int
+        Frame/timepoint index (0-based indexing).
+
+    Returns
+    -------
+    string
+        Filename.
+
+    '''
+    filenumbers = []
+    
+    for i in fileorder:
+        if i=='p':
+            filenumbers.append(position)
+        if i=='c':
+            filenumbers.append(chamber)
+        if i=='t':
+            filenumbers.append(frame)
+        if i=='n':
+            filenumbers.append(cellnb)
+    
+    if cellnb is not None:
+        prototype = os.path.splitext(prototype)[0] + 'Cell%06d' + os.path.splitext(prototype)[1]
+    
+    filename = prototype % tuple(filenumbers)
+    
+    return filename
 
 def predictCompilefromseg_track(
-        img_path,seg_path, files_list = [], target_size = (256,32)
+        img_path,seg_path, files_list = [], target_size = (256,32), crop = False
         ):
     '''
     Compile an inputs array for tracking prediction with the tracking U-Net, 
@@ -951,46 +1145,99 @@ def predictCompilefromseg_track(
 
     '''
     
-    img_arr = []
-    seg_arr = []
-    previmg_arr = []
-    segall_arr = []
     seg_name_list = []
-    
+    crop = False
     if not files_list:
-        files_list = os.listdir(img_path)
-        
+        files_list = sorted(os.listdir(img_path))
+    
+    ind = 0
+    
+    numstrs = re.findall("\d+", files_list[0]) # Get digits sequences in first filename
+    charstrs = re.findall("\D+", files_list[0]) # Get character sequences in first filename
+    
+    # Create the string prototype to be used to generate filenames on the fly:
+    if not (len(numstrs)==3 and len(charstrs)==4 or len(numstrs) == 2 and len(charstrs) == 3):
+        raise ValueError('Filename formatting error. See documentation for image sequence formatting')
+    elif len(numstrs)==3 and len(charstrs)==4:
+    # Order is position, chamber, frame/timepoint
+        prototype = charstrs[0]+'%0'+str(len(numstrs[0]))+'d'+\
+                   charstrs[1]+'%0'+str(len(numstrs[1]))+'d'+\
+                   charstrs[2]+'%0'+str(len(numstrs[2]))+'d'+\
+                   charstrs[3] 
+        fileorder = 'pct'
+    elif len(numstrs)==2 and len(charstrs)==3:
+    # Order is position, frame/timepoint
+        prototype = charstrs[0]+'%0'+str(len(numstrs[0]))+'d'+\
+                    charstrs[1]+'%0'+str(len(numstrs[1]))+'d'+\
+                    charstrs[2]
+        fileorder = 'pt'
+        crop = True
+    fileordercell = fileorder + 'n'
     for index, item in enumerate(files_list):
             filename = os.path.basename(item)
             # Get position, chamber & frame numbers:
-            (pos, cha, fra) = list(map(int, re.findall("\d+",filename)))
+            if fileorder == 'pct':
+                (pos, cha, fra) = list(map(int, re.findall("\d+",filename)))
+            elif fileorder == 'pt':
+                (pos, fra) = list(map(int, re.findall("\d+",filename)))
+                cha = None
+            
             if fra > 1:
-                prevframename = 'Position%02d_Chamber%02d_Frame%03d.png'%(
-                    pos,cha,fra-1
-                    )
-                img = readreshape(os.path.join(img_path,filename), target_size = target_size, order = 1)
-                segall = readreshape(os.path.join(seg_path,filename), target_size = target_size, order = 0, binarize = True, rangescale = False)
-                previmg = readreshape(os.path.join(img_path,prevframename), target_size = target_size, order = 1)
-                prevsegall = readreshape(os.path.join(seg_path,prevframename), target_size = target_size, order = 0, binarize = True, rangescale = False)
+                
+                prevframename = getfnfromprototype(prototype,fileorder,position=pos,chamber=cha,frame=fra-1)
+                   
+                img = readreshape(os.path.join(img_path,filename), target_size = target_size, order = 1, crop = crop)
+                segall = readreshape(os.path.join(seg_path,filename), target_size = target_size, order = 0, binarize = True, rangescale = False, crop = crop)
+                previmg = readreshape(os.path.join(img_path,prevframename), target_size = target_size, order = 1, crop = crop)
+                prevsegall = readreshape(os.path.join(seg_path,prevframename), target_size = target_size, order = 0, binarize = True, rangescale = False, crop = crop)
                 
                 lblimg,lblnb = label(prevsegall,connectivity=1,return_num=True)
                 
-                for lbl in range(1,lblnb+1):
-                    segfilename = 'Position%02d_Chamber%02d_Frame%03d_Cell%06d.png'%(
-                    pos,cha,fra-1,lbl
+                x = np.empty(
+                    shape=(lblnb,)+target_size+(4,),
+                    dtype=np.float32
                     )
-                    
+                boxes = []
+                
+                for lbl in range(1,lblnb+1):
                     seg = lblimg == lbl
-                    seg.astype(segall.dtype) # Output is boolean otherwise
+                    seg = seg.astype(np.uint8) # Output is boolean otherwise
+                    
+                    # Cell-centered crop boxes:
+                    if crop:
+                        cb, fb = utils.gettrackingboxes(seg, img.shape)
+                    else:
+                        cb = fb = dict(ytl=None, xtl=None, ybr=None, xbr=None)
+                    boxes += [(cb, fb)]
+                    
+                    # Current image
+                    x[lbl-1,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],0] = utils.cropbox(
+                        img, cb
+                        )
+                    
+                    x[lbl-1,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],1] = utils.cropbox(
+                        seg, cb
+                        )            
+                    # Previous image
+                    x[lbl-1,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],2] = utils.cropbox(
+                        previmg, cb
+                        )
+                    
+                    # Segmentation of all current cells
+                    x[lbl-1,fb['ytl']:fb['ybr'],fb['xtl']:fb['xbr'],3] = utils.cropbox(
+                        segall, cb
+                        )
+                    
+                    segfilename = getfnfromprototype(prototype,fileordercell,position=pos,chamber=cha,frame=fra-1,cellnb=lbl)
 
-                    seg_arr.append(seg)
-                    img_arr.append(img)
-                    previmg_arr.append(previmg)
-                    segall_arr.append(segall)
                     seg_name_list.append(segfilename)
-    
-    inputs_arr = np.stack((img_arr,seg_arr,previmg_arr,segall_arr),axis=-1)
-    return inputs_arr, seg_name_list
+                                    
+                if ind == 0:
+                    inputs_arr = x
+                    ind = 1
+                else:
+                    inputs_arr = np.concatenate((inputs_arr,x),axis=0)
+    return inputs_arr, seg_name_list, boxes
 
 
 def tracking_weights(track, segall, halo_distance = 50):
@@ -1031,16 +1278,17 @@ def tracking_weights(track, segall, halo_distance = 50):
     skel = morph.skeletonize(track,method='lee')
     
     # Tracked Cell weights are distance from edges + skeleton at 255 in the center
-    weights = utils.rangescale(dist_in+1,(1,84))
+    weights = utils.rangescale(dist_in+1,(1,42))
     weights[skel>0] = 255
     
     # Rest of the image is weighed according to distance from tracked cell:
-    weights+= 127*(dist_from/halo_distance) \
+    weights+= 63*(dist_from/halo_distance) \
         *(segall>0).astype(np.float32)\
             *(track==0).astype(np.float32)
     
-    # weights = utils.rangescale(weights,(1/255,1))
-    
+    weights*=100
+    weights[dist_from<1] = 1
+        
     return weights
     
     
@@ -1067,7 +1315,6 @@ def saveResult_track(save_path,npyfile, files_list = None):
     '''
     
     mothers = npyfile[:,:,:,0]
-    # daughters = npyfile[:,:,:,1]
     for i,mother in enumerate(mothers):
         if files_list:
             filenameMo = os.path.join(save_path,files_list[i])
@@ -1076,11 +1323,3 @@ def saveResult_track(save_path,npyfile, files_list = None):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             io.imsave(filenameMo,(mother*255).astype(np.uint8))
-    # for i,daughter in enumerate(daughters):
-    #     if files_list:
-    #         filenameDa = os.path.join(save_path,'daughter_' + files_list[i])
-    #     else:
-    #         filenameDa = os.path.join(save_path,"%daughter_09d.png"%i)
-    #     with warnings.catch_warnings():
-    #         warnings.simplefilter("ignore")
-    #         io.imsave(filenameDa,(daughter*255).astype(np.uint8))

@@ -5,19 +5,26 @@ Images are processed in batches of 512, although the number of actual samples
 run through the tracking U-Net will depend on the number of cells in each 
 image.
 
+Format of images needs to be Position-Number-Chamber-Number-Frame-Number.fext or Position-Number-Frame-Number.fext
+
+If there are chambers, then it is assumed to be run in the mothermachine. 
+If there are no chambers, then images will be cropped as done for DeLTA 2D
 @author: jblugagne
 '''
 import config as cfg
 
 from data import saveResult_track, predictCompilefromseg_track
 from model import unet_track
-from os import listdir
+import os, cv2
 
-# Files:
-images_folder = 'D:/DeLTA_data/mother_machine/evaluation/preprocessed/img/'
-segmentation_folder = 'D:/DeLTA_data/mother_machine/evaluation/seg_output/'
-outputs_folder = 'D:/DeLTA_data/mother_machine/evaluation/track_output/'
-unprocessed = listdir(images_folder)
+images_folder = '/project/dunlop/owen/DeLTA_agarpads/pipeline/moma/img'
+segmentation_folder = '/project/dunlop/owen/DeLTA_agarpads/pipeline/moma/seg_output/'
+outputs_folder = '/project/dunlop/owen/DeLTA_agarpads/pipeline/moma/track_output/'
+
+if not os.path.exists(outputs_folder):
+    os.mkdir(outputs_folder)
+    
+unprocessed = sorted(os.listdir(images_folder))
 
 # Load up model:
 model = unet_track(input_size = cfg.target_size_track+(4,))
@@ -31,13 +38,14 @@ while(unprocessed):
     del unprocessed[0:ps]
     
     # Get data:
-    inputs, seg_filenames = predictCompilefromseg_track(
+    inputs, seg_filenames, boxes = predictCompilefromseg_track(
         images_folder, 
         segmentation_folder,
         files_list = to_process, 
-        target_size = cfg.target_size_track
+        target_size = cfg.target_size_track,
+        crop = cfg.crop_windows
         )
-    
+
     # Predict:
     results = model.predict(inputs,verbose=1)
     
