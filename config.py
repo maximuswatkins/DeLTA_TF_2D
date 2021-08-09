@@ -28,7 +28,7 @@ if presets == 'mothermachine':
     rotation_correction = True # Whether to perform automated image rotation correction
     drift_correction = True # Whether to perform image drift correction
     crop_windows = False # Whether to crop out windows for segmentation and tracking
-    min_roi_area = 500 # Minimum size of ROIs in pixels for area filtering (0 to +Inf)
+    min_roi_area = 500 # Minimum size of ROIs/chambers in pixels for area filtering (0 to +Inf)
     
 elif presets == '2D':
     models = ['segmentation', 'tracking']
