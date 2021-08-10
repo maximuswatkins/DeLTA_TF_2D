@@ -10,6 +10,7 @@ Version 2 preprint:
 Original paper:
 [Lugagne, J.-B., Lin, H., & Dunlop, M. J. (2020). DeLTA: Automated cell segmentation, tracking, and lineage reconstruction using deep learning. PLOS Computational Biology, 16(4), e1007673](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007673).
 
+:bug: If you encounter bugs or have questions about the software, please use [Gitlab's issue system](https://gitlab.com/dunloplab/delta/-/issues)
 ##### Overview
 Our pipeline is centered around two [U-Net](https://arxiv.org/abs/1505.04597) neural networks that are used sequentially:
 1. To perform semantic binary segmentation of our cells as in the original U-Net paper.
