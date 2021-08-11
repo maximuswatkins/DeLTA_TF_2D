@@ -45,13 +45,12 @@ From inside the DeLTA folder, the following commands will install and activate t
 ```
 Note that the library versions listed in the [delta_env.yml](delta_env.yml) file have been tested and work on Linux and Windows, but more recent versions should work as well. We use the Spyder IDE, but it can be removed from the environment file.
 
-> **Prerequisites**
-On Windows, you will need [c++](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation) and [.NET](https://docs.microsoft.com/en-us/dotnet/framework/install/guide-for-developers) support for Visual studio, and a recent [Java JDK](https://www.oracle.com/java/technologies/javase-downloads.html) (≥8).
-
-> On Linux, you will need a recent JDK/OpenJDK and will need to create a JAVA_HOME environment variable pointing to it, for example on Ubuntu:
-```bash
-(base)$ export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-```
+> **Prerequisites**  
+On Windows, you will need [c++](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation) and [.NET](https://docs.microsoft.com/en-us/dotnet/framework/install/guide-for-developers) support for Visual studio, and a recent [Java JDK](https://www.oracle.com/java/technologies/javase-downloads.html) (≥8).  
+> On Linux, you will need a recent JDK/OpenJDK and will need to create a JAVA_HOME environment variable pointing to it, for example on Ubuntu:  
+> ```bash
+> (base)$ export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+> ```
 
 ### Configuration
 Our latest trained models can be found [here](https://drive.google.com/drive/u/0/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP)
