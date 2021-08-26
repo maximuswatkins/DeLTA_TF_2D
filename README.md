@@ -1,24 +1,27 @@
 # DeLTA
+> **NOTE**
+This is version 2 of the DeLTA pipeline. For version 1, please check out branch 'version1'
 
 DeLTA (Deep Learning for Time-lapse Analysis) is a deep learning-based image processing pipeline for segmenting and tracking single cells in time-lapse microscopy movies.
 
 ![](https://gitlab.com/dunloplab/delta/-/raw/images/DeLTAexample.gif)
 
-Version 2 preprint:
+Version 2 preprint: [O’Connor, O. M., Alnahhas, R. N., Lugagne, J.-B., & Dunlop, M. J. (2021). DeLTA 2.0: A deep learning pipeline for quantifying single-cell spatial and temporal dynamics. _BioRxiv_, 2021.08.10.455795](https://www.biorxiv.org/content/10.1101/2021.08.10.455795v1)
 
 
-Original paper:
-[Lugagne, J.-B., Lin, H., & Dunlop, M. J. (2020). DeLTA: Automated cell segmentation, tracking, and lineage reconstruction using deep learning. PLOS Computational Biology, 16(4), e1007673](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007673).
+Version 1 paper:
+[Lugagne, J.-B., Lin, H., & Dunlop, M. J. (2020). DeLTA: Automated cell segmentation, tracking, and lineage reconstruction using deep learning. _PLOS Computational Biology_, 16(4), e1007673](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007673).
 
 :bug: If you encounter bugs or have questions about the software, please use [Gitlab's issue system](https://gitlab.com/dunloplab/delta/-/issues)
 ##### Overview
+
+This pipeline can process movies of rod-shaped bacteria growing in 2D setups such as agarose pads, as well as movies of *E. coli* cells trapped in a microfluidic device known as a ["mother machine"](https://www.cell.com/current-biology/fulltext/S0960-9822%2810%2900524-5). An earlier version of this software that only processed mother machine movies can be found on branch ['version1'](https://gitlab.com/dunloplab/delta/-/tree/version1) of this repository.
+
 Our pipeline is centered around two [U-Net](https://arxiv.org/abs/1505.04597) neural networks that are used sequentially:
 1. To perform semantic binary segmentation of our cells as in the original U-Net paper.
 2. To track cells from one movie frame to the next, and to identify cell divisions and mother/daughter cells.
 
-A third U-Net can be used to identify regions of interest in the image before perfoming segmentation. This is used in the mother machine version of the software to identify single chambers, but by default only 1 ROI covering the entire field-of-view is used in the 2D version.
-
-This pipeline can process movies of rod-shaped bacteria growing in 2D setups such as agarose pads, as well as movies of *E. coli* cells trapped in a microfluidic device known as a ["mother machine"](https://www.cell.com/current-biology/fulltext/S0960-9822%2810%2900524-5). An earlier version of this software that only processed mother machine movies can be found on branch ['version1'](https://gitlab.com/dunloplab/delta/-/tree/version1) of this repository.
+A third U-Net can be used to identify regions of interest in the image before perfoming segmentation. This is used with mother machine movies to identify single chambers, but by default only 1 ROI covering the entire field-of-view is used in the 2D version.
 
 The U-Nets are implemented in Tensorflow 2 via the Keras API. We are currently working on the implementation graphical interfaces to generate training sets and to analyze and correct delta outputs. In the previous version of this software, we provided rudimentary Matlab interfaces in our [DeLTA interfacing](https://gitlab.com/dunloplab/delta-interfacing) repository.
 
@@ -42,13 +45,12 @@ From inside the DeLTA folder, the following commands will install and activate t
 ```
 Note that the library versions listed in the [delta_env.yml](delta_env.yml) file have been tested and work on Linux and Windows, but more recent versions should work as well. We use the Spyder IDE, but it can be removed from the environment file.
 
-> **Prerequisites**
-On Windows, you will need [c++](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation) and [.NET](https://docs.microsoft.com/en-us/dotnet/framework/install/guide-for-developers) support for Visual studio, and a recent [Java JDK](https://www.oracle.com/java/technologies/javase-downloads.html) (≥8).
-
-> On Linux, you will need a recent JDK/OpenJDK and will need to create a JAVA_HOME environment variable pointing to it, for example on Ubuntu:
-```bash
-(base)$ export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-```
+> **Prerequisites**  
+On Windows, you will need [c++](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation) and [.NET](https://docs.microsoft.com/en-us/dotnet/framework/install/guide-for-developers) support for Visual studio, and a recent [Java JDK](https://www.oracle.com/java/technologies/javase-downloads.html) (≥8).  
+> On Linux, you will need a recent JDK/OpenJDK and will need to create a JAVA_HOME environment variable pointing to it, for example on Ubuntu:  
+> ```bash
+> (base)$ export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+> ```
 
 ### Configuration
 Our latest trained models can be found [here](https://drive.google.com/drive/u/0/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP)

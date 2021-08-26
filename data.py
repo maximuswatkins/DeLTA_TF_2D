@@ -1146,7 +1146,6 @@ def predictCompilefromseg_track(
     '''
     
     seg_name_list = []
-    crop = False
     if not files_list:
         files_list = sorted(os.listdir(img_path))
     
@@ -1193,7 +1192,7 @@ def predictCompilefromseg_track(
                 
                 lblimg,lblnb = label(prevsegall,connectivity=1,return_num=True)
                 
-                x = np.empty(
+                x = np.zeros(
                     shape=(lblnb,)+target_size+(4,),
                     dtype=np.float32
                     )
