@@ -81,6 +81,9 @@ Fields:
                 |       indexes: In python, daughter D corresponds to 
                 |       cell/item #D-1 in lineage list.
                 |
+                |---edges : array of str
+                |       Which edges of the ROI the cell is currently touching.
+                |
                 |---fluo1/fluo2/fluo3... : 1D array of float32
                 |       Mean fluorescence value over time.
                 |
@@ -99,10 +102,8 @@ Fields:
                 |       otherwise: In python, mother M is cell/item #M-1 in 
                 |       this lineage list.
                 |
-                |---pixels : 1D array of 1D arrays of float32
-                |       Pixel indexes lists over time. 1-based unravelled
-                |       indexes of pixels where the cell is present in the
-                |       chamber.
+                |---perimeter : 1D array of float32
+                |       Perimeter of the cell, in number of pixels.
                 |
                 |---width : 1D array of float32
                         Cell width over time, in pixels.
