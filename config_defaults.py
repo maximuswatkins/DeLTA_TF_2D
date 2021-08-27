@@ -32,8 +32,8 @@ if presets == 'mothermachine':
     
 elif presets == '2D':
     models = ['segmentation', 'tracking']
-    model_file_seg = 'D:/DeLTA_data/agar_pads/20210314_20210318_noSalCdiffBsub_7.hdf5'
-    model_file_track = 'D:/DeLTA_data/agar_pads/Ecoli_track_TS_track_total_20210225.hdf5'
+    model_file_seg = 'D:/DeLTA_data/agar_pads/unet_pads_seg.hdf5'
+    model_file_track = 'D:/DeLTA_data/agar_pads/unet_pads_track.hdf5'
     target_size_seg = (512, 512)
     target_size_track = (256, 256)
     
