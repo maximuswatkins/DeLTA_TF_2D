@@ -484,6 +484,11 @@ class Position:
             rotate=self.rotate
             )
         
+        # If trans_frames is 2 dimensions, an extra dimension is added at axis=0 for time
+        # (1 timepoint may cause this issue)
+        if trans_frames.ndim == 2:
+            trans_frames = trans_frames[np.newaxis,:,:]
+            
         # Correct drift:
         if self.drift_correction:
             trans_frames, self.drift_values = utils.driftcorr(
