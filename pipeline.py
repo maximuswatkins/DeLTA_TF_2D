@@ -1125,4 +1125,4 @@ if __name__ == "__main__":
     xp = Pipeline(xpreader)
     
     # Run it:
-    xp.process()
+    xp.process(frames = [i for i in range(10)])
