@@ -11,8 +11,8 @@ If there are chambers, then it is assumed to be run in the mothermachine.
 If there are no chambers, then images will be cropped as done for DeLTA 2D
 @author: jblugagne
 '''
-import config as cfg
 
+from utilities import cfg
 from data import saveResult_track, predictCompilefromseg_track
 from model import unet_track
 import os, cv2

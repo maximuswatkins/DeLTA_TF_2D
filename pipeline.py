@@ -6,14 +6,14 @@ Created on Wed Jun 23 10:41:45 2021
 """
 
 
-import config as cfg
+
 
 # Modules:
 import time, cv2, os, threading
 import numpy as np
 from data import postprocess
 import utilities as utils
-import matplotlib.pyplot as plt
+from utilities import cfg
 
 class Pipeline(threading.Thread):
     '''

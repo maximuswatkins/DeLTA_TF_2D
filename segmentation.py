@@ -6,12 +6,12 @@ The images are processed by batches of 4096 to prevent memory issues.
 
 @author: jblugagne
 '''
-import config as cfg
 
 from data import saveResult_seg, predictGenerator_seg, postprocess, readreshape
 from model import unet_seg
 import os
 import utilities as utils
+from utilities import cfg
 import numpy as np
 
 # Files:

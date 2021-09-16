@@ -6,8 +6,7 @@ preprocessing section of pipeline.py and getROIboxes() in utilities.py
 
 @author: jblugagne
 '''
-import config as cfg
-
+from utilities import cfg
 from data import saveResult_seg, predictGenerator_seg, postprocess
 from model import unet_rois
 from os import listdir
