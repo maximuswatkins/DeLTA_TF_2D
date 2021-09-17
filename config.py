@@ -8,8 +8,8 @@ Created on Fri Feb  5 15:42:05 2021
 # Download latest models first:
 # https://drive.google.com/drive/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP
 
-presets = '2D' # 'mothermachine' or '2D'
 
+presets = '2D' # 'mothermachine' or '2D'
 if presets == 'mothermachine':
     models = ['rois', 'segmentation', 'tracking']
     model_file_rois = 'D:/DeLTA_data/mother_machine/models/chambers_id_tessiechamp.hdf5'
@@ -32,8 +32,8 @@ if presets == 'mothermachine':
     
 elif presets == '2D':
     models = ['segmentation', 'tracking']
-    model_file_seg = 'D:/DeLTA_data/agar_pads/20210314_20210318_noSalCdiffBsub_7.hdf5'
-    model_file_track = 'D:/DeLTA_data/agar_pads/Ecoli_track_TS_track_total_20210225.hdf5'
+    model_file_seg = '/project/dunlop/models/unet_pads_seg.hdf5'
+    model_file_track = '/project/dunlop/models/unet_pads_track.hdf5'
     target_size_seg = (512, 512)
     target_size_track = (256, 256)
     
@@ -52,8 +52,8 @@ min_cell_area = 20 # Minimum area of cells in pixels
 save_format = ('pickle', 'legacy', 'movie') # Format(s)) to save the data to.
 
 #%% Tensorflow technical parameters:
-# Debugging messages level from Tensorflow ('0' = most verbose to '3' = not verbose)
 import os
+# Debugging messages level from Tensorflow ('0' = most verbose to '3' = not verbose)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # If running into OOM issues or having trouble with cuDNN loading, try setting

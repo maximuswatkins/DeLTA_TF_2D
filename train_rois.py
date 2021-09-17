@@ -3,8 +3,7 @@ This script trains the chambers segmentation U-Net.
 
 @author: jblugagne
 '''
-import config as cfg
-
+from utilities import cfg
 from model import unet_rois
 from data import trainGenerator_seg
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping

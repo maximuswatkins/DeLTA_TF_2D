@@ -5,17 +5,47 @@ to minimize the risk of unforeseen bugs.
 
 @author: jblugagne
 '''
-import config as cfg
 import cv2, os, re, ffmpeg, time
 import numpy as np
 from scipy.io import savemat
-import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from threading import Thread
 from skimage.morphology import skeletonize
 
+#%% Importing the config.py file
 
+def import_module_by_path(path):
+    '''
+    
+    Import a module from a different directory than the current working directory
+    
+    Parameters
+    ----------
+    path : str
+        Path to local config.py file.
 
+    Returns
+    -------
+    mod : module
+        Returns the config.py file as a module.
+
+    '''
+    name = os.path.splitext(os.path.basename(path))[0]
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    return mod
+
+# Customized config.py should be stored in your home directory within a '.delta' folder
+# If there is no config.py at this location, the local config.py will be use
+hd_path = os.path.expanduser('~/.delta/config.py')
+if os.path.exists(hd_path):
+    cfg = import_module_by_path(hd_path)
+else:
+    cfg = import_module_by_path('config.py')
+    
 #%% Image correction
 
 def rangescale(frame, rescale):

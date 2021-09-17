@@ -57,6 +57,12 @@ Our latest trained models can be found [here](https://drive.google.com/drive/u/0
 
 Once downloaded, you will need to modify paths in the [config.py]() file to point to the trained models. Other paths can be left unchanged until you need to train your own models.
 
+The [config.py]() file may be stored in your home directory under '~/.delta/config.py'. The [utilities.py]() file will automatically look for a [config.py]() file at this location
+
+If the path exists, a config module will be uploaded in the [utilities.py]() file, otherwise the local [config.py]() will be loaded as a module as in the [utilities.py]()
+
+Storing your [config.py]() file in your home directory will allow multiple people to use the same DeLTA package. Also, this config.py file would not be tracked through git.
+
 The [config_defaults.py]() file is provided for reference. [config.py]() is not tracked by git so as not to overwrite changes.
 
 To switch to the mother machine processing mode, simply change `presets` at the top of the file to 'mothermachine'. You can modify the presets or create your own presets in [config.py]()

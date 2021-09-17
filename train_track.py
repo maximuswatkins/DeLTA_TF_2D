@@ -3,7 +3,7 @@ This script trains the tracking U-Net.
 
 @author: jblugagne
 '''
-import config as cfg
+from utilities import cfg
 import os
 from model import unet_track
 from data import trainGenerator_track

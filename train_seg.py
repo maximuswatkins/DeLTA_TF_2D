@@ -3,8 +3,7 @@ This script trains the cell segmentation U-Net
 
 @author: jblugagne
 '''
-import config as cfg
-
+from utilities import cfg
 from model import unet_seg
 from data import trainGenerator_seg
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
