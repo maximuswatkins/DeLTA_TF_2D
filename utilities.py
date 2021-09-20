@@ -1293,7 +1293,6 @@ class xpreader:
             fileorder='pct',
             filenamesindexing=1,
             watchfiles = False,
-            arg = ['']
             ):
         '''
         Initialize experiment reader
