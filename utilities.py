@@ -5,7 +5,7 @@ to minimize the risk of unforeseen bugs.
 
 @author: jblugagne
 '''
-import cv2, os, re, ffmpeg, time
+import cv2, os, re, ffmpeg, time, sys
 import numpy as np
 from scipy.io import savemat
 import matplotlib.cm as cm
@@ -1292,7 +1292,8 @@ class xpreader:
             prototype=None,
             fileorder='pct',
             filenamesindexing=1,
-            watchfiles = False
+            watchfiles = False,
+            arg = ['']
             ):
         '''
         Initialize experiment reader
@@ -1351,16 +1352,21 @@ class xpreader:
         None.
 
         '''
+
+        # Set default parameters
+        self.filename = filename
+        self.use_bioformats = use_bioformats
+        self.fileorder = fileorder
+        self.filenamesindexing = filenamesindexing
+        self.prototype = prototype
+        self.arg = sys.argv
         
-        if filename is None:
+        if len(self.arg) >= 2: 
+            # If command line arguments were passed
+            self.input_command_window()
+        elif filename is None:
             # Interactive selection and pop up window:
             self._interactive_init()
-        else:
-            self.filename = filename
-            self.use_bioformats = use_bioformats
-            self.fileorder = fileorder
-            self.filenamesindexing = filenamesindexing
-            self.prototype = prototype
         
         self.channelnames = channelnames
         self.watchfiles = watchfiles
@@ -1443,7 +1449,26 @@ class xpreader:
             self.y = s.shape[s.axes.find('Y')]
             self.dtype = s.pages[0].asarray().dtype
     
-    
+    def input_command_window(self):
+
+        self.filename = self.arg[1]
+        self.use_bioformats = [True if os.path.splitext(self.filename)[1] == '.nd2' else False][0]
+
+        i = 2
+        while i<len(self.arg):
+            if self.arg[i]=='--bio-formats':
+                self.use_bioformats = bool(int(self.arg[i+1]))
+                i+=2
+            if self.arg[i]=='--order':
+                self.fileorder = self.arg[i+1]
+                i+=2
+            if self.arg[i]=='--index':
+                self.filenamesindexing = int(self.arg[i+1])
+                i+=2
+            if self.arg[i]=='--proto':
+                self.prototype = self.arg[i+1]
+                i+=2
+                
     def _interactive_init(self):
         
         # Get xp settings:
