@@ -11,6 +11,7 @@ from scipy.io import savemat
 import matplotlib.cm as cm
 from threading import Thread
 from skimage.morphology import skeletonize
+import bioformats
 
 #%% Importing the config.py file
 
@@ -1375,7 +1376,7 @@ class xpreader:
         _, file_extension = os.path.splitext(self.filename)
         
         if self.use_bioformats:
-            import bioformats, javabridge
+            import javabridge
             javabridge.start_vm(class_path=bioformats.JARS)
             self.filetype = file_extension.lower()[1:]
             self.filehandle = bioformats.ImageReader(self.filename)
@@ -1466,9 +1467,7 @@ class xpreader:
         '''
 
         self.filename = cmdln_arguments[1]
-        self.use_bioformats = [
-            True if os.path.splitext(self.filename)[1] == '.nd2' else False
-            ][0]
+        self.use_bioformats = True if os.path.splitext(self.filename)[-1][1:] in bioformats.READABLE_FORMATS else False
 
         i = 2
         while i<len(cmdln_arguments):
