@@ -1358,11 +1358,13 @@ class xpreader:
         self.fileorder = fileorder
         self.filenamesindexing = filenamesindexing
         self.prototype = prototype
-        self.arg = sys.argv
         
-        if len(self.arg) >= 2: 
+        # Retrieve command line arguments (if any)
+        cmdln_arguments = sys.argv
+        
+        if len(cmdln_arguments) >= 2: 
             # If command line arguments were passed
-            self.input_command_window()
+            self._command_line_init(cmdln_arguments)
         elif filename is None:
             # Interactive selection and pop up window:
             self._interactive_init()
@@ -1448,27 +1450,55 @@ class xpreader:
             self.y = s.shape[s.axes.find('Y')]
             self.dtype = s.pages[0].asarray().dtype
     
-    def input_command_window(self):
+    def _command_line_init(self, cmdln_arguments):
+        '''
+        Initialization routine if command line arguments were passed
 
-        self.filename = self.arg[1]
-        self.use_bioformats = [True if os.path.splitext(self.filename)[1] == '.nd2' else False][0]
+        Parameters
+        ----------
+        cmdln_arguments : list of str
+            List of command line arguments that were passed.
+
+        Returns
+        -------
+        None.
+
+        '''
+
+        self.filename = cmdln_arguments[1]
+        self.use_bioformats = [
+            True if os.path.splitext(self.filename)[1] == '.nd2' else False
+            ][0]
 
         i = 2
-        while i<len(self.arg):
-            if self.arg[i]=='--bio-formats':
-                self.use_bioformats = bool(int(self.arg[i+1]))
+        while i<len(cmdln_arguments):
+            if cmdln_arguments[i]=='--bio-formats':
+                self.use_bioformats = bool(int(cmdln_arguments[i+1]))
                 i+=2
-            if self.arg[i]=='--order':
-                self.fileorder = self.arg[i+1]
+            if cmdln_arguments[i]=='--order':
+                self.fileorder = cmdln_arguments[i+1]
                 i+=2
-            if self.arg[i]=='--index':
-                self.filenamesindexing = int(self.arg[i+1])
+            if cmdln_arguments[i]=='--index':
+                self.filenamesindexing = int(cmdln_arguments[i+1])
                 i+=2
-            if self.arg[i]=='--proto':
-                self.prototype = self.arg[i+1]
+            if cmdln_arguments[i]=='--proto':
+                self.prototype = cmdln_arguments[i+1]
                 i+=2
                 
     def _interactive_init(self):
+        '''
+        Interactive initialization routine.
+
+        Raises
+        ------
+        ValueError
+            If a non-valid experiment type was passed.
+
+        Returns
+        -------
+        None.
+
+        '''
         
         # Get xp settings:
         print(('Experiment type?\n'
@@ -1522,6 +1552,7 @@ class xpreader:
             print()
                 
     def close(self):
+        # Close bioformats or tif reader
         if self.use_bioformats:
             self.filehandle.close()
             import javabridge
