@@ -5,12 +5,13 @@ to minimize the risk of unforeseen bugs.
 
 @author: jblugagne
 '''
-import cv2, os, re, ffmpeg, time
+import cv2, os, re, ffmpeg, time, sys
 import numpy as np
 from scipy.io import savemat
 import matplotlib.cm as cm
 from threading import Thread
 from skimage.morphology import skeletonize
+import bioformats
 
 #%% Importing the config.py file
 
@@ -1292,7 +1293,7 @@ class xpreader:
             prototype=None,
             fileorder='pct',
             filenamesindexing=1,
-            watchfiles = False
+            watchfiles = False,
             ):
         '''
         Initialize experiment reader
@@ -1351,16 +1352,23 @@ class xpreader:
         None.
 
         '''
+
+        # Set default parameters
+        self.filename = filename
+        self.use_bioformats = use_bioformats
+        self.fileorder = fileorder
+        self.filenamesindexing = filenamesindexing
+        self.prototype = prototype
         
-        if filename is None:
+        # Retrieve command line arguments (if any)
+        cmdln_arguments = sys.argv
+        
+        if len(cmdln_arguments) >= 2: 
+            # If command line arguments were passed
+            self._command_line_init(cmdln_arguments)
+        elif filename is None:
             # Interactive selection and pop up window:
             self._interactive_init()
-        else:
-            self.filename = filename
-            self.use_bioformats = use_bioformats
-            self.fileorder = fileorder
-            self.filenamesindexing = filenamesindexing
-            self.prototype = prototype
         
         self.channelnames = channelnames
         self.watchfiles = watchfiles
@@ -1368,7 +1376,7 @@ class xpreader:
         _, file_extension = os.path.splitext(self.filename)
         
         if self.use_bioformats:
-            import bioformats, javabridge
+            import javabridge
             javabridge.start_vm(class_path=bioformats.JARS)
             self.filetype = file_extension.lower()[1:]
             self.filehandle = bioformats.ImageReader(self.filename)
@@ -1443,8 +1451,53 @@ class xpreader:
             self.y = s.shape[s.axes.find('Y')]
             self.dtype = s.pages[0].asarray().dtype
     
-    
+    def _command_line_init(self, cmdln_arguments):
+        '''
+        Initialization routine if command line arguments were passed
+
+        Parameters
+        ----------
+        cmdln_arguments : list of str
+            List of command line arguments that were passed.
+
+        Returns
+        -------
+        None.
+
+        '''
+
+        self.filename = cmdln_arguments[1]
+        self.use_bioformats = True if os.path.splitext(self.filename)[-1][1:] in bioformats.READABLE_FORMATS else False
+
+        i = 2
+        while i<len(cmdln_arguments):
+            if cmdln_arguments[i]=='--bio-formats':
+                self.use_bioformats = bool(int(cmdln_arguments[i+1]))
+                i+=2
+            if cmdln_arguments[i]=='--order':
+                self.fileorder = cmdln_arguments[i+1]
+                i+=2
+            if cmdln_arguments[i]=='--index':
+                self.filenamesindexing = int(cmdln_arguments[i+1])
+                i+=2
+            if cmdln_arguments[i]=='--proto':
+                self.prototype = cmdln_arguments[i+1]
+                i+=2
+                
     def _interactive_init(self):
+        '''
+        Interactive initialization routine.
+
+        Raises
+        ------
+        ValueError
+            If a non-valid experiment type was passed.
+
+        Returns
+        -------
+        None.
+
+        '''
         
         # Get xp settings:
         print(('Experiment type?\n'
@@ -1498,6 +1551,7 @@ class xpreader:
             print()
                 
     def close(self):
+        # Close bioformats or tif reader
         if self.use_bioformats:
             self.filehandle.close()
             import javabridge
