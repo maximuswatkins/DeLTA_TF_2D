@@ -176,6 +176,9 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
             gaussian_noise: float. Apply gaussian noise to the image. The 
                 sigma value of the gaussian noise is uniformly sampled between
                 0 and +gaussian_noise.
+            gaussain_blur: float. Apply gaussian blur to the image. The sigma
+                value is the standard deviation of the kernel in the x and y
+                direction.
             horizontal_flip: bool. Whether to flip the images horizontally. 
                 Input images have a 50% chance of being flipped
             vertical_flip: bool. Whether to flip the images vertically. 
@@ -252,7 +255,15 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
                 if order[index] > 0: # Not super elegant, but tells me if binary or grayscale image
                     item = item + np.random.normal(0,sigma,item.shape) # Add Gaussian noise
                     output[index] = (item-np.min(item))/np.ptp(item) # Rescale to 0-1
-                
+
+    if 'gaussian_blur' in aug_par:
+        if aug_par['gaussian_blur']:
+            sigma = np.random.rand()*aug_par['gaussian_blur']
+            for index, item in enumerate(output):
+                if order[index] > 0: # Not super elegant, but tells me if binary or grayscale image
+                    item = cv2.GaussianBlur(item,(5,5),sigma) # blur image
+                    output[index] = item 
+                    
     if "elastic_deformation" in aug_par:
         output = elasticdeform.deform_random_grid(output,
                                                   sigma=aug_par["elastic_deformation"]["sigma"],
