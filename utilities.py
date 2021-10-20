@@ -11,7 +11,6 @@ from scipy.io import savemat
 import matplotlib.cm as cm
 from threading import Thread
 from skimage.morphology import skeletonize
-import bioformats
 
 #%% Importing the config.py file
 
@@ -350,33 +349,44 @@ def create_windows(img, target_size = (512,512), min_overlap = 24):
         List of lower and upper bounds for windows over the x axis
 
     '''
-            
+    # Make sure image is minimum shape (bigger than the target_size) 
+    if img.shape[0] < target_size[0] :
+        img = np.concatenate((img,np.zeros((target_size[0]-img.shape[0],img.shape[1]))),axis=0)
+    if img.shape[1] < target_size[1]:
+        img = np.concatenate((img,np.zeros((img.shape[0],target_size[1]-img.shape[1]))),axis=1)
+    
     # Decide how many images vertically the image is split into
     ny = int(
         1+float(img.shape[0]-min_overlap)/float(target_size[0]-min_overlap)
-        )
+        ) 
     nx = int(
         1+float(img.shape[1]-min_overlap)/float(target_size[1]-min_overlap)
-        )
-    
+        ) 
+    # If image is 512 pixels or smaller, there is no need for anyoverlap
+    if img.shape[0] == target_size[0]:
+        ny = 1
+    if img.shape[1] == target_size[1]:
+        nx = 1
+        
     # Compute y-axis indices:
-    ovlp_y = -(img.shape[0]-ny*target_size[0])/(ny-1)
+    ovlp_y = -(img.shape[0]-ny*target_size[0])/(ny-1) if ny > 1 else 0
     loc_y = []
     for n in range(ny-1):
         loc_y += [
             (int(target_size[0]*n-ovlp_y*n),int(target_size[0]*(n+1)-ovlp_y*n))
             ]
     loc_y += [(img.shape[0]-target_size[0],img.shape[0])]
-    
+        
     # Compute x-axis indices:
-    ovlp_x = -(img.shape[1]-nx*target_size[1])/(nx-1)
+    ovlp_x = -(img.shape[1]-nx*target_size[1])/(nx-1) if nx > 1 else 0
     loc_x = []
     for n in range(nx-1):
         loc_x += [
             (int(target_size[1]*n-ovlp_x*n),int(target_size[1]*(n+1)-ovlp_x*n))
             ]
-    loc_x += [(img.shape[1]-target_size[1],img.shape[1])]
     
+    loc_x += [(img.shape[1]-target_size[1],img.shape[1])] 
+        
     # Store all cropped images into one numpy array called windows
     windows = np.zeros(((nx*ny,)+target_size),dtype=img.dtype)
     for i in range(len(loc_y)):
@@ -1376,6 +1386,7 @@ class xpreader:
         _, file_extension = os.path.splitext(self.filename)
         
         if self.use_bioformats:
+            import bioformats
             import javabridge
             javabridge.start_vm(class_path=bioformats.JARS)
             self.filetype = file_extension.lower()[1:]
