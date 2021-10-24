@@ -11,7 +11,7 @@ Created on Wed Jun 23 10:41:45 2021
 # Modules:
 import time, cv2, os, threading
 import numpy as np
-from data import postprocess
+# from data import postprocess
 import utilities as utils
 from utilities import cfg
 
@@ -62,6 +62,9 @@ class Pipeline(threading.Thread):
         self.save_format=cfg.save_format
         self.daemon=True
 
+        if self.reader.resfolder is not None:
+            self.resfolder = self.reader.resfolder
+            
         # Load models:
         self.models = utils.loadmodels()
         
