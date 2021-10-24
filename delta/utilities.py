@@ -1369,6 +1369,7 @@ class xpreader:
         self.fileorder = fileorder
         self.filenamesindexing = filenamesindexing
         self.prototype = prototype
+        self.resfolder = None
         
         # Retrieve command line arguments (if any)
         cmdln_arguments = sys.argv
@@ -1478,9 +1479,14 @@ class xpreader:
         '''
 
         self.filename = cmdln_arguments[1]
-        self.use_bioformats = True if os.path.splitext(self.filename)[-1][1:] in bioformats.READABLE_FORMATS else False
+        
+        if len(cmdln_arguments) > 2 and cmdln_arguments[2][0] != '-':
+            self.resfolder = cmdln_arguments[2]
+            
+        if 'bioformats' in sys.modules:
+            self.use_bioformats = True if os.path.splitext(self.filename)[-1][1:] in bioformats.READABLE_FORMATS else False
 
-        i = 2
+        i = len(cmdln_arguments)
         while i<len(cmdln_arguments):
             if cmdln_arguments[i]=='--bio-formats':
                 self.use_bioformats = bool(int(cmdln_arguments[i+1]))
