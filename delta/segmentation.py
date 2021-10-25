@@ -46,7 +46,7 @@ while(unprocessed):
     # Use 2D surfaces model
     else:
         # Create array to store predictions
-        img = readreshape(os.path.join(inputs_folder,to_process[0]),crop=True)
+        img = readreshape(os.path.join(inputs_folder,to_process[0]),target_size=cfg.target_size_seg,crop=True)
         results = np.zeros((len(to_process),img.shape[0],img.shape[1],1))
         # Crop, segment, stitch and store predictions in results
         for i in range(len(to_process)):
