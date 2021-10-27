@@ -62,6 +62,9 @@ class Pipeline(threading.Thread):
         self.save_format=cfg.save_format
         self.daemon=True
 
+        if self.reader.resfolder is not None:
+            self.resfolder = self.reader.resfolder
+            
         # Load models:
         self.models = utils.loadmodels()
         
@@ -826,7 +829,8 @@ class ROI:
         
         # Binarize:
         y = (y>.5).astype(np.uint8)
-        
+        # Crop out segmentation if image was smaller than target_size
+        y = y[:self.img_stack[0].shape[0],:self.img_stack[0].shape[1]]
         # Area filtering:
         y = utils.opencv_areafilt(y, min_area=cfg.min_cell_area)
         
