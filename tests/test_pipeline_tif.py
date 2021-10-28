@@ -20,8 +20,8 @@ def _root_dir():
 def test_pipeline_tif_stack():
     sys.argv = [sys.argv[0]]
     sys.argv.append(os.path.join(_root_dir(),'data/movie_tif'))
-    sys.argv.append(os.path.join(_root_dir(),'data/results_cmdln'))
-    print(sys.argv)
+    sys.argv.append(os.path.join(_root_dir(),'data/movie_tif/results'))
+
     cfg.presets = '2D'
     
     xpreader = utils.xpreader()
@@ -32,22 +32,6 @@ def test_pipeline_tif_stack():
     
     return xp
     
-xp = test_pipeline_tif_stack()
+test_pipeline_tif_stack()
 
 
-# def test_pipeline_nd2():
-#     sys.argv = [sys.argv[0]]
-#     sys.argv.append(os.path.join(_root_dir(),'data/movie_nd2/test.nd2'))
-#     sys.argv.append(os.path.join(_root_dir(),'data/results_nd2'))
-#     print(sys.argv)
-#     cfg.presets = '2D'
-    
-#     xpreader = utils.xpreader()
-
-#     xp = pipeline.Pipeline(xpreader)
-    
-#     xp.process(positions=[0],frames=[0,1,2,3])
-    
-#     return xp
-    
-# xp = test_pipeline_nd2()

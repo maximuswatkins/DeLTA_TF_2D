@@ -5,7 +5,7 @@ to minimize the risk of unforeseen bugs.
 
 @author: jblugagne
 '''
-import cv2, os, re, ffmpeg, time, sys
+import cv2, os, re, ffmpeg, time, sys, importlib
 import numpy as np
 from scipy.io import savemat
 import matplotlib.cm as cm
@@ -1482,11 +1482,14 @@ class xpreader:
         
         if len(cmdln_arguments) > 2 and cmdln_arguments[2][0] != '-':
             self.resfolder = cmdln_arguments[2]
+            i = 3 # i =3 means there was a results folder specified
+        else:
+            i = 2 # i = 2 means there was no results folder specified
             
-        if 'bioformats' in sys.modules:
+        if importlib.util.find_spec("bioformats"):   
+            import bioformats 
             self.use_bioformats = True if os.path.splitext(self.filename)[-1][1:] in bioformats.READABLE_FORMATS else False
 
-        i = len(cmdln_arguments)
         while i<len(cmdln_arguments):
             if cmdln_arguments[i]=='--bio-formats':
                 self.use_bioformats = bool(int(cmdln_arguments[i+1]))
