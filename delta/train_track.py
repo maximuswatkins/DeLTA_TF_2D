@@ -3,10 +3,10 @@ This script trains the tracking U-Net.
 
 @author: jblugagne
 '''
-from utilities import cfg
+from delta.utilities import cfg
 import os
-from model import unet_track
-from data import trainGenerator_track
+from delta.model import unet_track
+from delta.data import trainGenerator_track
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 
 # Files:
