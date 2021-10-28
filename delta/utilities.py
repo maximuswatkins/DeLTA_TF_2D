@@ -1856,7 +1856,7 @@ def loadmodels(toload=cfg.models):
     '''
     
     
-    from model import unet_rois, unet_seg, unet_track
+    from delta.model import unet_rois, unet_seg, unet_track
     models = dict()
     
     if 'rois' in toload:

@@ -12,9 +12,9 @@ If there are no chambers, then images will be cropped as done for DeLTA 2D
 @author: jblugagne
 '''
 
-from utilities import cfg
-from data import saveResult_track, predictCompilefromseg_track
-from model import unet_track
+from delta.utilities import cfg
+from delta.data import saveResult_track, predictCompilefromseg_track
+from delta.model import unet_track
 import os, cv2
 
 images_folder = '/project/dunlop/owen/DeLTA_agarpads/pipeline/moma/img'

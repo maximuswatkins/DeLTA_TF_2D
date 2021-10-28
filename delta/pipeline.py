@@ -11,9 +11,9 @@ Created on Wed Jun 23 10:41:45 2021
 # Modules:
 import time, cv2, os, threading
 import numpy as np
-from data import postprocess
-import utilities as utils
-from utilities import cfg
+from delta.data import postprocess
+import delta.utilities as utils
+from delta.utilities import cfg
 
 class Pipeline(threading.Thread):
     '''
