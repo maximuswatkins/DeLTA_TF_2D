@@ -7,12 +7,19 @@ The images are processed by batches of 4096 to prevent memory issues.
 @author: jblugagne
 '''
 
-from delta.data import saveResult_seg, predictGenerator_seg, postprocess, readreshape
-from delta.model import unet_seg
-import os
-import delta.utilities as utils
-from delta.utilities import cfg
+if __package__ == '':
+    from data import saveResult_seg, predictGenerator_seg, postprocess, readreshape
+    from model import unet_seg
+    import utilities as utils
+    from utilities import cfg
+else:
+    from delta.data import saveResult_seg, predictGenerator_seg, postprocess, readreshape
+    from delta.model import unet_seg
+    import delta.utilities as utils
+    from delta.utilities import cfg
+    
 import numpy as np
+import os
 
 # Files:
 inputs_folder = '/project/dunlop/owen/DeLTA_agarpads/pipeline/moma/img'

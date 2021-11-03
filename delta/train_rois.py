@@ -3,9 +3,15 @@ This script trains the chambers segmentation U-Net.
 
 @author: jblugagne
 '''
-from delta.utilities import cfg
-from delta.model import unet_rois
-from delta.data import trainGenerator_seg
+if __package__ == '':
+    from delta.utilities import cfg
+    from delta.model import unet_rois
+    from delta.data import trainGenerator_seg
+else:
+    from delta.utilities import cfg
+    from delta.model import unet_rois
+    from delta.data import trainGenerator_seg
+    
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import os
 
@@ -15,9 +21,9 @@ savefile = cfg.model_file_rois
 
 # Parameters:
 batch_size = 1
-epochs = 100
+epochs = 600
 steps_per_epoch = 250
-patience = 15
+patience = 50
 
 #Data generator parameters:
 data_gen_args = dict(
