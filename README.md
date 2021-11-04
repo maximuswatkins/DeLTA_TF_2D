@@ -1,3 +1,7 @@
+:construction:
+We are currently in the process of making DeLTA a conda-forge package. For this reason the code on this branch has been heavily restructured and more updates are coming. For the version reported in the biorxiv manuscript check out version [2.0-beta](https://gitlab.com/dunloplab/delta/-/tree/dc92d5659c581cfb76814541699d3ec274179601)
+:construction:
+
 # DeLTA
 > **NOTE**
 This is version 2 of the DeLTA pipeline. For version 1, please check out branch 'version1'
