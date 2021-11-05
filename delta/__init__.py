@@ -10,5 +10,4 @@ from . import pipeline
 from . import utilities as utils
 from . import data
 from . import model
-
-        
+from . import assets
