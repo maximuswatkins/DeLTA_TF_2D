@@ -1120,19 +1120,3 @@ class ROI:
                     ])
                 # Update cell:
                 self.lineage.setvalue(cell,frame,fluostr,value)
-
-
-if __name__ == "__main__":
-    
-    # This is weird, but it's the only work-around I found to pickle
-    # looking for classes in the __main__ namespace when re-loading:
-    from pipeline import Pipeline
-
-    # Init reader:
-    xpreader = utils.xpreader()
-    
-    # Init pipeline:
-    xp = Pipeline(xpreader)
-    
-    # Run it:
-    xp.process()

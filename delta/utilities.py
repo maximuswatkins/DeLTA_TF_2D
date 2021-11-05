@@ -5,12 +5,21 @@ to minimize the risk of unforeseen bugs.
 
 @author: jblugagne
 '''
-import cv2, os, re, ffmpeg, time, sys, importlib
+import importlib
+import inspect
+import os
+import re
+import sys
+import time
+from threading import Thread
+
+import cv2
+import ffmpeg
+import matplotlib.cm as cm
 import numpy as np
 from scipy.io import savemat
-import matplotlib.cm as cm
-from threading import Thread
 from skimage.morphology import skeletonize
+
 
 #%% Importing the config.py file
 
