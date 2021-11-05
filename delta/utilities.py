@@ -44,7 +44,10 @@ hd_path = os.path.expanduser('~/.delta/config.py')
 if os.path.exists(hd_path):
     cfg = import_module_by_path(hd_path)
 else:
-    cfg = import_module_by_path('config.py')
+    try:
+        from . import config as cfg
+    except:
+        from . import config_defaults as cfg
     
 #%% Image correction
 
@@ -2222,6 +2225,279 @@ def load_position(filename):
     return p
 
 
+#%% Feature extraction
+
+def roi_features(
+        labels_frame, 
+        features=('length','width','area','perimeter','edges'),
+        fluo_frames=None,
+        roi_box=None
+        ):
+    '''
+    Extract single-cell morphological and fluorescence features
+
+    Parameters
+    ----------
+    labels_frame : 2D array of uint16
+        Labels image of numbered cell regions.
+    features : list of str, optional
+        Features to extract. Valid features are 'length','width','area',
+        'perimeter','edges','fluo1','fluo2',...,'fluoN'.
+        The default is ('length','width','area','perimeter','edges').
+    fluo_frames : 3D array, optional
+        Array of fluo frames to extract fluorescence from. Dimensions are
+        (size_x, size_y, fluo_channels). The number of fluo_channels must match
+        the number of fluo features to extract.
+        The default is None.
+    roi_box : dict, optional
+        Cropping box dictionary (see cropbox())to apply shift when looking at 
+        full-frame fluo images. 
+        The default is None.
+
+    Returns
+    -------
+    cell_features : list of dict
+        List of dictionary with values for requested features.
+
+    '''
+    
+    
+    # Cell numbers and contours:
+    cell_nbs, contours = getcellsinframe(
+        labels_frame, return_contours=True
+        )
+    
+    # Loop through cells in image, extract single-cell features:
+    cell_features = []
+    for cell, contour in zip(cell_nbs, contours):
+
+        # Append to features list:
+        cell_features += [
+            singlecell_features(
+                contour, 
+                labels_frame==cell+1,
+                features=features,
+                roi_box=roi_box,
+                fluo_frames=fluo_frames
+                )
+            ]
+    
+    return cell_nbs, cell_features
+
+
+def singlecell_features(
+        contour,
+        mask,
+        features=('length','width','area','perimeter','edges'),
+        fluo_frames=None,
+        roi_box=None
+        ):
+    '''
+    Extract features for a single cell
+
+    Parameters
+    ----------
+    contour : list
+        Single cell contour from cv2 findcontours.
+    mask : 2D numpy array of bool
+        Mask of the region to extract (typically a single cell).
+    features : list of str, optional
+        Features to extract. Valid features are 'length','width','area',
+        'perimeter','edges','fluo1','fluo2',...,'fluoN'.
+        The default is ('length','width','area','perimeter','edges').
+    fluo_frames : 3D array, optional
+        Fluorescent images to extract fluo from. Dimensions are
+        (channels, size_y, size_x).
+        The default is None.
+    roi_box : dict, optional
+        Cropping box dictionary (see cropbox())to apply shift when looking at 
+        full-frame fluo images. 
+        The default is None.
+
+    Raises
+    ------
+    ValueError
+        If the number of fluo frames provided is different from the number of
+        fluo features to extract.
+
+    Returns
+    -------
+    features_dict : dict
+        Dictionary of requested features.
+
+    '''
+    
+    features_dict = dict()
+    
+    # Morphological features:
+    if 'edges' in features:
+        features_dict['edges'] = _image_edges(contour, mask)
+    
+    if 'length' in features or 'width' in features:
+        width, length = _cell_width_length(contour)
+        if 'length' in features:
+            features_dict['length'] = length
+        if 'width' in features:
+            features_dict['width'] = width
+    
+    if 'area' in features:
+        features_dict['area'] = _cell_area(contour)
+    
+    if 'perimeter' in features:
+        features_dict['perimeter'] = _cell_perimeter(contour)
+    
+    # Fluo features:
+    fluo_features = [x for x in features if x[0:4]=='fluo']
+    if len(fluo_features)>0:
+        if fluo_frames is None:
+            raise ValueError('You did not provide fluo frames')
+        if len(fluo_features)!=fluo_frames.shape[0]:
+            raise ValueError(
+                ('You should provide exactly as many fluo frames as you want ',
+                 'fluo features to extract. Here fluo_frames.shape[0]=%d but ',
+                 'you ask for %d fluo features: %s')%(
+                     fluo_frames.shape[0],len(fluo_features),str(fluo_features)
+                     )
+                )
+        fluo_values = _cell_fluo(fluo_frames, mask, roi_box)
+        for fluo_feat, fluo_val in zip(fluo_features, fluo_values):
+            features_dict[fluo_feat] = fluo_val
+    
+    return features_dict
+
+def _image_edges(contour, image):
+    '''
+    Identify if cell touches image borders
+
+    Parameters
+    ----------
+    contour : list
+        Single cell contour from cv2 findcontours.
+    image : 2D numpy array
+        Image where the cell is present.
+
+    Returns
+    -------
+    edge_str : str
+        String describing edges touched by the cell. Can be a combination of 
+        the following strs: '-x', '+x', '-y', '+y'. Empty otherwise.
+
+    '''
+    
+    edge_str = ''
+    if any(contour[:,0,0]==0):
+        edge_str+='-x'
+    if any(contour[:,0,0]==image.shape[1]-1):
+        edge_str+='+x'
+    if any(contour[:,0,1]==0):
+        edge_str+='-y'
+    if any(contour[:,0,1]==image.shape[0]-1):
+        edge_str+='+y'
+    
+    return edge_str
+
+def _cell_width_length(contour):
+    '''
+    Mesure width and length of single cell
+
+    Parameters
+    ----------
+    contour : list
+        Single cell contour from cv2 findcontours.
+
+    Returns
+    -------
+    width : float
+        Cell width.
+    length : float
+        cell length.
+
+    '''
+    
+    # Get rotated bounding box:
+    rotrect = cv2.minAreaRect(contour)
+    
+    width = min(rotrect[1])
+    length = max(rotrect[1])
+    
+    return width, length
+
+def _cell_area(contour):
+    '''
+    Area of a single cell
+
+    Parameters
+    ----------
+    contour : list
+        Single cell contour from cv2 findcontours.
+
+    Returns
+    -------
+    area : float
+        Cell area
+
+    '''
+    
+    area = cv2.contourArea(contour)
+    
+    return area
+
+def _cell_perimeter(contour):
+    '''
+    Get single cell perimeter
+
+    Parameters
+    ----------
+    contour : list
+        Single cell contour from cv2 findcontours.
+
+    Returns
+    -------
+    perimeter : int
+        Cell perimeter
+
+    '''
+    
+    perimeter = contour.shape[0]
+    
+    return perimeter
+
+def _cell_fluo(fluo_frames, mask, roi_box=None):
+    '''
+    Extract mean fluorescence level from mask
+
+    Parameters
+    ----------
+    fluo_frames : 3D array
+        Fluorescent images to extract fluo from. Dimensions are
+        (channels, size_y, size_x).
+    mask : 2D numpy array of bool
+        Mask of the region to extract (typically a single cell).
+    roi_box : dictionary, optional
+        Cropping box dictionary (see cropbox())to apply shift when looking at 
+        full-frame fluo images. 
+        The default is None.
+
+    Returns
+    -------
+    fluo_values :  list of floats
+        Mean value per cell for each fluo frame.
+
+    '''
+    
+    # Pixels where the cell is:
+    pixels = np.where(mask)
+    if roi_box is not None:
+        pixels[0]+=roi_box['ytl']
+        pixels[1]+=roi_box['xtl']
+    
+    # Loop through fluo frames:
+    fluo_values = []
+    for frame in range(fluo_frames.shape[0]):
+        fluo_values += [np.mean(fluo_frames[frame,pixels[0],pixels[1]])]
+    
+    return fluo_values
+    
 #%% Misc
 
 def findfirst(mylist):

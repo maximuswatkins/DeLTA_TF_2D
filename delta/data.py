@@ -13,12 +13,7 @@ import skimage.transform as trans
 from skimage.measure import label
 import skimage.morphology as morph
 from scipy import interpolate
-
-if __package__ == '':
-    import utilities as utils
-else:
-    import delta.utilities as utils
-
+from . import utilities as utils
 
 
 # Try to import elastic deformations, issue warning if not found:
