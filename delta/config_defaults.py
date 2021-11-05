@@ -74,3 +74,5 @@ if memory_growth_limit is not None:
         except RuntimeError as e:
             # Virtual devices must be set before GPUs have been initialized
             print(e)
+
+#%% Latest models
