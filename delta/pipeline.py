@@ -11,15 +11,9 @@ Created on Wed Jun 23 10:41:45 2021
 # Modules:
 import time, cv2, os, threading
 import numpy as np
-
-if __package__ == '':
-    from data import postprocess
-    import utilities as utils
-    from utilities import cfg
-else:
-    from delta.data import postprocess
-    import delta.utilities as utils
-    from delta.utilities import cfg
+from .data import postprocess
+from . import utilities as utils
+from .utilities import cfg
 
 class Pipeline(threading.Thread):
     '''
@@ -1072,60 +1066,22 @@ class ROI:
                     labels, resize, interpolation=cv2.INTER_NEAREST
                     )
         
-        # Get cells in resized frame:
-        cells, contours = utils.getcellsinframe(
-            self.label_stack[frame], return_contours=True
+        # Extract features for all cells in the ROI:
+        cells, extracted_features = utils.roi_features(
+            self.label_stack[frame],
+            features=features,
+            fluo_frames=fluo_frames,
+            roi_box=self.box
             )
-
-        # Run through cells in resized frame:
-        for cell, cnt in zip(cells, contours):
-            
-            # Mark cell if it touches the edges of the ROI:
-            if 'edges' in features:
-                edge_str = ''
-                if any(cnt[:,0,0]==0):
-                    edge_str+='-x'
-                if any(cnt[:,0,0]==self.label_stack[frame].shape[1]-1):
-                    edge_str+='+x'
-                if any(cnt[:,0,1]==0):
-                    edge_str+='-y'
-                if any(cnt[:,0,1]==self.label_stack[frame].shape[0]-1):
-                    edge_str+='+y'
-                self.lineage.setvalue(cell,frame,'edges',edge_str)
-                
-            
-            # Morphological features:
-            if 'length' in features or 'width' in features:
-                rotrect = cv2.minAreaRect(cnt)
-                if 'length' in features:
-                    self.lineage.setvalue(cell,frame,'length',max(rotrect[1]))
-                if 'width' in features:
-                    self.lineage.setvalue(cell,frame,'width',min(rotrect[1]))
-            if 'area' in features:
-                self.lineage.setvalue(cell,frame,'area',cv2.contourArea(cnt))
-            if 'perimeter' in features:
-                self.lineage.setvalue(cell,frame,'perimeter',cnt.shape[0])
-            
-            # Fluorescence:
-            fluo_features = [x for x in features if x[0:4]=='fluo']
-            if len(fluo_features)>0:
-                # Pixels where the cell is:
-                pixels = np.where(self.label_stack[frame] == cell+1)
-            for f, fluostr in enumerate(fluo_features):
-                # Compute mean fluo value for the cell:
-                value = np.mean(fluo_frames[
-                    f,
-                    pixels[0]+self.box['ytl'] if self.box is not None else pixels[0],
-                    pixels[1]+self.box['xtl'] if self.box is not None else pixels[1]
-                    ])
-                # Update cell:
-                self.lineage.setvalue(cell,frame,fluostr,value)
+        
+        # Add feature values to lineage for each cell:
+        for cell, cell_features in zip(cells, extracted_features):
+            for feature_name, feature_val in cell_features.items():
+                self.lineage.setvalue(cell,frame,feature_name,feature_val)
 
 
 if __name__ == "__main__":
     
-    # This is weird, but it's the only work-around I found to pickle
-    # looking for classes in the __main__ namespace when re-loading:
     from pipeline import Pipeline
 
     # Init reader:

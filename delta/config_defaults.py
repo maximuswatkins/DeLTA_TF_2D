@@ -8,7 +8,7 @@ Created on Fri Feb  5 15:42:05 2021
 # Download latest models first:
 # https://drive.google.com/drive/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP
 
-presets = 'mothermachine' # 'mothermachine' or '2D'
+presets = '2D' # 'mothermachine' or '2D'
 
 if presets == 'mothermachine':
     models = ['rois', 'segmentation', 'tracking']
