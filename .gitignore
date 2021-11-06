@@ -1,8 +1,4 @@
-# Ignore hdf5 files:
-*.hdf5
 
-# Ignore config file:
-config.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
