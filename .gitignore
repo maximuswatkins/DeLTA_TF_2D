@@ -1,4 +1,5 @@
-
+# Ignore assets folder:
+/delta/assets/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -7,19 +7,45 @@ Created on Fri Nov  5 16:34:55 2021
 """
 import os
 import requests
+import json
 
-from . import __file__ as delta_init #Path to __init__ file
-DELTA_DIR = os.path.dirname(delta_init)
+from .config import _DELTA_DIR, _DEFAULTS_2D, _DEFAULTS_mothermachine
 
 LATEST_MODELS={
-    'unet_moma_seg_multisets.hdf5':'1o4Ur0bQ7IvqCkfjeNFYdoEjpAsN7b2uK',
-    'unet_moma_track_v2.hdf5':'1IRzCcP0mjdRRZ4Xzj9qSw4QI958apdTS',
-    'unet_pads_seg.hdf5':'1PSqYtEdJJNaxv7xwDmcZ7X2JomnlF',
-    'unet_pads_track.hdf5':'1EPRV-vF5Dv-UDOn0fdnpThIgjWxNZDio',
-    'chambers_id_tessiechamp.hdf5':'13SFG0T73XG8NfVVwLyGRJ_smZdMiWLM_'
+    'unet_moma_seg':'1o4Ur0bQ7IvqCkfjeNFYdoEjpAsN7b2uK',
+    'unet_moma_track':'1IRzCcP0mjdRRZ4Xzj9qSw4QI958apdTS',
+    'unet_pads_seg':'1PSqYtEdJJNaxv7xwDmcZ7X2JomnlF-dP',
+    'unet_pads_track':'1EPRV-vF5Dv-UDOn0fdnpThIgjWxNZDio',
+    'unet_momachambers_seg':'13SFG0T73XG8NfVVwLyGRJ_smZdMiWLM_'
     }
 
-def download_assets(load_models=None,config_file=None):
+def download_assets(load_models=None,config_level=None):
+    '''
+    Download assets such as latest models, training sets etc
+
+    Parameters
+    ----------
+    load_models : bool, str, or None, optional
+        If True, the models will be downloaded from 
+        https://drive.google.com/drive/u/0/folders/14EvBCMJIk2LpBCQL-jvsuEwUHNYamyyN
+        into an assets folder in the library install path. If a path str is provided,
+        the models will be downloaded to the folder it points to. If None, an
+        interactive prompt will be used.
+        The default is None.
+    config_level : bool, str, or None, optional
+        If False, no config file is written. If True, same as 'local'
+        If 'local', new config files will be written under the user's local \
+        config folder, ~/.delta. If 'global', the config files will be written
+        to the install folder, to be shared among all users. If a specific dir
+        path is provided, the config files will be written there.
+        If None, and interactive prompt will let the user pick.
+        The default is None.
+
+    Returns
+    -------
+    None.
+
+    '''
     
     # Should we download models?
     if load_models is None:
@@ -31,11 +57,18 @@ def download_assets(load_models=None,config_file=None):
         model_files = dict()
     
     # Should we write a new config file?
-    if config_file is None:
-        config_file = _ask('Write a new config.py file pointing to these new assets?')
-    
-    if config_file:
-        _write_config(config_file,model_files=model_files)
+    if config_level is None:
+        config_level = _ask(
+            'Write new config_.json files pointing to these new assets?',
+            options={
+                'local':'local',
+                'global':'global',
+                'no':False
+                }
+            )
+
+    if config_level:
+        _write_default_configs(model_files=model_files, config_level=config_level)
 
 def _ask(prompt,options={'y':True,'n':False}):
 
@@ -50,21 +83,70 @@ def _ask(prompt,options={'y':True,'n':False}):
         answer = input(prompt)
         
         for k,v in options.items():
-            if answer==k:
+            if answer.lower()==k:
                 return v
 
         answer=None
         print("invalid answer: '%s'"%answer)
 
-def _write_config(config_file, model_files=dict()):
+def _write_default_configs(config_level='local',model_files=dict()):
     
-    
+    if config_level=='local':
+        config_dir = os.path.expanduser('~/.delta')
+    elif config_level=='global':
+        config_dir = os.path.join(_DELTA_DIR,'assets','config')
+    elif os.path.exists(config_level):
+        config_dir = config_level
+    else:
+        raise ValueError(
+            '''Invalid configs level/path: %s
+            If providing a folder path, the folder must exist
+            '''%config_level
+            )
 
-def _download_models(models_dir=None):
+    print('Config files will be written to %s'%config_dir)
+    if not os.path.exists(config_dir):
+        os.makedirs(config_dir)
+
+    # Write 2D config:
+    config = _DEFAULTS_2D.copy()
+    if len(model_files)>0:
+        config['model_file_seg']=model_files['unet_pads_seg']
+        config['model_file_track']=model_files['unet_pads_track']
+    with open(os.path.join(config_dir,'config_2D.json'),'w') as f:
+        json.dump(config, f, indent=4)
+    
+    # Write mothermachine config:
+    config = _DEFAULTS_mothermachine.copy()
+    if len(model_files)>0:
+        config['model_file_rois']=model_files['unet_momachambers_seg']
+        config['model_file_seg']=model_files['unet_moma_seg']
+        config['model_file_track']=model_files['unet_moma_track']
+    with open(os.path.join(config_dir,'config_mothermachine.json'),'w') as f:
+        json.dump(config, f, indent=4)
+
+def _download_models(model_ids=LATEST_MODELS, models_dir=None):
+    '''
+    Download models from gdrive
+
+    Parameters
+    ----------
+    model_ids : dict, optional
+        Dictionary of the filename:google_id for all necessary model files. 
+        The default is LATEST_MODELS.
+    models_dir : None or str, optional
+        path to save folder. The default is None.
+
+    Returns
+    -------
+    model_files : dict
+        dictionary of save paths for each model.
+
+    '''
     
     if type(models_dir)!=str:
         # Retrieve the path of the delta install folder:
-        models_dir = os.path.join(DELTA_DIR,'assets','models')
+        models_dir = os.path.join(_DELTA_DIR,'assets','models')
     if not os.path.exists(models_dir):
         os.makedirs(models_dir)
     print('Models will be downloaded to %s'%models_dir)
@@ -72,7 +154,7 @@ def _download_models(models_dir=None):
     model_files=dict()
     for filename, google_id in LATEST_MODELS.items():
         print('Downloading model: %s...'%filename)
-        model_files[filename] = os.path.join(models_dir,filename)
+        model_files[filename] = os.path.join(models_dir,filename+'.hdf5')
         _download_file_from_google_drive(google_id, model_files[filename])
     
     print('Done')

@@ -5,49 +5,22 @@ to minimize the risk of unforeseen bugs.
 
 @author: jblugagne
 '''
-import cv2, os, re, ffmpeg, time, sys, importlib
+
+import os
+import re
+import time
+import sys
+import importlib
+from threading import Thread
+
+import cv2
+import ffmpeg
 import numpy as np
 from scipy.io import savemat
 import matplotlib.cm as cm
-from threading import Thread
 from skimage.morphology import skeletonize
 
-#%% Importing the config.py file
-
-def import_module_by_path(path):
-    '''
-    
-    Import a module from a different directory than the current working directory
-    
-    Parameters
-    ----------
-    path : str
-        Path to local config.py file.
-
-    Returns
-    -------
-    mod : module
-        Returns the config.py file as a module.
-
-    '''
-    name = os.path.splitext(os.path.basename(path))[0]
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(name, path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-
-    return mod
-
-# Customized config.py should be stored in your home directory within a '.delta' folder
-# If there is no config.py at this location, the local config.py will be use
-hd_path = os.path.expanduser('~/.delta/config.py')
-if os.path.exists(hd_path):
-    cfg = import_module_by_path(hd_path)
-else:
-    try:
-        from . import config as cfg
-    except:
-        from . import config_defaults as cfg
+from . import config as cfg
     
 #%% Image correction
 
@@ -460,7 +433,7 @@ def stitch_pic(results,loc_y,loc_x):
     return stitch
 
 
-def gettrackingboxes(cell, frame_shape=None, target_size=cfg.target_size_track):
+def gettrackingboxes(cell, frame_shape=None, target_size=None):
     '''
     Get a crop box and a fill box around a cell that fits the tracking target 
     size
@@ -472,9 +445,10 @@ def gettrackingboxes(cell, frame_shape=None, target_size=cfg.target_size_track):
     frame_shape : tuple of 2 ints or None, optional
         Original dimensions of the  image. If None, cell.shape is used.
         The default is None.
-    target_size : tuple of 2 ints, optional
-        Target dimensions of the cropped image. 
-        The default is cfg.target_size_track.
+    target_size : tuple of 2 ints or None, optional
+        Target dimensions of the cropped image. If None, cfg.target_size_track
+        will be used.
+        The default is None.
 
     Returns
     -------
@@ -490,6 +464,9 @@ def gettrackingboxes(cell, frame_shape=None, target_size=cfg.target_size_track):
     
     if frame_shape is None:
         frame_shape = cell.shape
+    
+    if target_size is None:
+        target_size = cfg.target_size_track
     
     cx, cy = getcentroid(cell)
     
@@ -1841,15 +1818,15 @@ class files_watcher(Thread):
 
 #%% Saving & Loading results
 
-def loadmodels(toload=cfg.models):
+def loadmodels(toload=None):
     '''
     Load models (as specified in config.py)
 
     Parameters
     ----------
-    toload : list of str, optional
-        Which of the 3 models to load. 
-        The default is ['rois','segmentation','tracking'].
+    toload : list of str, or None, optional
+        Which of the 3 models to load. If None, cfg.models will be used.
+        The default is None.
 
     Returns
     -------
@@ -1858,10 +1835,10 @@ def loadmodels(toload=cfg.models):
 
     '''
     
-    if __package__ == '':
-        from model import unet_rois, unet_seg, unet_track
-    else:
-        from delta.model import unet_rois, unet_seg, unet_track
+    from .model import unet_rois, unet_seg, unet_track
+    
+    if toload is None:
+        toload=cfg.models
    
     models = dict()
     
