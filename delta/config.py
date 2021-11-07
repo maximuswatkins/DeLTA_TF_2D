@@ -63,7 +63,7 @@ _DEFAULTS_mothermachine=dict(
     memory_growth_limit = None # If running into OOM issues or having trouble with cuDNN loading, try setting memory_growth_limit to a value in MB: (eg 1024, 2048...)
     )
 
-def load_config(json_file=None,presets='2D'):
+def load_config(json_file=None,presets='2D',config_level=None):
     '''
     Loads json configuration files
 
@@ -71,13 +71,19 @@ def load_config(json_file=None,presets='2D'):
     ----------
     json_file : str or None, optional
         Path to json file containing configuration. If None, load_config will
-        search for local or global config files based on the presets value.
+        search for local or global config files based on the presets value and
+        config_level.
         The default is None.
     presets : str, optional
         If json_file is None, search for files named 'config_<presets>.json in 
         the local user folder under .delta and then if not found in the global
         folder (ie the install folder).
         The default is '2D'.
+    config_level : str or None, optional
+        If 'local', look for preset config file in the local user folder under 
+        ~/.delta. If 'global', look in the delta install folder under 
+        assets/config. If None, look under local first and then global.
+        The default is None.
 
     Returns
     -------
@@ -121,17 +127,8 @@ def load_config(json_file=None,presets='2D'):
                 Either use delta.assets.download_assets() or provide a json_file path
                 '''%presets
                 )
-     
-    # Load file:
-    print('Loading configuration from: %s'%json_file)
-    with open(json_file,'r') as f:
-        variables = _json.loads(f.read())
     
-    # Type cast:
-    for k, v in variables.items():
-        if type(v)==list:
-            variables[k]=tuple(v) # Always use tuples, not lists in config
-        
+    variables = _read_json(json_file)
 
     # Check if it has the same parameters set as defaults:
     if set(variables.keys()) != set(defaults.keys()):
@@ -171,3 +168,17 @@ def load_config(json_file=None,presets='2D'):
             except RuntimeError as e:
                 # Virtual devices must be set before GPUs have been initialized
                 print(e)
+
+def _read_json(json_file):
+    
+    # Load file:
+    print('Loading configuration from: %s'%json_file)
+    with open(json_file,'r') as f:
+        variables = _json.loads(f.read())
+    
+    # Type cast:
+    for k, v in variables.items():
+        if type(v)==list:
+            variables[k]=tuple(v) # Always use tuples, not lists in config
+    
+    return variables

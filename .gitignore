@@ -1,6 +1,9 @@
 # Ignore assets folder:
 /delta/assets/
 
+# Ignore test results folder:
+/tests/data/*/results
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
