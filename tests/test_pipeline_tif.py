@@ -5,33 +5,39 @@ Created on Wed Oct 20 17:50:34 2021
 
 @author: ooconnor
 """
-import os,sys,glob
+import os
+import sys
+import glob
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..','delta')))
-
-import utilities as utils
-import config_defaults as cfg
-import pipeline
 import pytest
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import delta
 
 def _root_dir():
     return os.path.dirname(os.path.abspath(__file__))
    
 def test_pipeline_tif_stack():
+    
+    # 'Pretend' arguments were passed to the cmd line:
     sys.argv = [sys.argv[0]]
     sys.argv.append(os.path.join(_root_dir(),'data/movie_tif'))
     sys.argv.append(os.path.join(_root_dir(),'data/movie_tif/results'))
 
-    cfg.presets = '2D'
+    # Load configuration:
+    delta.utils.cfg.load_config(presets='2D',config_level='global')
     
-    xpreader = utils.xpreader()
+    # Init reader
+    xpreader = delta.utils.xpreader()
 
-    xp = pipeline.Pipeline(xpreader)
+    # Init pipeline:
+    xp = delta.pipeline.Pipeline(xpreader)
     
     xp.process(frames=[0,1,2,3])
     
-    return xp
+
     
-test_pipeline_tif_stack()
+# test_pipeline_tif_stack()
 
 

@@ -8,11 +8,13 @@ Created on Tue Oct 19 15:01:05 2021
 #
 import os, sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..','delta')))
-
-import utilities as utils
 import pytest
 import numpy as np
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from delta import utils
+
 
 def rand_img(image_size):
     img = np.random.random(image_size)
