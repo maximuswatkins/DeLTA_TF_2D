@@ -2488,8 +2488,10 @@ def _cell_fluo(fluo_frames, mask, roi_box=None):
     # Pixels where the cell is:
     pixels = np.where(mask)
     if roi_box is not None:
-        pixels[0]+=roi_box['ytl']
-        pixels[1]+=roi_box['xtl']
+        _pixels = list(pixels)
+        _pixels[0]+=roi_box['ytl']
+        _pixels[1]+=roi_box['xtl']
+        pixels=tuple(_pixels)
     
     # Loop through fluo frames:
     fluo_values = []
