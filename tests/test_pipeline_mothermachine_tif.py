@@ -8,6 +8,8 @@ Created on Mon Nov  8 10:08:21 2021
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import delta
@@ -15,6 +17,7 @@ import delta
 def _root_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
+@pytest.mark.order(2)
 def test_pipeline_mothermachine():
     sys.argv = [sys.argv[0]]
     sys.argv.append(os.path.join(_root_dir(),'data/movie_mothermachine_tif'))

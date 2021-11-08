@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import delta
 
+@pytest.mark.order(1)
 def test_download_assets():
     
     # Download models and write global config file:

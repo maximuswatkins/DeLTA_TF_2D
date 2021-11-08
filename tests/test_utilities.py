@@ -20,6 +20,7 @@ def rand_img(image_size):
     img = np.random.random(image_size)
     return img
 
+@pytest.mark.order(2)
 class Test_create_windows:
     def test_create_windows_base(self):
         assert utils.create_windows(rand_img((512,512)),target_size=(512,512),min_overlap=24)[0].shape[0] == 1

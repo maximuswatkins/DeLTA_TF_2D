@@ -17,7 +17,8 @@ import delta
 
 def _root_dir():
     return os.path.dirname(os.path.abspath(__file__))
-   
+
+@pytest.mark.order(2)
 def test_pipeline_tif_stack():
     
     # 'Pretend' arguments were passed to the cmd line:
