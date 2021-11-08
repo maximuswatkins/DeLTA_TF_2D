@@ -1,8 +1,8 @@
-# Ignore hdf5 files:
-*.hdf5
+# Ignore assets folder:
+/delta/assets/
 
-# Ignore config file:
-config.py
+# Ignore test results folder:
+/tests/data/*/results
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

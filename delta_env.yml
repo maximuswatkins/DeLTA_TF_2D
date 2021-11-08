@@ -10,6 +10,7 @@ dependencies:
   - opencv>=4.1
   - tensorflow-gpu>=2.0
   - ffmpeg-python
+  - requests
   - git
   - pip
   - pip:
