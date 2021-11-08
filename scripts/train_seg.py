@@ -3,18 +3,13 @@ This script trains the cell segmentation U-Net
 
 @author: jblugagne
 '''
-
-if __package__ == '':
-    from utilities import cfg
-    from model import unet_seg
-    from data import trainGenerator_seg
-else:
-    from delta.utilities import cfg
-    from delta.model import unet_seg
-    from delta.data import trainGenerator_seg
+import os
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-import os
+
+from delta.utilities import cfg
+from delta.model import unet_seg
+from delta.data import trainGenerator_seg
 
 # Files:
 training_set = cfg.training_set_seg
