@@ -45,7 +45,14 @@ def download_assets(
         interactive prompt will be used.
         The default is None.
     load_sets : bool, str, or None, optional
-        If True, the models will be downloaded from 
+        If True, the models will be downloaded and extracted from 
+        https://drive.google.com/drive/u/0/folders/1f2t71M-dkxKzdl-xfzHo195SnKAuisMl
+        into an assets folder in the library install path. If a path str is provided,
+        the models will be downloaded to the folder it points to. If None, an
+        interactive prompt will be used.
+        The default is None.
+    load_evals : bool, str, or None, optional
+        If True, the models will be downloaded and extracted from 
         https://drive.google.com/drive/u/0/folders/1f2t71M-dkxKzdl-xfzHo195SnKAuisMl
         into an assets folder in the library install path. If a path str is provided,
         the models will be downloaded to the folder it points to. If None, an
@@ -70,6 +77,8 @@ def download_assets(
     if load_models is None:
         load_models = _ask('Download latest models?')
     if load_models:
+        if type(load_models)==bool:
+            load_models=LATEST_MODELS
         model_files = _download_models(load_models)
     else:
         model_files = dict()
@@ -78,6 +87,8 @@ def download_assets(
     if load_sets is None:
         load_sets = _ask('Download latest training sets?')
     if load_sets:
+        if type(load_sets)==bool:
+            load_sets=LATEST_TRAININGSETS
         sets_files = _download_training_sets(load_sets)
     else:
         sets_files = dict()
@@ -86,6 +97,8 @@ def download_assets(
     if load_evals is None:
         load_evals = _ask('Download evaluation movies?')
     if load_evals:
+        if type(load_evals)==bool:
+            load_evals=EVAL_MOVIES
         eval_files = _download_eval_movies(load_evals)
     else:
         eval_files = dict()
@@ -221,7 +234,7 @@ def _download_models(model_ids=LATEST_MODELS, models_dir=None):
     print('Models will be downloaded to %s'%models_dir)
     
     model_files=dict()
-    for filename, google_id in LATEST_MODELS.items():
+    for filename, google_id in model_ids.items():
         print('Downloading model: %s...'%filename, end='')
         model_files[filename] = os.path.join(models_dir,filename+'.hdf5')
         _download_file_from_google_drive(google_id, model_files[filename])
@@ -238,11 +251,13 @@ def _download_training_sets(sets_ids=LATEST_TRAININGSETS, sets_dir=None):
     print('Training sets will be downloaded and unzipped to %s'%sets_dir)
     
     sets_files=dict()
-    for filename, google_id in LATEST_TRAININGSETS.items():
+    for filename, google_id in sets_ids.items():
         # Download files:
         sets_files[filename] = os.path.join(sets_dir,filename)
         zip_file = os.path.join(sets_dir,filename+'.zip')
-        _download_and_unzip(google_id, zip_file, sets_files[filename])
+        _download_and_unzip(
+            google_id, zip_file, sets_files[filename],remove_previous=True
+            )
 
     return sets_files
 
@@ -256,11 +271,13 @@ def _download_eval_movies(movie_ids=EVAL_MOVIES, movies_dir=None):
     print('Evaluation movies will be downloaded and unzipped to %s'%movies_dir)
     
     movie_files=dict()
-    for filename, google_id in LATEST_TRAININGSETS.items():
+    for filename, google_id in movie_ids.items():
         # Download files:
         movie_files[filename] = os.path.join(movies_dir,filename)
         zip_file = os.path.join(movies_dir,filename+'.zip')
-        _download_and_unzip(google_id, zip_file, movie_files[filename])
+        _download_and_unzip(
+            google_id, zip_file, movie_files[filename],remove_previous=True
+            )
 
     return movie_files
 
