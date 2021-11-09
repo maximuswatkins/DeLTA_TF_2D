@@ -4,9 +4,9 @@ from setuptools import setup, find_packages
 HERE = pathlib.Path(__file__).parent
 
 VERSION = '2.0.0'
-PACKAGE_NAME = 'delta_blah'
-AUTHOR = 'Owen OConnor'
-AUTHOR_EMAIL = 'ooconnor@bu.edu'
+PACKAGE_NAME = 'delta2'
+AUTHOR = 'Jean-Baptiste Lugagne, Owen OConnor'
+AUTHOR_EMAIL = 'jblugagne@bu.edu, ooconnor@bu.edu'
 URL = 'https://gitlab.com/dunloplab/delta'
 
 LICENSE = 'MIT License'
@@ -36,10 +36,10 @@ setup(name=PACKAGE_NAME,
       install_requires=INSTALL_REQUIRES,
       packages=find_packages(include=['delta','delta.*']),
       python_requires='>=3.6',
-      setup_requires=['pytest-runner','flake8'],
+      setup_requires=['pytest-order','pytest-runner','flake8'],
       tests_require=['pytest'],
       package_data={
-            'tests': ['data/movie_tif/*.tif']
+            'tests': ['data/movie_tif/*.tif','data/movie_mothermachine_tif/*.tif','data/movie_tif/*.tif']
       }
 )
 
