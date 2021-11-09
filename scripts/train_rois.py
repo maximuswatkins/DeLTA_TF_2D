@@ -11,6 +11,9 @@ from delta.utilities import cfg
 from delta.model import unet_rois
 from delta.data import trainGenerator_seg
 
+# Load config:
+cfg.load_config(presets='mothermachine')
+
 # Files:
 training_set = cfg.training_set_rois
 savefile = cfg.model_file_rois

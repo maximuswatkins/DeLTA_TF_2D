@@ -11,6 +11,9 @@ from delta.utilities import cfg
 from delta.model import unet_track
 from delta.data import trainGenerator_track
 
+# Load config:
+cfg.load_config(presets='2D')
+
 # Files:
 training_set = cfg.training_set_track
 savefile = cfg.model_file_track

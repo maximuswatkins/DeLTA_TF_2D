@@ -27,8 +27,9 @@ _DEFAULTS_2D=dict(
     target_size_seg = (256, 32), # segmentation U-Net target/input image size
     target_size_track = (256, 32), # tracking U-Net target/input image size
     training_set_rois = '', # Path to ROIs U-Net training set (None for 2D)
-    training_set_seg = 'D:/DeLTA_data/agar_pads/unet_pads_seg.hdf5', # Path to segmentation training set (placeholder)
-    training_set_track = 'D:/DeLTA_data/agar_pads/unet_pads_track.hdf5', # Path to tracking training set (placeholder)
+    training_set_seg = 'D:/DeLTA_data/agar_pads/train/seg/', # Path to segmentation training set (placeholder)
+    training_set_track = 'D:/DeLTA_data/agar_pads/train/track/', # Path to tracking training set (placeholder)
+    eval_movie = 'D:/DeLTA_data/agar_pads/eval_movie/tifs/', # Path to evaluation movie / image sequence
     rotation_correction = False, # Flag to try to automatically correct image rotation (for microfluidic devices)
     drift_correction = False, # Flag to correct drift over time (for microfluidic devices / ROIs)
     crop_windows = True, # Flag to crop input image into windows of size target_size_seg for segmentation, otherwise resize them
@@ -52,6 +53,7 @@ _DEFAULTS_mothermachine=dict(
     training_set_rois = 'D:/DeLTA_data/mother_machine/training/chambers_seg_set/train', # Path to ROIs U-Net training set (None for 2D)
     training_set_seg = 'D:/DeLTA_data/mother_machine/training/segmentation_set/train_multisets/', # Path to segmentation training set (placeholder)
     training_set_track = 'D:/DeLTA_data/mother_machine/training/tracking_set/train_multisets', # Path to tracking training set (placeholder)
+    eval_movie = 'D:/DeLTA_data/mother_machine/eval_movie/tifs/', # Path to evaluation movie / image sequence
     rotation_correction = True, # Flag to try to automatically correct image rotation (for microfluidic devices)
     drift_correction = True, # Flag to correct drift over time (for microfluidic devices / ROIs)
     crop_windows = False, # Flag to crop input image into windows of size target_size_seg for segmentation, otherwise resize them
@@ -109,7 +111,9 @@ def load_config(json_file=None,presets='2D',config_level=None):
         _json_file = _os.path.expanduser(
             _os.path.join('~/.delta','config_%s.json'%presets)
             )
-        if _os.path.exists(_json_file):
+        if _os.path.exists(_json_file) and (
+                config_level is None or config_level=='local'
+                ):
             json_file = _json_file
         
         # Is there a global config file for this preset?
@@ -117,7 +121,9 @@ def load_config(json_file=None,presets='2D',config_level=None):
         _json_file = _os.path.join(
             _DELTA_DIR,'assets','config','config_%s.json'%presets
             )
-        if json_file is None and _os.path.exists(_json_file):
+        if json_file is None and _os.path.exists(_json_file)  and (
+                config_level is None or config_level=='global'
+                ):
             json_file = _json_file
         
         # If no file was found, raise error:
@@ -134,7 +140,7 @@ def load_config(json_file=None,presets='2D',config_level=None):
     if set(variables.keys()) != set(defaults.keys()):
         _warn(
             "The config file keys differ from the defaults. This is most "
-            "likely because the config file was generated for a previous version"
+            "likely because the config file was generated for an earlier version"
             " of DeLTA. This may cause issues, to avoid this either use "
             "delta.assets.download_assets() again or update the config file "
             "manually to match the keys in the defaults. "

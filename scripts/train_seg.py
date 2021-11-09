@@ -11,6 +11,9 @@ from delta.utilities import cfg
 from delta.model import unet_seg
 from delta.data import trainGenerator_seg
 
+# Load config:
+cfg.load_config(presets='2D')
+
 # Files:
 training_set = cfg.training_set_seg
 savefile = cfg.model_file_seg
