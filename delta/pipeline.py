@@ -1080,6 +1080,7 @@ class ROI:
         for cell, cell_features in zip(cells, extracted_features):
             for feature_name, feature_val in cell_features.items():
                 self.lineage.setvalue(cell,frame,feature_name,feature_val)
+<<<<<<< HEAD
 =======
 
         # Run through cells in resized frame:
@@ -1126,3 +1127,5 @@ class ROI:
                 # Update cell:
                 self.lineage.setvalue(cell,frame,fluostr,value)
 >>>>>>> 70e73c4 (Updated import statements)
+=======
+>>>>>>> 7a3a645d5ad289c57922f7baf2e19060b723df0a
