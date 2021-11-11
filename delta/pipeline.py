@@ -54,19 +54,29 @@ class Pipeline(threading.Thread):
         super().__init__()
         
         self.reader = xpreader
+        "Experiment reader object"
         self.resfolder = resfolder
+        "Folder to save results to"
         self.positions = []
+        "List of Position objects under current experiment"
         self.rotation_correction = cfg.rotation_correction
+        "Flag to perform rotation correction"
         self.drift_correction = cfg.drift_correction
+        "Flag to perform XY drift correction"
         self.crop_windows=cfg.crop_windows
+        "Flag to crop overlapping windows for segmentation"
         self.save_format=cfg.save_format
+        "List of file save formats"
         self.daemon=True
+        "Run the pipeline as a daemon process (not functional yet)"
 
         if self.reader.resfolder is not None:
             self.resfolder = self.reader.resfolder
             
         # Load models:
         self.models = utils.loadmodels()
+        "List of Tensorflow models"
+        
         
         # Create result files folders
         if self.resfolder is None:
@@ -293,13 +303,21 @@ class Position:
 
         '''
         self.position_nb = position_nb
+        "Position index number in the experiment"
         self.reader = reader
+        "Experiment reader object"
         self.models = models
+        "List of Tensorflow models"
         self.rois = []
+        "List of ROI objects under position"
         self.drift_values = [[],[]]
+        "XY drift correction values over time"
         self.drift_correction=drift_correction
+        "Flag to perform drift correction"
         self.crop_windows=crop_windows
+        "Flag to crop overlapping windows for segmentation"
         self.verbose = 1
+        "Console output verbosity"
         self._preprocessed = False
         self._pickle_skip = ('reader', 'models', '_pickle_skip')
     
@@ -740,13 +758,21 @@ class ROI:
 
         '''
         self.roi_nb = roi_nb
+        "The ROI index number"
         self.box = box
+        "ROI crop box"
         self.img_stack = []
+        "Input images stack"
         self.seg_stack = []
+        "Segmentation images stack"
         self.lineage = utils.Lineage()
+        "Lineage object for ROI"
         self.label_stack = []
+        "Labelled images stack"
         self.crop_windows = crop_windows
+        "Flag to crop overlapping windows for segmentation"
         self.verbose = 1
+        "Console outputs verbosity"
         
         if crop_windows:
             self.scaling = None

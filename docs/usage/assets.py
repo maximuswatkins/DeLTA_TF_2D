@@ -1,2 +1,0 @@
-.. automodule:: delta.assets
-   :members:

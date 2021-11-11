@@ -986,8 +986,13 @@ class Lineage:
 
         '''
         self.cells = []
-        self.stack = []
+        '''List of single-cell dictionaries
+        Each dictionary will contain single-cell lineage and extracted feature
+        properties'''
+        self.stack = [] # Orphan attribute?
         self.cellnumbers = []
+        "List of cells present in FOV at each timepoint"
+        
     
     def update(self, cell, frame, attrib=[], poles=[]):
         '''
@@ -1275,6 +1280,10 @@ def getxppathdialog(ask_folder=False):
 
 
 class xpreader:
+    '''
+    Class to read experiment files from bioformats-compatible files or from
+    file sequences in folders
+    '''
     
     def __init__(
             self, 
@@ -1346,11 +1355,17 @@ class xpreader:
 
         # Set default parameters
         self.filename = filename
+        "File or folder name for the experiment"
         self.use_bioformats = use_bioformats
+        "Flag to use the Bio-Formats library to read file"
         self.fileorder = fileorder
+        "File ordering (if image files sequence)"
         self.filenamesindexing = filenamesindexing
+        "File indexing start (if image files sequence)"
         self.prototype = prototype
+        "File name prototype (if image files sequence)"
         self.resfolder = None
+        ""
         
         # Retrieve command line arguments (if any)
         cmdln_arguments = sys.argv
@@ -1751,7 +1766,7 @@ class xpreader:
 
 class files_watcher(Thread):
     '''
-    Daemon to watch experiment files and signal new ones
+    Daemon to watch experiment files and signal new ones (not functional yet)
     '''
     
     def __init__(self, reader):
