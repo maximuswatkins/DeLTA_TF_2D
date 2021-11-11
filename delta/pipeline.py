@@ -75,7 +75,7 @@ class Pipeline(threading.Thread):
             
         # Load models:
         self.models = utils.loadmodels()
-        "List of Tensorflow models"
+        "Dictionary of Tensorflow models"
         
         
         # Create result files folders
