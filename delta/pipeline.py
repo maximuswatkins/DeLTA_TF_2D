@@ -5,17 +5,18 @@ Created on Wed Jun 23 10:41:45 2021
 @author: jeanbaptiste
 """
 
-
-
-
 # Modules:
-import time, cv2, os, threading
+import time
+import os
+
+import cv2
 import numpy as np
+
 from .data import postprocess
 from . import utilities as utils
 from .utilities import cfg
 
-class Pipeline(threading.Thread):
+class Pipeline():
     '''
     Main Pipeline class to process all positions.
     '''
