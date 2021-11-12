@@ -1079,17 +1079,3 @@ class ROI:
         for cell, cell_features in zip(cells, extracted_features):
             for feature_name, feature_val in cell_features.items():
                 self.lineage.setvalue(cell,frame,feature_name,feature_val)
-
-
-if __name__ == "__main__":
-    
-    from pipeline import Pipeline
-
-    # Init reader:
-    xpreader = utils.xpreader()
-    
-    # Init pipeline:
-    xp = Pipeline(xpreader)
-    
-    # Run it:
-    xp.process()

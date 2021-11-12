@@ -3,17 +3,16 @@ This script trains the tracking U-Net.
 
 @author: jblugagne
 '''
-if __package__ == '':
-    from utilities import cfg
-    from model import unet_track
-    from data import trainGenerator_track
-else:
-    from delta.utilities import cfg
-    from delta.model import unet_track
-    from delta.data import trainGenerator_track
+import os
 
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-import os
+
+from delta.utilities import cfg
+from delta.model import unet_track
+from delta.data import trainGenerator_track
+
+# Load config:
+cfg.load_config(presets='2D')
 
 # Files:
 training_set = cfg.training_set_track

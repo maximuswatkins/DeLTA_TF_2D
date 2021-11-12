@@ -3,17 +3,16 @@ This script trains the chambers segmentation U-Net.
 
 @author: jblugagne
 '''
-if __package__ == '':
-    from delta.utilities import cfg
-    from delta.model import unet_rois
-    from delta.data import trainGenerator_seg
-else:
-    from delta.utilities import cfg
-    from delta.model import unet_rois
-    from delta.data import trainGenerator_seg
-    
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import os
+
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+
+from delta.utilities import cfg
+from delta.model import unet_rois
+from delta.data import trainGenerator_seg
+
+# Load config:
+cfg.load_config(presets='mothermachine')
 
 # Files:
 training_set = cfg.training_set_rois
