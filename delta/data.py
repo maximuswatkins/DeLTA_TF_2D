@@ -615,7 +615,9 @@ def saveResult_seg(save_path,npyfile, files_list = [], multipage=False):
             io.imsave(filename,(img*255).astype(np.uint8),plugin='tifffile',append=True)
         else:
             if files_list:
-                filename = os.path.join(save_path,files_list[i])
+                filename = os.path.join(
+                    save_path,os.path.basename(files_list[i])
+                    )
             else:
                 filename = os.path.join(save_path,"%d_predict.png"%i)
             with warnings.catch_warnings():
@@ -1327,7 +1329,7 @@ def saveResult_track(save_path,npyfile, files_list = None):
     mothers = npyfile[:,:,:,0]
     for i,mother in enumerate(mothers):
         if files_list:
-            filenameMo = os.path.join(save_path,files_list[i])
+            filenameMo = os.path.join(save_path,os.path.basename(files_list[i]))
         else:
             filenameMo = os.path.join(save_path,"tracking_09d.png"%i)
         with warnings.catch_warnings():

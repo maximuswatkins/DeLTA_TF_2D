@@ -8,6 +8,7 @@ Created on Fri Nov  5 16:34:55 2021
 import os
 import requests
 import json
+import shutil
 
 from .config import _DELTA_DIR, _DEFAULTS_2D, _DEFAULTS_mothermachine
 
@@ -19,7 +20,18 @@ LATEST_MODELS={
     'unet_momachambers_seg':'13SFG0T73XG8NfVVwLyGRJ_smZdMiWLM_'
     }
 
-def download_assets(load_models=None,config_level=None):
+LATEST_TRAININGSETS={
+    '2D':'1sWWkIDjIf77KwddHZgX64f8_LxV7hQx_',
+    'mothermachine':'1gzLWospgxqU8oqd8RqZE_WBtQb3N4UJu'
+    }
+
+EVAL_MOVIES={
+    '2D':'1PpAGwKF5nQnVmwYg2ww5fXPLMLZecah_',
+    'mothermachine':'1cwCLceLucFrKG-YrZ9AjGSrq7Y8z-cHW'
+    }
+
+def download_assets(
+        load_models=None,load_sets=None,load_evals=None,config_level=None):
     '''
     Download assets such as latest models, training sets etc
 
@@ -28,6 +40,20 @@ def download_assets(load_models=None,config_level=None):
     load_models : bool, str, or None, optional
         If True, the models will be downloaded from 
         https://drive.google.com/drive/u/0/folders/14EvBCMJIk2LpBCQL-jvsuEwUHNYamyyN
+        into an assets folder in the library install path. If a path str is provided,
+        the models will be downloaded to the folder it points to. If None, an
+        interactive prompt will be used.
+        The default is None.
+    load_sets : bool, str, or None, optional
+        If True, the models will be downloaded and extracted from 
+        https://drive.google.com/drive/u/0/folders/1f2t71M-dkxKzdl-xfzHo195SnKAuisMl
+        into an assets folder in the library install path. If a path str is provided,
+        the models will be downloaded to the folder it points to. If None, an
+        interactive prompt will be used.
+        The default is None.
+    load_evals : bool, str, or None, optional
+        If True, the models will be downloaded and extracted from 
+        https://drive.google.com/drive/u/0/folders/1f2t71M-dkxKzdl-xfzHo195SnKAuisMl
         into an assets folder in the library install path. If a path str is provided,
         the models will be downloaded to the folder it points to. If None, an
         interactive prompt will be used.
@@ -50,11 +76,32 @@ def download_assets(load_models=None,config_level=None):
     # Should we download models?
     if load_models is None:
         load_models = _ask('Download latest models?')
-
     if load_models:
+        if type(load_models)==bool:
+            load_models=LATEST_MODELS
         model_files = _download_models(load_models)
     else:
         model_files = dict()
+    
+    # Should we download training sets?
+    if load_sets is None:
+        load_sets = _ask('Download latest training sets?')
+    if load_sets:
+        if type(load_sets)==bool:
+            load_sets=LATEST_TRAININGSETS
+        sets_files = _download_training_sets(load_sets)
+    else:
+        sets_files = dict()
+    
+    # Should we download evaluation movies?
+    if load_evals is None:
+        load_evals = _ask('Download evaluation movies?')
+    if load_evals:
+        if type(load_evals)==bool:
+            load_evals=EVAL_MOVIES
+        eval_files = _download_eval_movies(load_evals)
+    else:
+        eval_files = dict()
     
     # Should we write a new config file?
     if config_level is None:
@@ -68,7 +115,12 @@ def download_assets(load_models=None,config_level=None):
             )
 
     if config_level:
-        _write_default_configs(model_files=model_files, config_level=config_level)
+        _write_default_configs(
+            model_files=model_files,
+            sets_files=sets_files,
+            eval_files=eval_files,
+            config_level=config_level
+            )
 
 def _ask(prompt,options={'y':True,'n':False}):
 
@@ -89,7 +141,12 @@ def _ask(prompt,options={'y':True,'n':False}):
         answer=None
         print("invalid answer: '%s'"%answer)
 
-def _write_default_configs(config_level='local',model_files=dict()):
+def _write_default_configs(
+        config_level='local',
+        model_files=dict(),
+        sets_files=dict(),
+        eval_files=dict()
+        ):
     
     if config_level=='local':
         config_dir = os.path.expanduser('~/.delta')
@@ -104,7 +161,6 @@ def _write_default_configs(config_level='local',model_files=dict()):
             '''%config_level
             )
 
-    print('Config files will be written to %s'%config_dir)
     if not os.path.exists(config_dir):
         os.makedirs(config_dir)
 
@@ -113,6 +169,15 @@ def _write_default_configs(config_level='local',model_files=dict()):
     if len(model_files)>0:
         config['model_file_seg']=model_files['unet_pads_seg']
         config['model_file_track']=model_files['unet_pads_track']
+    if len(sets_files)>0:
+        config['training_set_seg']=os.path.join(
+            sets_files['2D'],'training','segmentation_set'
+            )
+        config['training_set_track']=os.path.join(
+            sets_files['2D'],'training','tracking_set'
+            )
+    if len(eval_files)>0:
+        config['eval_movie']=os.path.join(eval_files['2D'],'movie_tifs')
     with open(os.path.join(config_dir,'config_2D.json'),'w') as f:
         json.dump(config, f, indent=4)
     
@@ -122,8 +187,24 @@ def _write_default_configs(config_level='local',model_files=dict()):
         config['model_file_rois']=model_files['unet_momachambers_seg']
         config['model_file_seg']=model_files['unet_moma_seg']
         config['model_file_track']=model_files['unet_moma_track']
+    if len(sets_files)>0:
+        config['training_set_rois']=os.path.join(
+            sets_files['mothermachine'],'training','segmentation_set','train'
+            )
+        config['training_set_seg']=os.path.join(
+            sets_files['mothermachine'],'training','segmentation_set','train_multisets'
+            )
+        config['training_set_track']=os.path.join(
+            sets_files['mothermachine'],'training','tracking_set','train_multisets'
+            )
+    if len(eval_files)>0:
+        config['eval_movie']=os.path.join(
+            eval_files['mothermachine'],'movie_tifs'
+            )
     with open(os.path.join(config_dir,'config_mothermachine.json'),'w') as f:
         json.dump(config, f, indent=4)
+    
+    print('Config files written to %s'%config_dir)
 
 def _download_models(model_ids=LATEST_MODELS, models_dir=None):
     '''
@@ -135,7 +216,8 @@ def _download_models(model_ids=LATEST_MODELS, models_dir=None):
         Dictionary of the filename:google_id for all necessary model files. 
         The default is LATEST_MODELS.
     models_dir : None or str, optional
-        path to save folder. The default is None.
+        path to save folder. If None, the delta install folder will be used.
+        The default is None.
 
     Returns
     -------
@@ -152,13 +234,74 @@ def _download_models(model_ids=LATEST_MODELS, models_dir=None):
     print('Models will be downloaded to %s'%models_dir)
     
     model_files=dict()
-    for filename, google_id in LATEST_MODELS.items():
-        print('Downloading model: %s...'%filename)
+    for filename, google_id in model_ids.items():
+        print('Downloading model: %s...'%filename, end='')
         model_files[filename] = os.path.join(models_dir,filename+'.hdf5')
         _download_file_from_google_drive(google_id, model_files[filename])
-    
-    print('Done')
+        print(' Done')
     return model_files
+
+def _download_training_sets(sets_ids=LATEST_TRAININGSETS, sets_dir=None):
+    
+    if type(sets_dir)!=str:
+        # Retrieve the path of the delta install folder:
+        sets_dir = os.path.join(_DELTA_DIR,'assets','trainingsets')
+    if not os.path.exists(sets_dir):
+        os.makedirs(sets_dir)
+    print('Training sets will be downloaded and unzipped to %s'%sets_dir)
+    
+    sets_files=dict()
+    for filename, google_id in sets_ids.items():
+        # Download files:
+        sets_files[filename] = os.path.join(sets_dir,filename)
+        zip_file = os.path.join(sets_dir,filename+'.zip')
+        _download_and_unzip(
+            google_id, zip_file, sets_files[filename],remove_previous=True
+            )
+
+    return sets_files
+
+def _download_eval_movies(movie_ids=EVAL_MOVIES, movies_dir=None):
+    
+    if type(movies_dir)!=str:
+        # Retrieve the path of the delta install folder:
+        movies_dir = os.path.join(_DELTA_DIR,'assets','eval_movies')
+    if not os.path.exists(movies_dir):
+        os.makedirs(movies_dir)
+    print('Evaluation movies will be downloaded and unzipped to %s'%movies_dir)
+    
+    movie_files=dict()
+    for filename, google_id in movie_ids.items():
+        # Download files:
+        movie_files[filename] = os.path.join(movies_dir,filename)
+        zip_file = os.path.join(movies_dir,filename+'.zip')
+        _download_and_unzip(
+            google_id, zip_file, movie_files[filename],remove_previous=True
+            )
+
+    return movie_files
+
+def _download_and_unzip(id, zip_file, folder, remove_previous=False):
+    
+    print('Downloading zip: %s'%zip_file)
+    _download_file_from_google_drive(id, zip_file)
+    print(' Done')
+    
+    if remove_previous and os.path.exists(folder):
+        print('Removing previous extraction...',end='')
+        shutil.rmtree(folder)
+        print(' Done')
+    
+    print('Extracting to %s...'%(folder), end='')
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    shutil.unpack_archive(zip_file, folder)
+    print(' Done')
+    
+    print('Deleting archive...',end='')
+    os.remove(zip_file)
+    print(' Done')
+
 
 def _download_file_from_google_drive(id, destination):
     #https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
