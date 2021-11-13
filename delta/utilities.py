@@ -1371,15 +1371,15 @@ class xpreader:
         "Type / extension of `filehandle`"
         self.filehandle = None
         "Handle to file reader or base directory"
-        self.positions
+        self.positions = None
         "Number of positions in experiment"
-        self.channels
+        self.channels = None
         "Number of imaging channels"
-        self.x
+        self.x = None
         "Size of images along X axis"
-        self.y
+        self.y = None
         "Size of images along Y axis"
-        self.dtype
+        self.dtype = None
         "Datatype of images"
         
         
