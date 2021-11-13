@@ -273,7 +273,7 @@ def unet_seg(pretrained_weights = None, input_size = (256,32,1)):
         )
         
     model.compile(
-        optimizer = Adam(lr = 1e-4), 
+        optimizer = Adam(learning_rate = 1e-4), 
         loss = pixelwise_weighted_binary_crossentropy_seg,
         metrics = [unstack_acc]
         )
@@ -310,7 +310,7 @@ def unet_track(pretrained_weights = None,input_size = (256,32,4)):
         )
         
     model.compile(
-        optimizer=Adam(lr = 1e-5), 
+        optimizer=Adam(learning_rate = 1e-5), 
         loss=pixelwise_weighted_binary_crossentropy_track, 
         metrics = [unstack_acc])
     
@@ -341,6 +341,6 @@ def unet_rois(input_size = (512,512,1)):
     model = unet(
         input_size=input_size, final_activation='sigmoid', output_classes=1
         )
-    model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy')
+    model.compile(optimizer = Adam(learning_rate = 1e-4), loss = 'binary_crossentropy')
 
     return model
