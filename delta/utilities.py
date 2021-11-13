@@ -1386,12 +1386,13 @@ class xpreader:
         # Retrieve command line arguments (if any)
         cmdln_arguments = sys.argv
         
-        if len(cmdln_arguments) >= 2: 
-            # If command line arguments were passed
-            self._command_line_init(cmdln_arguments)
-        elif filename is None:
-            # Interactive selection and pop up window:
-            self._interactive_init()
+        if filename is None:
+            if len(cmdln_arguments) >= 2: 
+                # If command line arguments were passed
+                self._command_line_init(cmdln_arguments)
+            else:
+                # Interactive selection and pop up window:
+                self._interactive_init()
         
         self.channelnames = channelnames
         "Names of the imaging channels (optional)"
