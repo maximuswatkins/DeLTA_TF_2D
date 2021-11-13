@@ -1365,7 +1365,23 @@ class xpreader:
         self.prototype = prototype
         "File name prototype (if image files sequence)"
         self.resfolder = None
-        ""
+
+        # Init base parameters:
+        self.filetype = None
+        "Type / extension of `filehandle`"
+        self.filehandle = None
+        "Handle to file reader or base directory"
+        self.positions
+        "Number of positions in experiment"
+        self.channels
+        "Number of imaging channels"
+        self.x
+        "Size of images along X axis"
+        self.y
+        "Size of images along Y axis"
+        self.dtype
+        "Datatype of images"
+        
         
         # Retrieve command line arguments (if any)
         cmdln_arguments = sys.argv
@@ -1378,6 +1394,7 @@ class xpreader:
             self._interactive_init()
         
         self.channelnames = channelnames
+        "Names of the imaging channels (optional)"
         self.watchfiles = watchfiles
         
         _, file_extension = os.path.splitext(self.filename)
@@ -2324,20 +2341,20 @@ def singlecell_features(
     
     # Morphological features:
     if 'edges' in features:
-        features_dict['edges'] = _image_edges(contour, mask)
+        features_dict['edges'] = image_edges(contour, mask)
     
     if 'length' in features or 'width' in features:
-        width, length = _cell_width_length(contour)
+        width, length = cell_width_length(contour)
         if 'length' in features:
             features_dict['length'] = length
         if 'width' in features:
             features_dict['width'] = width
     
     if 'area' in features:
-        features_dict['area'] = _cell_area(contour)
+        features_dict['area'] = cell_area(contour)
     
     if 'perimeter' in features:
-        features_dict['perimeter'] = _cell_perimeter(contour)
+        features_dict['perimeter'] = cell_perimeter(contour)
     
     # Fluo features:
     fluo_features = [x for x in features if x[0:4]=='fluo']
@@ -2352,13 +2369,13 @@ def singlecell_features(
                      fluo_frames.shape[0],len(fluo_features),str(fluo_features)
                      )
                 )
-        fluo_values = _cell_fluo(fluo_frames, mask, roi_box)
+        fluo_values = cell_fluo(fluo_frames, mask, roi_box)
         for fluo_feat, fluo_val in zip(fluo_features, fluo_values):
             features_dict[fluo_feat] = fluo_val
     
     return features_dict
 
-def _image_edges(contour, image):
+def image_edges(contour, image):
     '''
     Identify if cell touches image borders
 
@@ -2389,7 +2406,7 @@ def _image_edges(contour, image):
     
     return edge_str
 
-def _cell_width_length(contour):
+def cell_width_length(contour):
     '''
     Mesure width and length of single cell
 
@@ -2415,7 +2432,7 @@ def _cell_width_length(contour):
     
     return width, length
 
-def _cell_area(contour):
+def cell_area(contour):
     '''
     Area of a single cell
 
@@ -2435,7 +2452,7 @@ def _cell_area(contour):
     
     return area
 
-def _cell_perimeter(contour):
+def cell_perimeter(contour):
     '''
     Get single cell perimeter
 
@@ -2455,7 +2472,7 @@ def _cell_perimeter(contour):
     
     return perimeter
 
-def _cell_fluo(fluo_frames, mask, roi_box=None):
+def cell_fluo(fluo_frames, mask, roi_box=None):
     '''
     Extract mean fluorescence level from mask
 
