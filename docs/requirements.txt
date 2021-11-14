@@ -5,3 +5,4 @@ tensorflow >= 2.0
 ffmpeg-python
 requests
 numpydoc
+docutils<0.18
