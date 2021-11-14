@@ -61,3 +61,6 @@ html_static_path = ['_static']
 html_css_files = ['css/custom.css']
 
 autoclass_content = 'class'
+
+# Specify for readthedocs:
+master_doc = 'index'
