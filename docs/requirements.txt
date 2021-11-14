@@ -1,8 +1,1 @@
-scikit-image >= 0.18
-tifffile >= 2020
-opencv-python >= 4.1
-tensorflow >= 2.0
-ffmpeg-python
-requests
 numpydoc
-docutils<0.18
