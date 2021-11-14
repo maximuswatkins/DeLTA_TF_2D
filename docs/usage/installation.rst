@@ -107,7 +107,15 @@ Again, if you want to use python-bioformats, run::
 Install with pip from requirements.txt
 --------------------------------------
 
+First make sure you have installed the prerequisites above, and also 
+`the latest CUDA toolkit <https://developer.nvidia.com/cuda-downloads>`_
+and `cuDNN <https://developer.nvidia.com/cudnn>`_ to be able to
+run on GPU
+
 TODO
+
+See also 
+`Tensorflow's pip install instructions <https://www.tensorflow.org/install/pip>`_
 
 Troubleshooting
 ---------------
