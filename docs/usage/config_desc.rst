@@ -7,11 +7,11 @@ Configuration files
 
 The config.py module loads JSON configuration files, and is then used to 
 parameterize multiple operations throughout the 
-:doc:`pipeline <basic_pipeline>` , :doc:`data <data>`, :doc:`models <model>` 
-and :doc:`utilities <utils>` modules. It is also used in the 
+:doc:`pipeline <pipeline_desc>` , :doc:`data <data_desc>`, :doc:`models <model_desc>` 
+and :doc:`utilities <utils_desc>` modules. It is also used in the 
 :doc:`example scripts <scripts>` although these values can be changed.
 
-The :doc:`assets <assets>` module can automatically write config files based 
+The :doc:`assets <assets_desc>` module can automatically write config files based 
 on downloaded assets, but you can also write your own JSON config files if you 
 want to change default config values. JSON files can be opened with any text
 editor, and are fairly readable. For more information on each parameter, check
@@ -98,7 +98,7 @@ DeLTA, you may get a warning message if the parameters in the file do not match
 the parameters for the new version of DeLTA. This does not necessarily mean that 
 the entire software will not work so we allow the load to continue, but it is
 probably better for you to update that file or re-generate one with the
-:doc:`assets downloader <assets>`
+:doc:`assets downloader <assets_desc>`
 
 Also note that, in the source code, you may find places where the config module is
 referred to through the utils module, in statements such as::

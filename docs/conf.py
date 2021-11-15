@@ -15,6 +15,10 @@ import sys
 
 print('dirdir:')
 print(os.getcwd())
+print(os.listdir('.'))
+print(os.listdir('..'))
+print(os.listdir('../..'))
+print(os.listdir('../../..'))
 sys.path.insert(0, os.path.abspath('..'))
 
 print('syspath:')

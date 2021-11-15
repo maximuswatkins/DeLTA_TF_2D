@@ -184,6 +184,7 @@ Recent installations library versions
 Here is a list of installations that have worked for us on various systems
 in case you run into dependency issues:
 
+:doc:`Successful installations <installs_lists>`
 
 
 
