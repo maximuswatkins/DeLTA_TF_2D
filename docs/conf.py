@@ -34,9 +34,12 @@ autodoc_mock_imports = [
 	"ffmpeg",
 	"tifffile"
 	"matplotlib",
+	"matplotlib.cm",
+	"skimage.morphology",
 	"numpy",
 	"json",
-	"scipy"
+	"scipy",
+	"scipy.io"
 	]
 
 

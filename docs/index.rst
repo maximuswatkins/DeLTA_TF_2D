@@ -79,7 +79,7 @@ Navigate our API below:
     :template: my_custom_module.rst
     :recursive:
 
-    delta
+    delta.assets
 
 Indices and tables
 --------------------
