@@ -25,6 +25,21 @@ sys.path.insert(0, os.path.abspath('..'))
 print('syspath:')
 print(sys.path)
 
+# Mock import of main libraries:
+autodoc_mock_imports = [
+	"cv2",
+	"tensorflow",
+	"requests",
+	"skimage",
+	"ffmpeg",
+	"tifffile"
+	"matplotlib",
+	"numpy",
+	"json",
+	"scipy"
+	]
+
+
 # -- Project information -----------------------------------------------------
 
 project = 'DeLTA'
@@ -75,15 +90,3 @@ autoclass_content = 'class'
 # Specify for readthedocs:
 master_doc = 'index'
 
-# Mock import of main libraries:
-autodoc_mock_imports = [
-	"cv2",
-	"tensorflow",
-	"requests",
-	"skimage",
-	"ffmpeg",
-	"tifffile"
-	"matplotlib",
-	"numpy",
-	"json"
-	]
