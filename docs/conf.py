@@ -20,7 +20,7 @@ print(os.listdir('..'))
 print(os.listdir('../..'))
 print(os.listdir('../../..'))
 sys.path.insert(0, os.path.abspath('..'))
-import delta
+# import delta
 
 print('syspath:')
 print(sys.path)
@@ -74,3 +74,16 @@ autoclass_content = 'class'
 
 # Specify for readthedocs:
 master_doc = 'index'
+
+# Mock import of main libraries:
+autodoc_mock_imports = [
+	"cv2",
+	"tensorflow",
+	"requests",
+	"skimage",
+	"ffmpeg",
+	"tifffile"
+	"matplotlib",
+	"numpy",
+	"json"
+	]
