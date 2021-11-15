@@ -13,35 +13,15 @@
 import os
 import sys
 
-print('dirdir:')
-print(os.getcwd())
-print(os.listdir('.'))
-print(os.listdir('..'))
-print(os.listdir('../..'))
-print(os.listdir('../../..'))
 sys.path.insert(0, os.path.abspath('..'))
+# We import delta here because for some 
+# reason it fails on readthedocs if we let
+# autosummary / autodoc try to load it 
+# themselves
 import delta
 
 print('syspath:')
 print(sys.path)
-
-# Mock import of main libraries:
-autodoc_mock_imports = [
-	"cv2",
-	"tensorflow",
-	"requests",
-	"skimage",
-	"ffmpeg",
-	"tifffile"
-	"matplotlib",
-	"matplotlib.cm",
-	"skimage.morphology",
-	"numpy",
-	"json",
-	"scipy",
-	"scipy.io"
-	]
-
 
 # -- Project information -----------------------------------------------------
 
@@ -92,4 +72,3 @@ autoclass_content = 'class'
 
 # Specify for readthedocs:
 master_doc = 'index'
-
