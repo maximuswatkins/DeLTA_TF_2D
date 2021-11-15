@@ -12,8 +12,13 @@
 #
 import os
 import sys
+
+print('dirdir:')
+print(os.getcwd())
 sys.path.insert(0, os.path.abspath('..'))
 
+print('syspath:')
+print(sys.path)
 
 # -- Project information -----------------------------------------------------
 
