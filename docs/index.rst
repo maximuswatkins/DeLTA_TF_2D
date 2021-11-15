@@ -72,7 +72,6 @@ Contents
 API
 ----
 
-
 Navigate our API below:
 
 .. autosummary::
@@ -80,7 +79,7 @@ Navigate our API below:
     :template: my_custom_module.rst
     :recursive:
 
-    delta.assets
+    delta
 
 Indices and tables
 --------------------
