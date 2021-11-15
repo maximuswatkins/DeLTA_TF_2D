@@ -20,6 +20,7 @@ print(os.listdir('..'))
 print(os.listdir('../..'))
 print(os.listdir('../../..'))
 sys.path.insert(0, os.path.abspath('..'))
+import delta
 
 print('syspath:')
 print(sys.path)
