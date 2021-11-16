@@ -165,41 +165,43 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
         Images to apply augmentation operations to.
     aug_par : dict
         Augmentation operations parameters. Accepted key-value pairs:
-            illumination_voodoo: bool. Whether to apply the illumination 
-                voodoo operation.
-            histogram_voodoo: bool. Whether to apply the histogram voodoo 
-                operation.
-            elastic_deformation: dict. If key exists, the elastic deformation
-                operation is applied. The parameters are given as key-value 
-                pairs. sigma values are given under the sigma key, deformation
-                points are given under the points key. See elasticdeform doc.
-            gaussian_noise: float. Apply gaussian noise to the image. The 
-                sigma value of the gaussian noise is uniformly sampled between
-                0 and +gaussian_noise.
-            gaussain_blur: float. Apply gaussian blur to the image. The sigma
-                value is the standard deviation of the kernel in the x and y
-                direction.
-            horizontal_flip: bool. Whether to flip the images horizontally. 
-                Input images have a 50% chance of being flipped
-            vertical_flip: bool. Whether to flip the images vertically. 
-                Input images have a 50% chance of being flipped
-            rotations90d: bool. Whether to randomly rotate the images in 90°
-                increments. Each 90° rotation has a 25% chance of happening
-            rotation: int/float. Range of random rotation to apply. The angle 
-                is uniformly sampled in the range [-rotation, +rotation]
-            zoom: float. Range of random "zoom" to apply. The image
-                is randomly zoomed by a factor that is sampled from an 
-                exponential distribution with a lamba of 3/zoom. The random
-                factor is clipped at +zoom.
-            shiftX: int/float. The range of random shifts to apply along X. A
-                uniformly sampled shift between [-shiftX, +shiftX] is applied
-            shiftY: int/float. The range of random shifts to apply along Y. A
-                uniformly sampled shift between [-shiftY, +shiftY] is applied
-            timeshiftX: int/float. The range of random shifts to apply along X
-                to inputs from separate time points.
-            timeshiftY: int/float. The range of random shifts to apply along Y
-                to inputs from separate time points.
-            timeshift_prob: float. Probability of time shift to be applied.
+            illumination_voodoo: bool. 
+                Whether to apply the illumination voodoo operation.
+            histogram_voodoo: bool. 
+                Whether to apply the histogram voodoo operation.
+            elastic_deformation: dict. 
+                If key exists, the elastic deformation operation is applied. 
+                The parameters are given as key-value pairs. sigma values are 
+                given under the sigma key, deformation points are given under 
+                the points key. See elasticdeform doc.
+            gaussian_noise: float. 
+                Apply gaussian noise to the image. The sigma value of the 
+                gaussian noise is uniformly sampled between 0 and +gaussian_noise.
+            gaussain_blur: float. 
+                Apply gaussian blur to the image. The sigma value is the 
+                standard deviation of the kernel in the x and y direction.
+            horizontal_flip: bool. 
+                Whether to flip the images horizontally. Input images have a 
+                50% chance of being flipped
+            vertical_flip: bool. 
+                Whether to flip the images vertically. Input images have a 50% 
+                chance of being flipped
+            rotations90d: bool. 
+                Whether to randomly rotate the images in 90° increments. 
+                Each 90° rotation has a 25% chance of happening
+            rotation: int or float. 
+                Range of random rotation to apply. The angle is uniformly 
+                sampled in the range [-rotation, +rotation]
+            zoom: float. 
+                Range of random "zoom" to apply. The image is randomly zoomed 
+                by a factor that is sampled from an exponential distribution 
+                with a lamba of 3/zoom. The random factor is clipped at +zoom.
+            shiftX: int/float. 
+                The range of random shifts to apply along X. A uniformly 
+                sampled shift between [-shiftX, +shiftX] is applied
+            shiftY: int/float. 
+                The range of random shifts to apply along Y. A uniformly 
+                sampled shift between [-shiftY, +shiftY] is applied
                 
             Note that the same operations are applied to all inputs except for 
             the timeshift ones.
@@ -265,13 +267,15 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
                     output[index] = item 
     
     if "elastic_deformation" in aug_par:
-        output = elasticdeform.deform_random_grid(output,
-                                                  sigma=aug_par["elastic_deformation"]["sigma"],
-                                                  points=aug_par["elastic_deformation"]["points"],
-                                                  order=[i*3 for i in orderlist], # Using bicubic interpolation instead of bilinear here
-                                                  mode='nearest',
-                                                  axis=(0,1),
-                                                  prefilter=False)
+        output = elasticdeform.deform_random_grid(
+            output,
+            sigma=aug_par["elastic_deformation"]["sigma"],
+            points=aug_par["elastic_deformation"]["points"],
+            order=[i*3 for i in orderlist], # Using bicubic interpolation instead of bilinear here
+            mode='nearest',
+            axis=(0,1),
+            prefilter=False
+            )
     
     if "horizontal_flip" in aug_par:
         if aug_par["horizontal_flip"]:
@@ -477,7 +481,7 @@ def trainGenerator_seg(
         Path to folder containing training input images.
     mask_path : string
         Path to folder containing training segmentation groundtruth.
-    weight_path : string
+    weight_path : string or None.
         Path to folder containing weight map images.
     target_size : tuple of 2 ints, optional
         Input and output image size. 
@@ -643,7 +647,7 @@ def predictGenerator_seg(files_path, files_list = None, target_size = (256,32),c
         The default is (256,32).
 
     Returns
-    ------
+    -------
     mygen : generator
         Generator that will yield single image files as 4D numpy arrays of
         size (1, target_size[0], target_size[1], 1).
@@ -915,7 +919,7 @@ def trainGenerator_track(
         augment_params = {},
         crop_windows = False,
         target_size = (256,32),
-        shiftcropbox = 0,
+        shift_cropbox = 0,
         seed = 1
         ):
     '''
@@ -950,8 +954,14 @@ def trainGenerator_track(
     target_size : tuple of 2 ints, optional
         Input and output image size. 
         The default is (256,32).
-    shiftcropbox: int
-        Determine the max number of pixels that the cropbox for the current frames (img,segall,mot_dau,wei) inputs will be shifted
+    crop_windows : bool, optional
+        Whether to crop out a window of size `target_size` around the seed/seg
+        cell to track for all input images instead of resizing.
+    shift_cropbox : int, optional
+        If `crop_windows` is True, a shift between [-shift_cropbox, +shift_cropbox]
+        will be uniformly sampled for both the X and the Y axis. This shift in
+        pixels will be applied only to the the cropbox for the current timepoint 
+        input frames (img,segall,mot_dau,wei), to simulate image drift over time.
     seed : int, optional
         Seed for numpy's random generator. see numpy.random.seed() doc
         The default is 1.
@@ -1045,7 +1055,7 @@ def trainGenerator_track(
             
             if crop_windows:
                 cb, fb = utils.gettrackingboxes(seg)
-                shiftY, shiftX = utils.getshiftvalues(shiftcropbox,seg.shape,cb)
+                shiftY, shiftX = utils.getshiftvalues(shift_cropbox,seg.shape,cb)
             else:
                 cb = fb = dict(ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1])
                 shiftY, shiftX = 0,0

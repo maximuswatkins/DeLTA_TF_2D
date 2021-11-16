@@ -1,0 +1,191 @@
+
+Installation
+=================================
+
+You can now install DeLTA directly from conda-forge, or from the git repository.
+
+We recommend using `Anaconda <https://www.anaconda.com/>`_ to install the 
+necessary libraries and create a dedicated environment. However, we have been 
+able to setup environments with pip too.
+
+.. note::
+    DeLTA does not automatically install python-bioformats anymore. You will 
+    need to install it specifically
+
+.. note::
+    DeLTA does not come packaged with spyder anymore. If you want to add it to
+    your environment you will have to do so specifically
+
+.. note::
+    If you want to use the 
+    `elastic deformation package <https://pypi.org/project/elasticdeform/>`_, 
+    you can install it a posteriori via pip::
+    
+        (base)$ pip install elasticdeform
+    
+
+Hardware requirements
+----------------------
+While this code can run on CPU, we recommend running it on GPU for 
+significantly faster processing. To do so you will need 
+`an nvidia gpu with a cuda compute capability of 3.5 or higher <https://developer.nvidia.com/cuda-gpus) and [an up-to-date gpu driver](https://www.nvidia.com/Download/index.aspx?lang=en-us>`_.
+If no compatible GPU/driver is found on the system, tensorflow will run on CPU.
+
+For more information see 
+`here <https://docs.anaconda.com/anaconda/user-guide/tasks/tensorflow/>`_ 
+and `here <https://www.tensorflow.org/guide/gpu>`_.
+
+
+Prerequisites
+--------------
+
+On Windows, you will need 
+`c++ <https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation>`_ and 
+`.NET <https://docs.microsoft.com/en-us/dotnet/framework/install/guide-for-developers>`_ 
+support for Visual studio, and a recent 
+`Java JDK <https://www.oracle.com/java/technologies/javase-downloads.html>`_ 
+(≥8) if you want to use python-bioformats.
+
+On Linux, you will need a recent JDK/OpenJDK and will need to create a 
+JAVA_HOME environment variable pointing to it, for example on Ubuntu::
+
+    (base)$ export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
+.. note::
+    The dollar sign and everything before it are not part of the shell commands
+
+Install from conda-forge
+------------------------
+
+.. highlight:: bash
+
+DeLTA is now available as `a conda package <https://anaconda.org/conda-forge/delta2>`_
+through conda-forge. To install it,
+simply run in your system's shell::
+
+    (base)$ conda create -n delta_env -c conda-forge delta2
+
+Or if you want to also install e.g. spyder alongside it::
+
+    (base)$ conda create -n delta_env -c conda-forge delta2 spyder
+
+If you want to use the python-bioformats library to be able to read various
+microscopy file formats, run the following::
+    
+    (base)$ conda activate delta_env
+    (delta_env)$ conda install pip
+    (delta_env)$ pip install python-bioformats
+
+.. note::
+    DeLTA is only available on conda-forge for Linux and MacOSX for now
+    because of build-issues on Windows, but we are in the process of also 
+    implementing this package for Windows.
+
+.. note::
+    You will need to activate the environment before you can import DeLTA in
+    python
+
+Install with conda from delta_env.yml
+-------------------------------------
+
+You can also clone or download our git repository and then use the 
+`delta_env.yml` file to  install the environment::
+
+    (base)$ conda env create -f /path/to/delta/delta_env.yml
+
+If you want to install spyder or other libraries with DeLTA, we recommend
+modifying the .yml file or creating another one with the added packages. You
+can try to install them afterwards, but some large packages (like spyder) tend
+to cause headaches if you do it this way.
+
+Again, if you want to use python-bioformats, run::
+    
+    (base)$ conda activate delta_env
+    (delta_env)$ conda install pip
+    (delta_env)$ pip install python-bioformats
+
+Install with pip from requirements.txt
+--------------------------------------
+
+First make sure you have installed the prerequisites above, and also 
+`the latest CUDA toolkit <https://developer.nvidia.com/cuda-downloads>`_
+and `cuDNN <https://developer.nvidia.com/cudnn>`_ to be able to
+run on GPU
+
+TODO
+
+See also 
+`Tensorflow's pip install instructions <https://www.tensorflow.org/install/pip>`_
+
+Troubleshooting
+---------------
+
+Problems with tensorflow-estimator or h5py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We have sometimes run into issues where conda would install versions of 
+`tensorflow-estimator` that did not match the version of the base 
+`tensorflow` library. To check which versions got installed if you run
+into issues with `tensorflow-estimator` please run the following::
+
+    (delta_env)$ conda list | grep tensorflow
+
+If the versions of the estimator and the base library are too different this will
+cause problems. You can run the following to install the correct version::
+
+    (delta_env)$ conda install tensorflow-estimator==2.X
+
+with replaced by the version of your base tensorflow.
+
+Similarly for h5py, sometimes a version that is too recent or too old gets 
+installed. Depending on which version was installed, try::
+
+    (delta_env)$ conda install h5py==2.*
+
+or::
+
+    (delta_env)$ conda install h5py==3.*
+
+You can also check which libraries have worked for us in the past  in the 
+:ref:`installed library lists below <recent_installs>`
+
+cuDNN (or other libraries) not loading
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We have run into OOM errors or some GPU-related libraries failing to load or 
+initialize on laptops. See the "Limiting GPU memory growth" section on 
+`this tensorflow help page <https://www.tensorflow.org/guide/gpu>`_. 
+Setting the `memory_growth_limit` parameter in the 
+:doc:`JSON config file <config_desc>` to a set value in MB (eg 1024, 2048...) 
+should solve the issue.
+
+
+OOM - Out of memory (GPU)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On GPU, you might run into memory problems. This is both linked to the batch 
+size and the size of the images. The batch size is straightforward to change, 
+lower the value at the beginning of the :ref:`training scripts <training_scripts>`.
+Note that lower batch sizes may mean slower training convergence or lower performance overall.
+
+The other solution would be to use a smaller image target size. However if the 
+original training images and masks are for example 512×512, downsizing them to 
+256×256 will reduce the memory footprint, but it might cause some borders 
+between cells in the binary masks to disappear. Instead, training images should
+be resized upstream of DeLTA to make sure that your training set does feature 
+cell-to-cell borders in the segmentation masks.
+
+
+.. _recent_installs::
+
+Recent installations library versions
+-------------------------------------
+
+Here is a list of installations that have worked for us on various systems
+in case you run into dependency issues:
+
+:doc:`Successful installations <installs_lists>`
+
+
+
+    

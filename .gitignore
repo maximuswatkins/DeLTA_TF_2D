@@ -4,6 +4,9 @@
 # Ignore test results folder:
 /tests/data/*/results
 
+# Ignore auto-generated docs pages:
+/docs/_generated/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
