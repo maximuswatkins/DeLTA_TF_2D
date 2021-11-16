@@ -38,7 +38,9 @@ _DEFAULTS_2D=dict(
     min_cell_area = 20, # Minimum area of detected cells, in pixels. Can be set to 0
     save_format = ('pickle', 'legacy', 'movie'), # Format to save output data to.
     TF_CPP_MIN_LOG_LEVEL = '2', # Debugging messages level from Tensorflow ('0' = most verbose to '3' = not verbose)
-    memory_growth_limit = None # If running into OOM issues or having trouble with cuDNN loading, try setting memory_growth_limit to a value in MB: (eg 1024, 2048...)
+    memory_growth_limit = None, # If running into OOM issues or having trouble with cuDNN loading, try setting memory_growth_limit to a value in MB: (eg 1024, 2048...)
+	pipeline_seg_batch = 64, # If running into OOM issues during segmentation with the pipeline, try lowering this value. You can also try to increase it to improve speed
+	pipeline_track_batch = 64 # If running into OOM issues during tracking with the pipeline, try lowering this value. You can also try to increase it to improve speed
     )
 
 _DEFAULTS_mothermachine=dict(
@@ -62,7 +64,9 @@ _DEFAULTS_mothermachine=dict(
     min_cell_area = 20, # Minimum area of detected cells, in pixels. Can be set to 0
     save_format = ('pickle', 'legacy', 'movie'), # Format to save output data to.
     TF_CPP_MIN_LOG_LEVEL = '2', # Debugging messages level from Tensorflow ('0' = most verbose to '3' = not verbose)
-    memory_growth_limit = None # If running into OOM issues or having trouble with cuDNN loading, try setting memory_growth_limit to a value in MB: (eg 1024, 2048...)
+    memory_growth_limit = None, # If running into OOM issues or having trouble with cuDNN loading, try setting memory_growth_limit to a value in MB: (eg 1024, 2048...)
+	pipeline_seg_batch = 64, # If running into OOM issues during segmentation with the pipeline, try lowering this value. You can also try to increase it to improve speed
+	pipeline_track_batch = 64 # If running into OOM issues during tracking with the pipeline, try lowering this value. You can also try to increase it to improve speed
     )
 
 def load_config(json_file=None,presets='2D',config_level=None):

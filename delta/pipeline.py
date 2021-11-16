@@ -530,10 +530,10 @@ class Position:
         x = np.concatenate(x)
         
         # Run segmentation model:
-        y = self.models['segmentation'].predict(
-            x,
-            batch_size=4
-            )
+        y = np.empty_like(x)
+        for i in range(0,len(x),cfg.pipeline_seg_batch):
+            j = min((len(x),i+cfg.pipeline_seg_batch))
+            y[i:j] = self.models['segmentation'].predict(x[i:j],batch_size=1)
         
         # Dispatch segmentation outputs to rois:
         i = 0
@@ -576,13 +576,17 @@ class Position:
             
             # Predict:
             if len(x)>0:
-                y = self.models['tracking'].predict(
-                    np.concatenate(x),
-                    batch_size=16,
-                    workers=1,
-                    use_multiprocessing=False,
-                    verbose=0
-                    )
+                x = np.concatenate(x)
+                y = np.empty_like(x)
+                for i in range(0,len(x),cfg.pipeline_track_batch):
+                    j = min((len(x),i+cfg.pipeline_track_batch))
+                    y[i:j] = self.models['tracking'].predict(
+                        x[i:j],
+                        batch_size=16,
+                        workers=1,
+                        use_multiprocessing=False,
+                        verbose=0
+                        )
             
             # Dispatch tracking outputs to rois:
             i = 0
