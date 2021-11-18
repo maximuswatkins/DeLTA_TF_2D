@@ -251,7 +251,7 @@ def opencv_areafilt(I, min_area=20, max_area=None):
     '''
     
     # Get contours:
-    contours ,_ = cv2.findContours(I, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    contours = find_contours(I)
     
     # Loop through contours, flag them for deletion:
     to_remove = []
@@ -521,6 +521,31 @@ def getshiftvalues(shift,img_shape,cb):
     return shiftY, shiftX
 #%% Masks, labels, objects identification
 
+def find_contours(mask):
+    '''
+    wrapper for CV2's findContours() because it 
+    keeps changing signatures
+
+    Parameters
+    ----------
+    mask : 2D array of uint8.
+        Segmentation mask to extract contours from.
+
+    Returns
+    -------
+    contours : list
+        List of cv2 type contour arrays.
+
+    '''
+    
+    # Default use:
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Some versions of cv2.findcontours return it as a tuple, not a list:
+    contours = list(contours)
+    
+    return contours
+
 def getROIBoxes(chambersmask):
     '''
     Extract the bounding boxes of the chambers in the binary mask
@@ -542,7 +567,7 @@ def getROIBoxes(chambersmask):
         chambersmask = chambersmask.astype(np.uint8)
     else:
         chambersmask = cv2.threshold(chambersmask,.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
-    contours = cv2.findContours(chambersmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+    contours = find_contours(chambersmask)
     for chamber in contours:
         xtl, ytl, boxwidth, boxheight = cv2.boundingRect(chamber)
         chamberboxes.append(dict(
@@ -579,7 +604,7 @@ def label_seg(seg,cellnumbers=None,return_contours=False,background=0):
         seg = seg.astype(np.uint8)
     else:
         seg = cv2.threshold(seg,.5,1,cv2.THRESH_BINARY)[1].astype(np.uint8)
-    contours = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+    contours = find_contours(seg)
     contours.sort(key=lambda elem: np.max(elem[:,0,1])) # Sorting along Y
     label = np.full(seg.shape,background,dtype=np.uint16)
     for c, contour in enumerate(contours):
@@ -619,11 +644,7 @@ def getcellsinframe(labels, return_contours=False, background=0):
         contours = []
         for c, cell in enumerate(cells):
             # Have to do it this way to avoid cases where border is shrunk out
-            cnt, _ = cv2.findContours(
-                (labels==cell+1).astype(np.uint8),
-                cv2.RETR_EXTERNAL,
-                cv2.CHAIN_APPROX_NONE
-                )
+            cnt = find_contours((labels==cell+1).astype(np.uint8))
             contours += cnt
         return cells, contours
     else:
