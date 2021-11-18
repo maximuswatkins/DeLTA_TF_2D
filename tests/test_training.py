@@ -194,7 +194,7 @@ def _train_track(presets):
         data_gen_args,
         target_size = cfg.target_size_track,
         crop_windows=cfg.crop_windows,
-        shiftcropbox = 5
+        shift_cropbox = 5
         )
        
     
