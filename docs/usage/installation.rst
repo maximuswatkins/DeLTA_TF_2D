@@ -107,12 +107,30 @@ Again, if you want to use python-bioformats, run::
 Install with pip from requirements.txt
 --------------------------------------
 
-First make sure you have installed the prerequisites above, and also 
+We have typically had more trouble installing with pip than with
+conda, so we recommend using the latter, but we have been able to
+install dependencies with pip and run DeLTA with it. First you
+will need to clone or download our repository.
+
+Also make sure you have installed the prerequisites above, and also 
 `the latest CUDA toolkit <https://developer.nvidia.com/cuda-downloads>`_
 and `cuDNN <https://developer.nvidia.com/cudnn>`_ to be able to
 run on GPU
 
-TODO
+then you should be able to run the following::
+
+	$ pip install -r requirements.txt
+
+
+.. note::
+	You might want to create a virtual environment
+	first. You can use your favorite environment manager to do so.
+
+Finally, on Windows, to be able to use the ffmpeg-python module and save mp4 
+output files you will need to 
+`download ffmpeg.exe <https://www.ffmpeg.org/download.html>`_ and place it in
+your environment's binaries directory. Otherwise ffmpeg-python will issue a
+cryptic message about not finding the file specified.
 
 See also 
 `Tensorflow's pip install instructions <https://www.tensorflow.org/install/pip>`_
@@ -175,6 +193,9 @@ between cells in the binary masks to disappear. Instead, training images should
 be resized upstream of DeLTA to make sure that your training set does feature 
 cell-to-cell borders in the segmentation masks.
 
+Another reason why this may happen is that the pipeline is trying to feed too many samples
+to the U-Nets at once. Try lowering pipeline_seg_batch and pipeline_track_batch in your
+JSON config file.
 
 .. _recent_installs::
 

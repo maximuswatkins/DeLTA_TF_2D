@@ -926,9 +926,7 @@ class ROI:
             return None, None
         
         # Otherwise, get cell contours:
-        cells, _ = cv2.findContours(
-            self.seg_stack[frame-1], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
+        cells = utils.find_contours(self.seg_stack[frame-1])
         cells.sort(key=lambda elem: np.max(elem[:,0,1])) # Sorting along Y
         
         # Allocate empty tracking inputs array:
