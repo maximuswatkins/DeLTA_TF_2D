@@ -694,7 +694,7 @@ class Position:
 
         for (k, v) in p.__dict__.items():
             if k not in self._pickle_skip:
-                exec("self.%s = v" % (k,))
+                setattr(self, k, v)
 
     def clear(self):
         """
@@ -710,7 +710,7 @@ class Position:
         self._msg("Clearing variables from memory")
         for k in self.__dict__.keys():
             if k not in self._pickle_skip:
-                exec("self.%s = None" % (k,))
+                setattr(self, k, None)
 
 
 class ROI:
