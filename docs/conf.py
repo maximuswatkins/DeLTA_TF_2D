@@ -13,24 +13,24 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath('..'))
-# We import delta here because for some 
+sys.path.insert(0, os.path.abspath(".."))
+# We import delta here because for some
 # reason it fails on readthedocs if we let
-# autosummary / autodoc try to load it 
+# autosummary / autodoc try to load it
 # themselves
 import delta
 
-print('syspath:')
+print("syspath:")
 print(sys.path)
 
 # -- Project information -----------------------------------------------------
 
-project = 'DeLTA'
+project = "DeLTA"
 copyright = "2021, Owen O'Connor, Jean-Baptiste Lugagne, Mary Dunlop"
 author = "Owen O'Connor, Jean-Baptiste Lugagne, Mary Dunlop"
 
 # The full version, including alpha/beta/rc tags
-release = '2.0-gamma'
+release = "2.0-gamma"
 
 
 # -- General configuration ---------------------------------------------------
@@ -38,21 +38,17 @@ release = '2.0-gamma'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'numpydoc'
-    ]
+extensions = ["sphinx.ext.autodoc", "sphinx.ext.autosummary", "numpydoc"]
 autosummary_generate = True
-numpydoc_show_class_members=False
+numpydoc_show_class_members = False
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', '_templates', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "_templates", "Thumbs.db", ".DS_Store"]
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -60,15 +56,15 @@ exclude_patterns = ['_build', '_templates', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = "alabaster"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
-html_css_files = ['css/custom.css']
+html_static_path = ["_static"]
+html_css_files = ["css/custom.css"]
 
-autoclass_content = 'class'
+autoclass_content = "class"
 
 # Specify for readthedocs:
-master_doc = 'index'
+master_doc = "index"

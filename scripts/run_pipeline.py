@@ -13,7 +13,7 @@ In order to use on bioformats-compatible files such .nd2, .czi, .oib, ome-tiff
 import delta
 
 # Load config ('2D' or 'mothermachine'):
-delta.config.load_config(presets='2D')
+delta.config.load_config(presets="2D")
 
 # Use eval movie as example:
 file_path = delta.config.eval_movie
