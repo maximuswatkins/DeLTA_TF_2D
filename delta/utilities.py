@@ -2375,9 +2375,8 @@ def load_position(filename):
 
     import pickle
 
-    f = open(filename, "rb")
-    p = pickle.load(f)
-    f.close()
+    with open(filename, "rb") as file:
+        p = pickle.load(file)
     return p
 
 
