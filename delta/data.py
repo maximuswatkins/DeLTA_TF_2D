@@ -1265,9 +1265,9 @@ def predictCompilefromseg_track(
 
     ind = 0
 
-    numstrs = re.findall("\d+", files_list[0])  # Get digits sequences in first filename
+    numstrs = re.findall(r"\d+", files_list[0])  # Get digits sequences in first filename
     charstrs = re.findall(
-        "\D+", files_list[0]
+        r"\D+", files_list[0]
     )  # Get character sequences in first filename
 
     # Create the string prototype to be used to generate filenames on the fly:
@@ -1318,9 +1318,9 @@ def predictCompilefromseg_track(
         filename = os.path.basename(item)
         # Get position, chamber & frame numbers:
         if fileorder == "pct":
-            (pos, cha, fra) = list(map(int, re.findall("\d+", filename)))
+            (pos, cha, fra) = list(map(int, re.findall(r"\d+", filename)))
         elif fileorder == "pt":
-            (pos, fra) = list(map(int, re.findall("\d+", filename)))
+            (pos, fra) = list(map(int, re.findall(r"\d+", filename)))
             cha = None
 
         if fra > 1:

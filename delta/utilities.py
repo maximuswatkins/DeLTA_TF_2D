@@ -1505,10 +1505,10 @@ class xpreader:
                 ]
                 # Here we assume all images in the folder follow the same naming convention:
                 numstrs = re.findall(
-                    "\d+", imgfiles[0]
+                    r"\d+", imgfiles[0]
                 )  # Get digits sequences in first filename
                 charstrs = re.findall(
-                    "\D+", imgfiles[0]
+                    r"\D+", imgfiles[0]
                 )  # Get character sequences in first filename
                 if len(numstrs) != 3 or len(charstrs) != 4:
                     raise ValueError(
