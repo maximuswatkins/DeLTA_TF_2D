@@ -668,7 +668,8 @@ class Position:
             self._msg("Saving to pickle format\n%s" % filename + ".pkl")
             import pickle
 
-            pickle.dump(self, open(filename + ".pkl", "wb"))
+            with open(filename + ".pkl", "wb") as file:
+                pickle.dump(self, file)
 
         if "movie" in save_format:
             self._msg("Saving results movie\n%s" % filename + ".mp4")
