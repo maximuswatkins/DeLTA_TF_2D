@@ -7,8 +7,33 @@ Created on Fri Feb  5 15:42:05 2021
 import os as _os
 import json as _json
 from warnings import warn as _warn
+from typing import Tuple, Optional
 
 from . import __file__ as delta_init  # Path to __init__ file
+
+presets: str
+models: Tuple[str, ...]
+model_file_rois: str
+model_file_seg: str
+model_file_track: str
+target_size_rois: Tuple[int, int]
+target_size_seg: Tuple[int, int]
+target_size_track: Tuple[int, int]
+training_set_rois: str
+training_set_seg: str
+training_set_track: str
+eval_movie: str
+rotation_correction: bool
+drift_correction: bool
+crop_windows: bool
+min_roi_area: float
+whole_frame_drift: bool
+min_cell_area: float
+save_format: Tuple[str, ...]
+TF_CPP_MIN_LOG_LEVEL: str
+memory_growth_limit: Optional[float]
+pipeline_seg_batch: int
+pipeline_track_batch: int
 
 _DELTA_DIR = _os.path.dirname(delta_init)
 
@@ -71,7 +96,7 @@ _DEFAULTS_mothermachine = dict(
 )
 
 
-def load_config(json_file=None, presets="2D", config_level=None):
+def load_config(json_file: str = None, presets: str = "2D", config_level: str = None):
     """
     Loads json configuration files
 
@@ -191,7 +216,7 @@ def load_config(json_file=None, presets="2D", config_level=None):
                 print(e)
 
 
-def _read_json(json_file):
+def _read_json(json_file: str):
 
     # Load file:
     print("Loading configuration from: %s" % json_file)
@@ -200,7 +225,7 @@ def _read_json(json_file):
 
     # Type cast:
     for k, v in variables.items():
-        if type(v) == list:
+        if isinstance(v, list):
             variables[k] = tuple(v)  # Always use tuples, not lists in config
 
     return variables
