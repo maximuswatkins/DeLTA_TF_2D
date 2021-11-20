@@ -4,7 +4,6 @@ channels:
   - defaults
 dependencies:
   - python>=3.7
-  - spyder
   - scikit-image>=0.18
   - tifffile>=2021
   - opencv>=4.1
