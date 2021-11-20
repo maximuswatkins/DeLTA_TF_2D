@@ -357,7 +357,7 @@ class Position:
     def preprocess(
         self,
         reference: Image = None,
-        rotation_correction: bool = True,
+        rotation_correction: Union[float, bool] = True,
     ):
         """
         Pre-process position (Rotation correction, identify ROIs,
@@ -369,8 +369,9 @@ class Position:
             Reference image to use to perform pre-processing. If None,
             the first image of each position will be used.
             The default is None.
-        rotation_correction : bool, optional
-            Flag to perform rotation correction. The default is True.
+        rotation_correction : float or bool, optional
+            If bool, flag whether to perform rotation correction.
+            If number, value of rotation correction.  The default is True.
 
         Returns
         -------
@@ -391,7 +392,6 @@ class Position:
             )
 
         # Estimate rotation:
-        # FIXME: can it be something else than bool?
         if isinstance(rotation_correction, bool):
             if rotation_correction:
                 self.rotate = utils.deskew(reference)  # Estimate rotation angle
