@@ -192,7 +192,7 @@ def driftcorr(img, template=None, box=None, drift=None):
             _, _, _, max_loc = cv2.minMaxLoc(res)
             ycorr[i] = max_loc[0] - res.shape[1] / 2
             xcorr[i] = max_loc[1] - res.shape[0] / 2
-        T = np.float32([[1, 0, -ycorr[i]], [0, 1, -xcorr[i]]])
+        T = np.array([[1, 0, -ycorr[i]], [0, 1, -xcorr[i]]], dtype=np.float32)
         img[i] = cv2.warpAffine(img[i], T, img.shape[3:0:-1])
 
     if twoDflag:
