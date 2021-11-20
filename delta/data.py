@@ -357,7 +357,7 @@ def data_augmentation(
 
 
 def zoomshift(
-    I: np.ndarray, zoomlevel: float, shiftX: int, shiftY: int, order: int = 0
+    I: np.ndarray, zoomlevel: float, shiftX: float, shiftY: float, order: int = 0
 ) -> np.ndarray:
     """
     This function zooms and shifts images.
@@ -368,9 +368,9 @@ def zoomshift(
         input image.
     zoomlevel : float
         Additional zoom to apply to the image.
-    shiftX : int
+    shiftX : float
         X-axis shift to apply to the image, in pixels.
-    shiftY : int
+    shiftY : float
         Y-axis shift to apply to the image, in pixels.
     order : int, optional
         Interpolation order. The default is 0.
@@ -395,7 +395,7 @@ def zoomshift(
     return I
 
 
-def shift(image: np.ndarray, vector: Tuple[int, int], order: int = 0) -> np.ndarray:
+def shift(image: np.ndarray, vector: Tuple[float, float], order: int = 0) -> np.ndarray:
     """
     Image shifting function
 
@@ -403,7 +403,7 @@ def shift(image: np.ndarray, vector: Tuple[int, int], order: int = 0) -> np.ndar
     ----------
     image : 2D numpy array
         Input image.
-    vector : tuple of ints
+    vector : tuple of floats
         Translation/shit vector.
     order : int, optional
         Interpolation order. The default is 0.
