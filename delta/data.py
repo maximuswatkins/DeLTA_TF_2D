@@ -1539,7 +1539,7 @@ def saveResult_track(
         if files_list:
             filenameMo = os.path.join(save_path, os.path.basename(files_list[i]))
         else:
-            filenameMo = os.path.join(save_path, "tracking_09d.png" % i)
+            filenameMo = os.path.join(save_path, "tracking_%09d.png" % i)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             io.imsave(filenameMo, (mother * 255).astype(np.uint8))
