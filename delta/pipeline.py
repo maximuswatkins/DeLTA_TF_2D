@@ -334,14 +334,7 @@ class Position:
 
         """
 
-        state = dict()
-        for (k, v) in self.__dict__.items():
-            if k in self._pickle_skip:
-                state[k] = None
-            else:
-                state[k] = v
-
-        return state
+        return {k: v for k, v in self.__dict__.items() if k not in self._pickle_skip}
 
     def _msg(self, string: str):
         """
