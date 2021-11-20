@@ -22,6 +22,8 @@ from skimage.morphology import skeletonize
 
 from . import config as cfg
 
+Image = np.ndarray
+
 
 #%% Image correction
 
@@ -106,7 +108,7 @@ def deskew(image):
     return rotation_number
 
 
-def imrotate(frame, rotate):
+def imrotate(frame: np.ndarray, rotate: float) -> np.ndarray:
     """
     Rotate image
 
