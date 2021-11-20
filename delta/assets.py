@@ -124,23 +124,12 @@ def download_assets(
 
 
 def _ask(prompt: str, options: Dict[str, Any] = {"y": True, "n": False}) -> Any:
-
-    answer = None
-    prompt += " ["
-    for k in options:
-        prompt += k + "/"
-    prompt = "".join(list(prompt)[:-1]) + "]: "
-
-    while answer is None:
-
-        answer = input(prompt)
-
-        for k, v in options.items():
-            if answer.lower() == k:
-                return v
-
-        answer = None
+    question = f"{prompt} [{'/'.join(options)}]: "
+    answer = input(question)
+    while answer not in options:
         print(f"invalid answer: '{answer}'")
+        answer = input(question)
+    return options[answer]
 
 
 def _write_default_configs(
