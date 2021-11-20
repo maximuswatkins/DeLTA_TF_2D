@@ -1261,7 +1261,7 @@ def predictCompilefromseg_track(
     files_list: Union[List[str], Tuple[str, ...]] = [],
     target_size: Tuple[int, int] = (256, 32),
     crop: bool = False,
-) -> Tuple[np.ndarray, List[str]]:
+) -> Tuple[np.ndarray, List[str], List[Tuple[Dict, Dict]]]:
     """
     Compile an inputs array for tracking prediction with the tracking U-Net,
     directly from U-Net segmentation masks saved to disk.
@@ -1294,6 +1294,8 @@ def predictCompilefromseg_track(
         Position%02d_Chamber%02d_Frame%03d_Cell%02d.png, with the '_Cell%02d'
         string appended to signal which cell is being seeded/tracked (from top
         to bottom)
+    boxes : list of (dict, dict)
+        TODO
 
 
     """
