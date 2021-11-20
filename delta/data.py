@@ -576,9 +576,9 @@ def trainGenerator_seg(
                         os.path.join(weight_path, os.path.basename(filename)),
                         target_size=target_size,
                         order=0,
+                        rangescale=False,
+                        crop=crop_windows,
                     ),
-                    rangescale=False,
-                    crop=crop_windows,
                 )
 
     # Reset the pseudo-random generator:
