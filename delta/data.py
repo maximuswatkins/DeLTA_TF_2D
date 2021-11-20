@@ -247,10 +247,7 @@ def data_augmentation(
 
     # processing inputs / initializing variables::
     output = list(images_input)
-    if np.isscalar(order) or len(order) == 1:
-        orderlist = [order] * len(images_input)
-    else:
-        orderlist = list(order)
+    orderlist = [order] * len(images_input) if isinstance(order, int) else list(order)
 
     # Apply augmentation operations:
 
@@ -258,14 +255,14 @@ def data_augmentation(
         if aug_par["illumination_voodoo"]:
             for index, item in enumerate(output):
                 # Not super elegant, but tells me if binary or grayscale image
-                if order[index] > 0:
+                if orderlist[index] > 0:
                     output[index] = illumination_voodoo(item)
 
     if "histogram_voodoo" in aug_par:
         if aug_par["histogram_voodoo"]:
             for index, item in enumerate(output):
                 # Not super elegant, but tells me if binary or grayscale image
-                if order[index] > 0:
+                if orderlist[index] > 0:
                     output[index] = histogram_voodoo(item)
 
     if "gaussian_noise" in aug_par:
@@ -273,7 +270,7 @@ def data_augmentation(
             sigma = np.random.rand() * aug_par["gaussian_noise"]
             for index, item in enumerate(output):
                 # Not super elegant, but tells me if binary or grayscale image
-                if order[index] > 0:
+                if orderlist[index] > 0:
                     item = item + np.random.normal(
                         0, sigma, item.shape
                     )  # Add Gaussian noise
@@ -286,7 +283,7 @@ def data_augmentation(
             sigma = np.random.rand() * aug_par["gaussian_blur"]
             for index, item in enumerate(output):
                 # Not super elegant, but tells me if binary or grayscale image
-                if order[index] > 0:
+                if orderlist[index] > 0:
                     item = cv2.GaussianBlur(item, (5, 5), sigma)  # blur image
                     output[index] = item
 
