@@ -835,7 +835,7 @@ def kernel(n: int) -> np.ndarray:
 
 def estimate_seg2D_classweights(
     mask_path: str, sample_size: int = None
-) -> Tuple[int, int]:
+) -> Tuple[float, float]:
     """
 
     Parameters
@@ -847,9 +847,9 @@ def estimate_seg2D_classweights(
 
     Returns
     -------
-    class1 : Int
+    class1 : float
         weight of class 1.
-    class2 : Int
+    class2 : float
         weight of class 2.
 
     """
@@ -1004,9 +1004,10 @@ def estimateClassweights(gene: Iterator, num_samples: int = 30) -> Tuple[float, 
     # weight for this class will be set to 0. This is for the tracking case
     # (Where there are only empty daughter images in the training set)
     # Try changing the num_samples value if this is a problem
-    class_weights = [
-        (x / num_samples) ** -1 if x != 0 else 0 for x in class_counts
-    ]  # Normalize by nb of samples and invert to get weigths, unless x == 0 to avoid Infinite weights or errors
+
+    # Normalize by nb of samples and invert to get weigths, unless x == 0 to
+    # avoid Infinite weights or errors
+    class_weights = tuple(num_samples / x if x != 0 else 0 for x in class_counts)
 
     return class_weights
 
