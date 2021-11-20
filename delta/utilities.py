@@ -1742,16 +1742,11 @@ class xpreader:
             Filename.
 
         """
-        filenumbers = []
-
-        for i in self.fileorder:
-            if i == "p":
-                filenumbers.append(position + self.filenamesindexing)
-            if i == "c":
-                filenumbers.append(channel + self.filenamesindexing)
-            if i == "t":
-                filenumbers.append(frame + self.filenamesindexing)
-        return os.path.join(self.filehandle, self.prototype % tuple(filenumbers))
+        filenumbers = tuple(
+            {"p": position, "c": channel, "t": frame}[c] + self.filenamesindexing
+            for c in self.fileorder
+        )
+        return os.path.join(self.filehandle, self.prototype % filenumbers)
 
     def getframes(
         self,
