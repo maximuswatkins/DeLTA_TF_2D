@@ -2399,9 +2399,9 @@ def singlecell_features(
         if len(fluo_features) != fluo_frames.shape[0]:
             raise ValueError(
                 (
-                    "You should provide exactly as many fluo frames as you want ",
-                    "fluo features to extract. Here fluo_frames.shape[0]=%d but ",
-                    "you ask for %d fluo features: %s",
+                    "You should provide exactly as many fluo frames as you want "
+                    "fluo features to extract. Here fluo_frames.shape[0]=%d but "
+                    "you ask for %d fluo features: %s"
                 )
                 % (fluo_frames.shape[0], len(fluo_features), str(fluo_features))
             )
