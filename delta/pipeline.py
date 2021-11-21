@@ -165,7 +165,7 @@ class Pipeline:
         self,
         positions: List[int] = None,
         frames: List[int] = None,
-        features: List[str] = None,
+        features: Tuple[str, ...] = None,
     ):
         """
         Run pipeline.
@@ -195,9 +195,10 @@ class Pipeline:
             positions = list(range(self.reader.positions))
 
         if features is None:
-            features = ["length", "width", "area", "perimeter", "edges"]
+            features_list = ["length", "width", "area", "perimeter", "edges"]
             for c in range(1, self.reader.channels):
-                features += ["fluo%d" % (c,)]
+                features_list += ["fluo%d" % (c,)]
+            features = tuple(features_list)
 
         # Run through positions:
         for p in positions:
@@ -409,7 +410,7 @@ class Position:
             self.rois = [
                 ROI(
                     roi_nb=0,
-                    box=dict(
+                    box=utils.CroppingBox(
                         xtl=0, ytl=0, xbr=reference.shape[1], ybr=reference.shape[0]
                     ),
                     crop_windows=self.crop_windows,
@@ -593,7 +594,7 @@ class Position:
     def features(
         self,
         frames: List[int],
-        features: Union[List[str], Tuple[str, ...]] = (
+        features: Tuple[str, ...] = (
             "length",
             "width",
             "area",
@@ -1013,7 +1014,7 @@ class ROI:
     ROI processor object
     """
 
-    def __init__(self, roi_nb: int, box: Dict, crop_windows: bool = False):
+    def __init__(self, roi_nb: int, box: utils.CroppingBox, crop_windows: bool = False):
         """
         Initialize ROI
 
@@ -1145,7 +1146,10 @@ class ROI:
 
     def get_tracking_inputs(
         self, frame: int = None
-    ) -> Union[Tuple[np.ndarray, List[Tuple[Dict, Dict]]], Tuple[None, None]]:
+    ) -> Union[
+        Tuple[np.ndarray, List[Tuple[utils.CroppingBox, utils.CroppingBox]]],
+        Tuple[None, None],
+    ]:
         """
         Compile tracking inputs for ROI
 
@@ -1215,6 +1219,7 @@ class ROI:
                 curr_img = self.img_stack[frame]
                 prev_img = self.img_stack[frame - 1]
                 # Cell-centered crop boxes:
+                assert isinstance(curr_img.shape, (int, int))  # for mypy
                 cb, fb = utils.gettrackingboxes(cell, curr_img.shape)
                 draw_offset = (-cb["xtl"] + fb["xtl"], -cb["ytl"] + fb["ytl"])
             else:
@@ -1224,7 +1229,7 @@ class ROI:
                 prev_img = cv2.resize(
                     self.img_stack[frame - 1], dsize=cfg.target_size_seg[::-1]
                 )
-                cb = fb = dict(ytl=None, xtl=None, ybr=None, xbr=None)
+                cb = fb = utils.CroppingBox(ytl=None, xtl=None, ybr=None, xbr=None)
                 draw_offset = None
             boxes += [(cb, fb)]
 
@@ -1257,7 +1262,10 @@ class ROI:
         return x, boxes
 
     def process_tracking_outputs(
-        self, y: np.ndarray, frame: int = None, boxes: List[Tuple[Dict, Dict]] = None
+        self,
+        y: np.ndarray,
+        frame: int = None,
+        boxes: List[Tuple[utils.CroppingBox, utils.CroppingBox]] = None,
     ):
         """
         Process output from tracking U-Net
@@ -1315,7 +1323,7 @@ class ROI:
         self,
         frame: int = None,
         fluo_frames: np.ndarray = None,
-        features: Union[List[str], Tuple[str, ...]] = (
+        features: Tuple[str, ...] = (
             "length",
             "width",
             "area",
@@ -1374,9 +1382,11 @@ class ROI:
                     labels, resize, interpolation=cv2.INTER_NEAREST
                 )
 
+        fr = self.label_stack[frame]
+        assert fr is not None  # FIXME: why is it not None?
         # Extract features for all cells in the ROI:
         cells, extracted_features = utils.roi_features(
-            self.label_stack[frame],
+            fr,
             features=features,
             fluo_frames=fluo_frames,
             roi_box=self.box,

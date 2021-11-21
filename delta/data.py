@@ -1158,9 +1158,10 @@ def trainGenerator_track(
 
             if crop_windows:
                 cb, fb = utils.gettrackingboxes(seg)
+                assert isinstance(seg.shape, (int, int))  # for mypy
                 shiftY, shiftX = utils.getshiftvalues(shift_cropbox, seg.shape, cb)
             else:
-                cb = fb = dict(ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1])
+                cb = fb = utils.CroppingBox(ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1])
                 shiftY, shiftX = 0, 0
 
             # Add into arrays:
@@ -1261,7 +1262,7 @@ def predictCompilefromseg_track(
     files_list: Union[List[str], Tuple[str, ...]] = [],
     target_size: Tuple[int, int] = (256, 32),
     crop: bool = False,
-) -> Tuple[np.ndarray, List[str], List[Tuple[Dict, Dict]]]:
+) -> Tuple[np.ndarray, List[str], List[Tuple[utils.CroppingBox, utils.CroppingBox]]]:
     """
     Compile an inputs array for tracking prediction with the tracking U-Net,
     directly from U-Net segmentation masks saved to disk.
@@ -1413,9 +1414,10 @@ def predictCompilefromseg_track(
 
                 # Cell-centered crop boxes:
                 if crop:
+                    assert isinstance(img.shape, (int, int))  # for mypy
                     cb, fb = utils.gettrackingboxes(seg, img.shape)
                 else:
-                    cb = fb = dict(ytl=None, xtl=None, ybr=None, xbr=None)
+                    cb = fb = utils.CroppingBox(ytl=None, xtl=None, ybr=None, xbr=None)
                 boxes += [(cb, fb)]
 
                 # Current image
