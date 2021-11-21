@@ -888,7 +888,7 @@ class ROI:
 
     def get_tracking_inputs(
         self, frame: int = None
-    ) -> Tuple[Optional[np.ndarray], Optional[List[Dict]]]:
+    ) -> Union[Tuple[np.ndarray, List[Tuple[Dict, Dict]]], Tuple[None, None]]:
         """
         Compile tracking inputs for ROI
 
@@ -911,7 +911,7 @@ class ROI:
             cfg.target_size_track[1], cfg.target_size_track[0], 4). If no
             previous cells to track from (e.g. first frame or glitch), None is
             returned.
-        boxes : List of dict or None
+        boxes : List of tuples of 2 dicts or None
             Crop and fill boxes to re-place outputs in the ROI
 
         """
@@ -1000,7 +1000,7 @@ class ROI:
         return x, boxes
 
     def process_tracking_outputs(
-        self, y: np.ndarray, frame: int = None, boxes: List[Dict] = None
+        self, y: np.ndarray, frame: int = None, boxes: List[Tuple[Dict, Dict]] = None
     ):
         """
         Process output from tracking U-Net
@@ -1014,7 +1014,7 @@ class ROI:
             The frame to process for. If None, the earliest frame not yet
             tracked is run.
             The default is None.
-        boxes : List of dict or None
+        boxes : List of tuples of 2 dicts or None
             Crop and fill boxes to re-place outputs in the ROI
 
         Returns
