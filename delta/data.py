@@ -621,8 +621,6 @@ def trainGenerator_seg(
                         rangescale=False,
                         crop=crop_windows,
                     )
-                else:
-                    weight = []
 
             if crop_windows:
                 y0 = np.random.randint(0, img.shape[0] - (target_size[0] - 1))
@@ -634,8 +632,6 @@ def trainGenerator_seg(
                 mask = mask[y0:y1, x0:x1]
                 if weight_path is not None:
                     weight = weight[y0:y1, x0:x1]
-                else:
-                    weight = []
 
             # Data augmentation:
             if weight_path is not None:
