@@ -280,10 +280,10 @@ def opencv_areafilt(
     ----------
     I : 2D array
         Segmentation mask.
-    min_area : int or None, optional
+    min_area : float or None, optional
         Minimum object area.
         The default is 20
-    max_area : int or None, optional
+    max_area : float or None, optional
         Maximum object area.
         The default is None.
 
@@ -324,7 +324,7 @@ def cropbox(img: Image, box: Optional[CroppingBox]) -> Image:
     ----------
     img : 2D numpy array
         Image to crop.
-    box : Dictionary
+    box : Dictionary or None
         Dictionary describing the box to cut out, containing the following
         elements:
             - 'xtl': Top-left corner X coordinate.
@@ -1053,7 +1053,7 @@ def getTrackingScores(
 
     Returns
     -------
-    scores : 2D array of floats
+    scores : 2D array of floats, or None
         Overlap scores matrix between tracking predictions and current
         segmentation mask for each new-old cell.
 
@@ -2558,8 +2558,8 @@ def findfirst(mylist: List) -> Optional[int]:
 
     Returns
     -------
-    int
-        index of first non-zero element (or None).
+    int or None
+        Index of first non-zero element, if it exists.
 
     """
     return next((i for i, x in enumerate(mylist) if x > 0), None)
