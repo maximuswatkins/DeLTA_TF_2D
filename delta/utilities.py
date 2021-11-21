@@ -1227,8 +1227,10 @@ class Lineage:
 
         # If no attribution: (new/orphan cell)
         if cell is None and len(attrib) > 0:
-            poles[0].sort(key=lambda p: p[0], reverse=True)
-            cellnum = self.createcell(frame, new_pole=poles[0][0], old_pole=poles[0][1])
+            new_pole, old_pole = sorted(
+                list(poles[0]), key=lambda p: p[0], reverse=True
+            )
+            cellnum = self.createcell(frame, new_pole=new_pole, old_pole=old_pole)
             self.cellnumbers[frame][attrib[0]] = cellnum
 
         # Simple tracking event:
