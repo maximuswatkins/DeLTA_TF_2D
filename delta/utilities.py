@@ -775,7 +775,7 @@ def getpoles(seg, labels=None, scaling=None):
     return poles
 
 
-def skeleton_poles(skel):
+def skeleton_poles(skel: npt.NDArray[bool]) -> npt.NDArray[bool]:
     """
     This function was adapted from stackoverflow
     #https://stackoverflow.com/questions/26537313/how-can-i-find-endpoints-of-binary-skeleton-image-in-opencv
@@ -785,26 +785,25 @@ def skeleton_poles(skel):
     Parameters
     ----------
     skel : 2D numpy array of bool
-        Contains skeletons of single cells from the segmentation
+        Contains skeletons of single cells from the segmentation.
 
     Returns
     -------
-    out : 2D numpy array
-        Contains the poles of the skeletons from the input (skel).
+    out : 2D numpy array of bool
+        Contains True at the poles of the skeletons from the input.
 
     """
+    # create an integer array from the boolean one
+    skel_uint8 = np.array(skel, dtype=np.uint8)
 
     # apply the convolution
     kernel = np.uint8([[1, 1, 1], [1, 10, 1], [1, 1, 1]])
-    src_depth = -1
-    filtered = cv2.filter2D(skel, src_depth, kernel)
+    ddepth = -1 # same depth as the source
+    filtered = cv2.filter2D(skel_uint8, ddepth, kernel, borderType=cv2.BORDER_ISOLATED)
 
     # now look through to find the value of 11
     # this returns a mask of the poles
-    out = np.zeros_like(skel)
-    out[np.where(filtered == 11)] = 1
-
-    return out
+    return filtered == 11
 
 
 def extrema_poles(cellmask, scaling=None):

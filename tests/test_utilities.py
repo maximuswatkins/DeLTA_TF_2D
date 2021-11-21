@@ -168,3 +168,30 @@ class Test_find_contours:
         mask = rand_mask(image_size)
         contours = utils.find_contours(mask)
         assert evaluate_contours(mask, contours, image_size)
+
+# test skeleton_poles
+
+def test_skeleton_poles():
+    skel = np.array(
+            [
+                [0, 0, 0, 1, 0, 0],
+                [0, 0, 1, 0, 1, 0],
+                [1, 1, 1, 0, 0, 1],
+                [0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 1, 1],
+                [0, 0, 0, 1, 0, 0],
+                ],
+            dtype=np.bool_)
+    mask_poles = utils.skeleton_poles(skel)
+    print(mask_poles)
+    bmask = np.array(mask_poles, dtype=np.bool_)
+    solution = np.array([
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0],
+        ], dtype=np.bool_)
+    assert np.array_equal(bmask, solution)
+
