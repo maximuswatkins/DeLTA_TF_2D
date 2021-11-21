@@ -23,7 +23,7 @@ You can reload the pickle file for any position with the following::
 
 or::
 
-    pos = delta.utilities.load_position('/path/to/PositionXXXXXX.pkl')
+    pos = delta.pipeline.load_position('/path/to/PositionXXXXXX.pkl')
 
 Although this will not allow you to have access to the corresponding 
 experimental images and to run most processing operations. You can set the
@@ -190,5 +190,5 @@ MP4 movie file
 This one is straight-forward: An MP4 movie file with h264 codecs is saved to
 disk with the other save files for quick checking of outputs quality. The 
 relevant functions that create and write the movie are
-:doc:`results_movie <../_generated/delta.utilities.results_movie>`
+:doc:`results_movie <../_generated/delta.pipeline.results_movie>`
 and :doc:`vidwrite <../_generated/delta.utilities.vidwrite>`

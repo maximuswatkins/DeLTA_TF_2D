@@ -13,6 +13,7 @@ from typing import List, Union, Dict, Optional, Any, Tuple
 import cv2
 import numpy as np
 import numpy.typing as npt
+from scipy.io import savemat
 
 from .data import postprocess
 from . import utilities as utils
@@ -696,7 +697,7 @@ class Position:
 
         if "legacy" in save_format:
             self._msg("Saving to legacy format\n%s" % filename + ".mat")
-            utils.legacysave(self, filename + ".mat")
+            self.legacysave(filename + ".mat")
 
         if "pickle" in save_format:
             self._msg("Saving to pickle format\n%s" % filename + ".pkl")
@@ -707,7 +708,7 @@ class Position:
 
         if "movie" in save_format:
             self._msg("Saving results movie\n%s" % filename + ".mp4")
-            movie = utils.results_movie(self, frames=frames)
+            movie = self.results_movie(frames=frames)
             utils.vidwrite(movie, filename + ".mp4", verbose=False)
 
     def load(self, filename: str):
@@ -725,7 +726,7 @@ class Position:
 
         """
 
-        p = utils.load_position(filename)
+        p = load_position(filename)
 
         for (k, v) in p.__dict__.items():
             if k not in self._pickle_skip:
@@ -746,6 +747,265 @@ class Position:
         for k in self.__dict__.keys():
             if k not in self._pickle_skip:
                 setattr(self, k, None)
+
+    def legacysave(self, res_file: str) -> None:
+        """
+        Save pipeline data in the legacy Matlab format
+
+        Parameters
+        ----------
+        res_file : str
+            Path to save file.
+
+        Returns
+        -------
+        None.
+
+        """
+
+        # File reader info
+        moviedimensions = [
+            self.reader.y,
+            self.reader.x,
+            self.reader.channels,
+            self.reader.timepoints,
+        ]
+        xpfile = self.reader.filename
+
+        # If No ROIs detected for position:
+        if len(self.rois) == 0:
+            savemat(
+                res_file,
+                {
+                    "res": [],
+                    "tiffile": xpfile,
+                    "moviedimensions": moviedimensions,
+                    "proc": {"rotation": self.rotate, "chambers": [], "XYdrift": []},
+                },
+            )
+            return
+
+        # Initialize data structure/dict:
+        data = dict(moviedimensions=moviedimensions, tifffile=xpfile)
+
+        # Proc dict/structure:
+        data["proc"] = dict(
+            rotation=self.rotate,
+            XYdrift=np.array(self.drift_values, dtype=np.float64),
+            chambers=np.array(
+                [
+                    [
+                        r.box["xtl"],
+                        r.box["ytl"],
+                        r.box["xbr"] - r.box["xtl"],
+                        r.box["ybr"] - r.box["ytl"],
+                    ]
+                    for r in self.rois
+                ],
+                dtype=np.float64,
+            ),
+        )
+
+        # Lineages:
+        data["res"] = []
+        for r in self.rois:
+            res: Dict[str, Any] = dict()
+
+            # Resized labels stack: (ie original ROI size)
+            res["labelsstack_resized"] = np.array(r.label_stack, dtype=np.uint16)
+
+            # Not resized stack: (ie U-Net seg target size)
+            label_stack = []
+            for f, cellnbs in enumerate(r.lineage.cellnumbers):
+                label_stack += [
+                    utils.label_seg(r.seg_stack[f], [c + 1 for c in cellnbs])
+                ]
+            res["labelsstack"] = np.array(label_stack, dtype=np.uint16)
+
+            # Run through cells, update to 1-based indexing
+            cells = r.lineage.cells
+            lin: List[Dict[str, Any]] = []
+            for c in cells:
+                lin += [dict()]
+                # Base lineage:
+                lin[-1]["mothernb"] = c["mother"] + 1 if c["mother"] is not None else 0
+                lin[-1]["framenbs"] = np.array(c["frames"], dtype=np.float32) + 1
+                lin[-1]["daughters"] = np.array(c["daughters"], dtype=np.float32) + 1
+                lin[-1]["daughters"][np.isnan(lin[-1]["daughters"])] = 0
+                if "edges" in c:
+                    lin[-1]["edges"] = c["edges"]
+                # Morphological features:
+                if "area" in c:
+                    lin[-1]["area"] = np.array(c["area"], dtype=np.float32)
+                if "width" in c:
+                    lin[-1]["width"] = np.array(c["width"], dtype=np.float32)
+                if "length" in c:
+                    lin[-1]["length"] = np.array(c["length"], dtype=np.float32)
+                if "perimeter" in c:
+                    lin[-1]["perimeter"] = np.array(c["perimeter"], dtype=np.float32)
+                # Loop through potential fluo channels:
+                fluo = 0
+                while True:
+                    fluo += 1
+                    fluostr = "fluo%d" % fluo
+                    if fluostr in c:
+                        lin[-1][fluostr] = np.array(c[fluostr], dtype=np.float32)
+                    else:
+                        break
+            # Store into res dict:
+            res["lineage"] = lin
+
+            # Store into data structure:
+            data["res"] += [res]
+
+        # Finally, save to disk:
+        savemat(res_file, data)
+
+    def results_movie(self, frames: List[int] = None) -> Any:
+        """
+        Generate movie illustrating segmentation and tracking
+
+        Parameters
+        ----------
+        frames : list of int or None, optional
+            Frames to generate the movie for. If None, all frames are run.
+            The default is None.
+
+        Returns
+        -------
+        movie : TODO
+            TODO
+
+        """
+
+        # Re-read trans frames:
+        trans_frames = self.reader.getframes(
+            positions=self.position_nb,
+            channels=0,
+            frames=frames,
+            rescale=(0, 1),
+            squeeze_dimensions=False,
+            rotate=self.rotate,
+        )
+        trans_frames = trans_frames[0, :, 0]
+        if self.drift_correction:
+            trans_frames, _ = utils.driftcorr(trans_frames, drift=self.drift_values)
+        movie = []
+
+        assert isinstance(frames, list)  # FIXME: what happens if frames is None?
+        # Run through frames, compile movie:
+        for f, fnb in enumerate(frames):
+
+            frame = trans_frames[f]
+
+            # RGB-ify:
+            frame = np.repeat(frame[:, :, np.newaxis], 3, axis=-1)
+
+            # Add frame number text:
+            frame = cv2.putText(
+                frame,
+                text="frame %06d" % (fnb,),
+                org=(int(frame.shape[0] * 0.05), int(frame.shape[0] * 0.97)),
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=1,
+                color=(1, 1, 1, 1),
+                thickness=2,
+            )
+
+            for r, roi in enumerate(self.rois):
+
+                # Get chamber-specific variables:
+                colors = utils.getrandomcolors(len(roi.lineage.cells), seed=r)
+                fr = roi.label_stack[fnb]
+                assert fr is not None  # FIXME: why is it not None?
+                cells, contours = utils.getcellsinframe(fr, return_contours=True)
+
+                if roi.box is None:
+                    xtl, ytl = (0, 0)
+                else:
+                    xtl, ytl = (roi.box["xtl"], roi.box["ytl"])
+
+                # Run through cells in labelled frame:
+                for c, cell in enumerate(cells):
+
+                    # Draw contours:
+                    frame = cv2.drawContours(
+                        frame,
+                        contours,
+                        c,
+                        color=colors[cell],
+                        thickness=1,
+                        offset=(xtl, ytl),
+                    )
+
+                    # Draw poles:
+                    oldpole = roi.lineage.getvalue(cell, fnb, "old_pole")
+                    assert isinstance(oldpole, np.ndarray)  # for mypy
+                    frame = cv2.drawMarker(
+                        frame,
+                        (oldpole[1] + xtl, oldpole[0] + ytl),
+                        color=colors[cell],
+                        markerType=cv2.MARKER_TILTED_CROSS,
+                        markerSize=3,
+                        thickness=1,
+                    )
+
+                    daughter = roi.lineage.getvalue(cell, fnb, "daughters")
+                    bornago = roi.lineage.cells[cell]["frames"].index(fnb)
+                    mother = roi.lineage.cells[cell]["mother"]
+
+                    if daughter is None and (bornago > 0 or mother is None):
+                        newpole = roi.lineage.getvalue(cell, fnb, "new_pole")
+                        frame = cv2.drawMarker(
+                            frame,
+                            (newpole[1] + xtl, newpole[0] + ytl),
+                            color=[1, 1, 1],
+                            markerType=cv2.MARKER_TILTED_CROSS,
+                            markerSize=3,
+                            thickness=1,
+                        )
+
+                    # Plot division arrow:
+                    if daughter is not None:
+
+                        newpole = roi.lineage.getvalue(cell, fnb, "new_pole")
+                        daupole = roi.lineage.getvalue(daughter, fnb, "new_pole")
+                        # Plot arrow:
+                        frame = cv2.arrowedLine(
+                            frame,
+                            (newpole[1] + xtl, newpole[0] + ytl),
+                            (daupole[1] + xtl, daupole[0] + ytl),
+                            color=(1, 1, 1),
+                            thickness=1,
+                        )
+
+            # Add to movie array:
+            movie += [(frame * 255).astype(np.uint8)]
+
+        return movie
+
+
+def load_position(filename: str) -> Position:
+    """
+    Load position object from pickle file
+
+    Parameters
+    ----------
+    filename : str
+        Path to saved pickle file.
+
+    Returns
+    -------
+    p : pipeline.Position object
+        Reloaded Position object. (without reader and models)
+
+    """
+
+    import pickle
+
+    with open(filename, "rb") as file:
+        p = pickle.load(file)
+    return p
 
 
 class ROI:
