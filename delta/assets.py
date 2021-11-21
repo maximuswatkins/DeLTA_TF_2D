@@ -9,6 +9,7 @@ import os
 import requests
 import json
 import shutil
+from typing import Union, Dict, Any, Optional
 
 from .config import _DELTA_DIR, _DEFAULTS_2D, _DEFAULTS_mothermachine
 
@@ -32,8 +33,8 @@ EVAL_MOVIES = {
 
 
 def download_assets(
-    load_models=None, load_sets=None, load_evals=None, config_level=None
-):
+        load_models: Union[bool, str] = None, load_sets: Union[bool, str] = None, load_evals: Union[bool, str] = None, config_level: Union[bool, str] = None
+) -> None:
     """
     Download assets such as latest models, training sets etc
 
@@ -121,7 +122,7 @@ def download_assets(
         )
 
 
-def _ask(prompt, options={"y": True, "n": False}):
+def _ask(prompt: str, options: Dict[str, Any] = {"y": True, "n": False}) -> Any:
 
     answer = None
     prompt += " ["
@@ -142,8 +143,8 @@ def _ask(prompt, options={"y": True, "n": False}):
 
 
 def _write_default_configs(
-    config_level="local", model_files=dict(), sets_files=dict(), eval_files=dict()
-):
+        config_level: str = "local", model_files: Dict[str, str] = dict(), sets_files: Dict[str, str] = dict(), eval_files: Dict[str, str] = dict()
+) -> None:
 
     if config_level == "local":
         config_dir = os.path.expanduser("~/.delta")
@@ -206,7 +207,7 @@ def _write_default_configs(
     print("Config files written to %s" % config_dir)
 
 
-def _download_models(model_ids=LATEST_MODELS, models_dir=None):
+def _download_models(model_ids: Dict[str, str] = LATEST_MODELS, models_dir: str = None) -> Dict[str, str]:
     """
     Download models from gdrive
 
@@ -226,7 +227,7 @@ def _download_models(model_ids=LATEST_MODELS, models_dir=None):
 
     """
 
-    if type(models_dir) != str:
+    if not isinstance(models_dir, str):
         # Retrieve the path of the delta install folder:
         models_dir = os.path.join(_DELTA_DIR, "assets", "models")
     if not os.path.exists(models_dir):
@@ -242,9 +243,9 @@ def _download_models(model_ids=LATEST_MODELS, models_dir=None):
     return model_files
 
 
-def _download_training_sets(sets_ids=LATEST_TRAININGSETS, sets_dir=None):
+def _download_training_sets(sets_ids: Dict[str, str] = LATEST_TRAININGSETS, sets_dir: str = None) -> Dict[str, str]:
 
-    if type(sets_dir) != str:
+    if not isinstance(sets_dir, str):
         # Retrieve the path of the delta install folder:
         sets_dir = os.path.join(_DELTA_DIR, "assets", "trainingsets")
     if not os.path.exists(sets_dir):
@@ -263,9 +264,9 @@ def _download_training_sets(sets_ids=LATEST_TRAININGSETS, sets_dir=None):
     return sets_files
 
 
-def _download_eval_movies(movie_ids=EVAL_MOVIES, movies_dir=None):
+def _download_eval_movies(movie_ids: Dict[str, str] = EVAL_MOVIES, movies_dir: str = None) -> Dict[str, str]:
 
-    if type(movies_dir) != str:
+    if not isinstance(movies_dir, str):
         # Retrieve the path of the delta install folder:
         movies_dir = os.path.join(_DELTA_DIR, "assets", "eval_movies")
     if not os.path.exists(movies_dir):
@@ -284,7 +285,7 @@ def _download_eval_movies(movie_ids=EVAL_MOVIES, movies_dir=None):
     return movie_files
 
 
-def _download_and_unzip(id, zip_file, folder, remove_previous=False):
+def _download_and_unzip(id: str, zip_file: str, folder: str, remove_previous: bool = False) -> None:
 
     print("Downloading zip: %s" % zip_file)
     _download_file_from_google_drive(id, zip_file)
@@ -306,7 +307,7 @@ def _download_and_unzip(id, zip_file, folder, remove_previous=False):
     print(" Done")
 
 
-def _download_file_from_google_drive(id, destination):
+def _download_file_from_google_drive(id: str, destination: str) -> None:
     # https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
     URL = "https://docs.google.com/uc?export=download"
 
@@ -322,15 +323,14 @@ def _download_file_from_google_drive(id, destination):
     _save_response_content(response, destination)
 
 
-def _get_confirm_token(response):
+def _get_confirm_token(response: requests.Response) -> Optional[str]:
     for key, value in response.cookies.items():
         if key.startswith("download_warning"):
             return value
-
     return None
 
 
-def _save_response_content(response, destination):
+def _save_response_content(response: requests.Response, destination: str) -> None:
     CHUNK_SIZE = 32768
 
     with open(destination, "wb") as f:
