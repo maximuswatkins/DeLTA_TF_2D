@@ -6,7 +6,7 @@ operations.
 """
 from __future__ import print_function
 import numpy as np
-from typing import Tuple, List, Dict, Union, Iterator, Generator, Any
+from typing import Tuple, List, Dict, Union, Iterator, Generator, Any, Optional
 import os, glob, re, random, warnings, copy, importlib, cv2
 import skimage.io as io
 import tifffile
@@ -1203,9 +1203,9 @@ def trainGenerator_track(
 def getfnfromprototype(
     prototype: str,
     fileorder: str,
-    position: int,
-    chamber: int,
-    frame: int,
+    position: int = None,
+    chamber: int = None,
+    frame: int = None,
     cellnb: int = None,
 ) -> str:
     """
@@ -1218,11 +1218,11 @@ def getfnfromprototype(
         TODO
     fileorder : str
         TODO
-    position : int
+    position : int, optional
         Position/series index (0-based indexing).
-    chamber : int
+    chamber : int, optional
         Imaging chamber index (0-based indexing).
-    frame : int
+    frame : int, optional
         Frame/timepoint index (0-based indexing).
     cellnb: int, optional
         Cell index (0-based indexing).
@@ -1237,12 +1237,16 @@ def getfnfromprototype(
 
     for i in fileorder:
         if i == "p":
+            assert position is not None
             filenumbers.append(position)
         if i == "c":
+            assert chamber is not None
             filenumbers.append(chamber)
         if i == "t":
+            assert frame is not None
             filenumbers.append(frame)
         if i == "n":
+            assert cellnb is not None
             filenumbers.append(cellnb)
 
     if cellnb is not None:
@@ -1360,6 +1364,7 @@ def predictCompilefromseg_track(
     for index, item in enumerate(files_list):
         filename = os.path.basename(item)
         # Get position, chamber & frame numbers:
+        cha: Optional[int]
         if fileorder == "pct":
             (pos, cha, fra) = list(map(int, re.findall(r"\d+", filename)))
         elif fileorder == "pt":
