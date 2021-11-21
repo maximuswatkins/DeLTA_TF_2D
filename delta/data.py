@@ -124,7 +124,7 @@ def readreshape(
 
 
 def postprocess(
-    images: np.ndarray, square_size: int = 5, min_size: int = None, crop: bool = False
+    images: np.ndarray, square_size: int = 5, min_size: float = None, crop: bool = False
 ) -> np.ndarray:
     """
     A generic binary image cleaning function based on mathematical morphology.
@@ -136,7 +136,7 @@ def postprocess(
     square_size : int, optional
         Size of the square structuring element to use for morphological opening
         The default is 5.
-    min_size : int or None, optional
+    min_size : float or None, optional
         Remove objects smaller than this minimum area value. If None, the
         operation is not performed.
         The default is None.
