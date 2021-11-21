@@ -169,7 +169,6 @@ class Test_find_contours:
         contours = utils.find_contours(mask)
         assert evaluate_contours(mask, contours, image_size)
 
-# test skeleton_poles
 
 def test_skeleton_poles():
     skel = np.array(
@@ -183,8 +182,6 @@ def test_skeleton_poles():
                 ],
             dtype=np.bool_)
     mask_poles = utils.skeleton_poles(skel)
-    print(mask_poles)
-    bmask = np.array(mask_poles, dtype=np.bool_)
     solution = np.array([
         [0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0],
@@ -193,5 +190,34 @@ def test_skeleton_poles():
         [0, 0, 0, 0, 0, 0],
         [0, 0, 0, 1, 0, 0],
         ], dtype=np.bool_)
-    assert np.array_equal(bmask, solution)
+    assert np.array_equal(mask_poles, solution)
+
+
+def test_extract_poles():
+    labels = np.array(
+            [
+                [1, 1, 0, 2, 2, 2],
+                [1, 1, 0, 2, 2, 2],
+                [1, 1, 0, 0, 0, 0],
+                [0, 0, 0, 0, 4, 4],
+                [3, 3, 3, 0, 4, 4],
+                ])
+    skel = np.array(
+            [
+                [0, 1, 0, 1, 1, 0],
+                [1, 0, 0, 0, 0, 1],
+                [0, 1, 0, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0],
+                [1, 1, 1, 0, 0, 1],
+                ],
+            dtype=np.bool_)
+    mask_poles = utils.skeleton_poles(skel)
+    poles = utils.extract_poles(mask_poles, labels)
+    solution = [
+            [np.array([0, 1]), np.array([2, 1])],   # Cell 1
+            [np.array([0, 3]), np.array([1, 5])],   # Cell 2
+            [np.array([4, 0]), np.array([4, 2])],   # Cell 3
+            [np.array([3, 4]), np.array([4, 5])],   # Cell 4
+            ]
+    assert np.array_equal(poles, solution)
 

@@ -23,6 +23,9 @@ from skimage.morphology import skeletonize
 from . import config as cfg
 
 Image = np.ndarray
+Labels = npt.NDArray[np.uint16]
+Contour = np.ndarray
+Pole = npt.NDArray[np.uint16]
 
 
 #%% Image correction
@@ -874,7 +877,9 @@ def two_poles(poles):
     return [poles[i_max], poles[j_max]]
 
 
-def extract_poles(end_img, labels):
+def extract_poles(
+    end_img: npt.NDArray[bool], labels: Labels
+) -> List[List[Pole]]:
     """
     Extract poles per cell from ends image
 
@@ -887,17 +892,17 @@ def extract_poles(end_img, labels):
 
     Returns
     -------
-    poles : list of tuples of 2 1D numpy arrays
-        For each cell, tuple of 2 numpy arrays with the y-x coordinates
-        of the poles.
+    poles : list of lists of 1D numpy arrays
+        For each cell, list of numpy arrays with the y-x coordinates
+        of the poles.  In principle, each cell has two poles, but it
+        could have less or more in case of mistakes.
 
     """
     locations = end_img.nonzero()
     poles = [[] for _ in range(np.max(labels))]
-    for p in range(len(locations[0])):
-
-        cell = labels[locations[0][p], locations[1][p]] - 1
-        poles[cell] += [np.array([locations[0][p], locations[1][p]])]
+    for x, y in zip(*locations):
+        cell = labels[x, y] - 1
+        poles[cell] += [np.array([x, y])]
 
     return poles
 
