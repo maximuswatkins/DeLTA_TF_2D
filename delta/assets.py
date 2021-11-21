@@ -33,7 +33,10 @@ EVAL_MOVIES = {
 
 
 def download_assets(
-        load_models: Union[bool, str] = None, load_sets: Union[bool, str] = None, load_evals: Union[bool, str] = None, config_level: Union[bool, str] = None
+    load_models: Union[bool, str] = None,
+    load_sets: Union[bool, str] = None,
+    load_evals: Union[bool, str] = None,
+    config_level: Union[bool, str] = None,
 ) -> None:
     """
     Download assets such as latest models, training sets etc
@@ -77,43 +80,40 @@ def download_assets(
     """
 
     # Should we download models?
-    if load_models is None:
-        load_models = _ask("Download latest models?")
-    if load_models:
-        if type(load_models) == bool:
-            load_models = LATEST_MODELS
-        model_files = _download_models(load_models)
-    else:
-        model_files = dict()
+    models_dir = load_models if isinstance(load_models, str) else None
+    load_models = (
+        _ask("Download latest models?") if load_models is None else bool(load_models)
+    )
+    model_files = _download_models(models_dir=models_dir) if load_models else dict()
 
     # Should we download training sets?
-    if load_sets is None:
-        load_sets = _ask("Download latest training sets?")
-    if load_sets:
-        if type(load_sets) == bool:
-            load_sets = LATEST_TRAININGSETS
-        sets_files = _download_training_sets(load_sets)
-    else:
-        sets_files = dict()
+    sets_dir = load_sets if isinstance(load_sets, str) else None
+    load_sets = (
+        _ask("Download latest training sets?") if load_sets is None else bool(load_sets)
+    )
+    sets_files = _download_training_sets(sets_dir=sets_dir) if load_sets else dict()
 
     # Should we download evaluation movies?
-    if load_evals is None:
-        load_evals = _ask("Download evaluation movies?")
-    if load_evals:
-        if type(load_evals) == bool:
-            load_evals = EVAL_MOVIES
-        eval_files = _download_eval_movies(load_evals)
-    else:
-        eval_files = dict()
+    movies_dir = load_evals if isinstance(load_evals, str) else None
+    load_evals = (
+        _ask("Download evaluation movies?") if load_evals is None else bool(load_evals)
+    )
+    eval_files = _download_eval_movies(movies_dir=movies_dir) if load_evals else dict()
 
     # Should we write a new config file?
-    if config_level is None:
+    if isinstance(config_level, bool):
+        if config_level:
+            config_level = "local"
+        else:
+            config_level = None
+    elif config_level is None:
         config_level = _ask(
             "Write new config_.json files pointing to these new assets?",
-            options={"local": "local", "global": "global", "no": False},
+            options={"local": "local", "global": "global", "no": None},
         )
+    assert isinstance(config_level, str) or config_level is None  # for mypy
 
-    if config_level:
+    if config_level is not None:
         _write_default_configs(
             model_files=model_files,
             sets_files=sets_files,
@@ -143,7 +143,10 @@ def _ask(prompt: str, options: Dict[str, Any] = {"y": True, "n": False}) -> Any:
 
 
 def _write_default_configs(
-        config_level: str = "local", model_files: Dict[str, str] = dict(), sets_files: Dict[str, str] = dict(), eval_files: Dict[str, str] = dict()
+    config_level: str = "local",
+    model_files: Dict[str, str] = dict(),
+    sets_files: Dict[str, str] = dict(),
+    eval_files: Dict[str, str] = dict(),
 ) -> None:
 
     if config_level == "local":
@@ -207,7 +210,9 @@ def _write_default_configs(
     print("Config files written to %s" % config_dir)
 
 
-def _download_models(model_ids: Dict[str, str] = LATEST_MODELS, models_dir: str = None) -> Dict[str, str]:
+def _download_models(
+    model_ids: Dict[str, str] = LATEST_MODELS, models_dir: str = None
+) -> Dict[str, str]:
     """
     Download models from gdrive
 
@@ -243,7 +248,9 @@ def _download_models(model_ids: Dict[str, str] = LATEST_MODELS, models_dir: str 
     return model_files
 
 
-def _download_training_sets(sets_ids: Dict[str, str] = LATEST_TRAININGSETS, sets_dir: str = None) -> Dict[str, str]:
+def _download_training_sets(
+    sets_ids: Dict[str, str] = LATEST_TRAININGSETS, sets_dir: str = None
+) -> Dict[str, str]:
 
     if not isinstance(sets_dir, str):
         # Retrieve the path of the delta install folder:
@@ -264,7 +271,9 @@ def _download_training_sets(sets_ids: Dict[str, str] = LATEST_TRAININGSETS, sets
     return sets_files
 
 
-def _download_eval_movies(movie_ids: Dict[str, str] = EVAL_MOVIES, movies_dir: str = None) -> Dict[str, str]:
+def _download_eval_movies(
+    movie_ids: Dict[str, str] = EVAL_MOVIES, movies_dir: str = None
+) -> Dict[str, str]:
 
     if not isinstance(movies_dir, str):
         # Retrieve the path of the delta install folder:
@@ -285,7 +294,9 @@ def _download_eval_movies(movie_ids: Dict[str, str] = EVAL_MOVIES, movies_dir: s
     return movie_files
 
 
-def _download_and_unzip(id: str, zip_file: str, folder: str, remove_previous: bool = False) -> None:
+def _download_and_unzip(
+    id: str, zip_file: str, folder: str, remove_previous: bool = False
+) -> None:
 
     print("Downloading zip: %s" % zip_file)
     _download_file_from_google_drive(id, zip_file)
