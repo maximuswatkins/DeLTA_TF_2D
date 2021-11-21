@@ -865,20 +865,28 @@ def getpoles(
     ends_map = skeleton_poles(skel)
     poles = extract_poles(ends_map, labels)
 
+    clean_poles = []
+
     # Make sure cells have 2 poles each:
     for p in range(len(poles)):
-        if len(poles[p]) > 2:
-            poles[p] = two_poles(poles[p])
         if len(poles[p]) < 2:  # Sometimes skeletonize fails
-            poles[p] = extrema_poles(labels == p + 1, scaling=scaling)
+            clean_poles.append(extrema_poles(labels == p + 1, scaling=scaling))
+        elif len(poles[p]) == 2:
+            clean_poles.append((poles[p][0], poles[p][1]))
+        else:
+            clean_poles.append(two_poles(poles[p]))
 
     # Apply scaling:
     if scaling:
-        for c in poles:
-            for p in c:
-                p[:] = [int(yx * scale) for yx, scale in zip(p, scaling)]
+        clean_poles = [
+            (
+                np.round(p1 * scaling).astype(np.uint16),
+                np.round(p2 * scaling).astype(np.uint16),
+            )
+            for p1, p2 in clean_poles
+        ]
 
-    return poles
+    return clean_poles
 
 
 def skeleton_poles(skel: npt.NDArray[np.bool_]) -> npt.NDArray[np.bool_]:
