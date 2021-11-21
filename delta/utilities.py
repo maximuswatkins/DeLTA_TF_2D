@@ -12,7 +12,7 @@ import time
 import sys
 import importlib
 from threading import Thread
-from typing import overload, Tuple, List, Optional, Literal, Union, Any, Dict
+from typing import overload, Tuple, List, Optional, Union, Any, Dict
 
 import cv2
 import ffmpeg
@@ -658,39 +658,39 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
     )  # Sorting by top-left X (normally sorted by Y top left)
     return chamberboxes
 
-
-#### These prototypes help mypy understand the return type of the function
-
-
-@overload
-def label_seg(
-    seg: np.ndarray,
-    cellnumbers: List[int],
-    return_contours: Literal[True],
-    background: int = 0,
-) -> Tuple[Labels, List[Contour]]:
-    ...
-
-
-@overload
-def label_seg(
-    seg: np.ndarray,
-    cellnumbers: List[int] = None,
-    *,
-    return_contours: Literal[True],
-    background: int = 0
-) -> Tuple[Labels, List[Contour]]:
-    ...
-
-
-@overload
-def label_seg(
-    seg: np.ndarray,
-    cellnumbers: List[int] = None,
-    *,
-    return_contours: Literal[False] = False,
-    background: int = 0
-) -> Labels:
+    #### These prototypes help mypy understand the return type of the function
+    #    but can only be used from Python 3.8 because of typing.Literal
+    #
+    #
+    # @overload
+    # def label_seg(
+    #     seg: np.ndarray,
+    #     cellnumbers: List[int],
+    #     return_contours: Literal[True],
+    #     background: int = 0,
+    # ) -> Tuple[Labels, List[Contour]]:
+    #     ...
+    #
+    #
+    # @overload
+    # def label_seg(
+    #     seg: np.ndarray,
+    #     cellnumbers: List[int] = None,
+    #     *,
+    #     return_contours: Literal[True],
+    #     background: int = 0
+    # ) -> Tuple[Labels, List[Contour]]:
+    #     ...
+    #
+    #
+    # @overload
+    # def label_seg(
+    #     seg: np.ndarray,
+    #     cellnumbers: List[int] = None,
+    #     *,
+    #     return_contours: Literal[False] = False,
+    #     background: int = 0
+    # ) -> Labels:
     ...
 
 
@@ -740,20 +740,21 @@ def label_seg(
 
 
 #### These prototypes help mypy understand the return type of the function
-
-
-@overload
-def getcellsinframe(
-    labels: Labels, return_contours: Literal[True], background: int = 0
-) -> Tuple[List[int], List[Contour]]:
-    ...
-
-
-@overload
-def getcellsinframe(
-    labels: Labels, return_contours: Literal[False] = False, background: int = 0
-) -> List[int]:
-    ...
+#    but can only be used from Python 3.8 because of typing.Literal
+#
+#
+# @overload
+# def getcellsinframe(
+#     labels: Labels, return_contours: Literal[True], background: int = 0
+# ) -> Tuple[List[int], List[Contour]]:
+#     ...
+#
+#
+# @overload
+# def getcellsinframe(
+#     labels: Labels, return_contours: Literal[False] = False, background: int = 0
+# ) -> List[int]:
+#     ...
 
 
 def getcellsinframe(
@@ -858,7 +859,9 @@ def getpoles(
 
     # No label provided:
     if labels is None:
-        labels = label_seg(seg)
+        lbls = label_seg(seg)
+        assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
+        labels = lbls
 
     # Get poles using skeleton method:
     skel = skeletonize(seg, method="lee")
@@ -912,7 +915,7 @@ def skeleton_poles(skel: npt.NDArray[np.bool_]) -> npt.NDArray[np.bool_]:
 
     # apply the convolution
     kernel = np.array([[1, 1, 1], [1, 10, 1], [1, 1, 1]], dtype=np.uint8)
-    ddepth = -1 # same depth as the source
+    ddepth = -1  # same depth as the source
     filtered = cv2.filter2D(skel_uint8, ddepth, kernel, borderType=cv2.BORDER_ISOLATED)
 
     # now look through to find the value of 11
@@ -1900,7 +1903,7 @@ class xpreader:
             {"p": position, "c": channel, "t": frame}[c] + self.filenamesindexing
             for c in self.fileorder
         )
-        assert self.prototype is not None   # FIXME: why is it not?
+        assert self.prototype is not None  # FIXME: why is it not?
         return os.path.join(self.filehandle, self.prototype % filenumbers)
 
     # TODO: typecheck this function
@@ -2311,6 +2314,8 @@ def roi_features(
 
     # Cell numbers and contours:
     cell_nbs, contours = getcellsinframe(labels_frame, return_contours=True)
+    assert isinstance(cell_nbs, list)  # needed for mypy on Python < 3.8
+    assert isinstance(contours, np.ndarray)  # needed for mypy on Python < 3.8
 
     # Loop through cells in image, extract single-cell features:
     cell_features = []

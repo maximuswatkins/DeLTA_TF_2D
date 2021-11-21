@@ -1161,7 +1161,9 @@ def trainGenerator_track(
                 assert isinstance(seg.shape, (int, int))  # for mypy
                 shiftY, shiftX = utils.getshiftvalues(shift_cropbox, seg.shape, cb)
             else:
-                cb = fb = utils.CroppingBox(ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1])
+                cb = fb = utils.CroppingBox(
+                    ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1]
+                )
                 shiftY, shiftX = 0, 0
 
             # Add into arrays:

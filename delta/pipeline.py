@@ -920,6 +920,7 @@ class Position:
                 fr = roi.label_stack[fnb]
                 assert fr is not None  # FIXME: why is it not None?
                 cells, contours = utils.getcellsinframe(fr, return_contours=True)
+                assert isinstance(cells, list)  # needed for mypy on Python < 3.8
 
                 if roi.box is None:
                     xtl, ytl = (0, 0)
@@ -1293,6 +1294,7 @@ class ROI:
 
         # Get scores and attributions:
         labels = utils.label_seg(self.seg_stack[frame])
+        assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
         scores = utils.getTrackingScores(
             labels, y[:, :, :, 0], boxes=boxes if self.crop_windows else None
         )
@@ -1370,6 +1372,7 @@ class ROI:
             else:
                 cell_nbs = [c + 1 for c in self.lineage.cellnumbers[frame]]
             labels = utils.label_seg(self.seg_stack[frame], cell_nbs)
+            assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
 
             if self.crop_windows:
                 self.label_stack[frame] = labels
