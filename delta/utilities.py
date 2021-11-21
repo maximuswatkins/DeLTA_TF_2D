@@ -1985,18 +1985,18 @@ class xpreader:
                 raise ValueError(channels + " is not a valid channel name.")
         elif isinstance(channels, list) or isinstance(channels, tuple):
             # If list of ints, nothing to do
-            if len(channels) == 0:  # Empty list of channels: Return None
-                return None
-            elif all(
-                [type(c) is str for c in channels]
+            if all(
+                [isinstance(c, str) for c in channels]
             ):  # refer to channels by list/tuple of names:
                 if self.channelnames is None:
                     raise ValueError("Set channel names first")
-                for i, c in enumerate(channels):
-                    if c in self.channelnames:
-                        channels[i] = self.channelnames.index(c)
+                channels_list = []
+                for channel in channels:
+                    if channel in self.channelnames:
+                        channels_list.append(self.channelnames.index(channel))
                     else:
-                        raise ValueError(c + " is not a valid channel name.")
+                        raise ValueError(channel + " is not a valid channel name.")
+                channels = channels_list
         elif not isinstance(channels, list) and not isinstance(channels, tuple):
             channels = [channels]
 
