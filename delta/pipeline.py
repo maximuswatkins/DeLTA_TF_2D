@@ -62,8 +62,6 @@ class Pipeline:
 
         self.reader: utils.xpreader = xpreader
         "Experiment reader object"
-        self.resfolder = resfolder
-        "Folder to save results to"
         self.positions: List[Position] = []
         "List of Position objects under current experiment"
         self.rotation_correction = cfg.rotation_correction
@@ -77,20 +75,22 @@ class Pipeline:
         self.daemon = True
         "Run the pipeline as a daemon process (not functional yet)"
 
-        if self.reader.resfolder is not None:
-            self.resfolder = self.reader.resfolder
-
         # Load models:
         self.models = utils.loadmodels()
         "Dictionary of Tensorflow models"
 
         # Create result files folders
-        if self.resfolder is None:
+        if resfolder is not None:
+            self.resfolder = resfolder
+        elif self.reader.resfolder is not None:
+            self.resfolder = self.reader.resfolder
+        else:
             xpfile = self.reader.filename
             if os.path.isdir(xpfile):
                 self.resfolder = os.path.join(xpfile, "delta_results")
             else:
                 self.resfolder = os.path.splitext(xpfile)[0] + "_delta_results"
+
         if not os.path.exists(self.resfolder):
             os.mkdir(self.resfolder)
 
