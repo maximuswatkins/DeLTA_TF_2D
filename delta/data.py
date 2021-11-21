@@ -6,7 +6,7 @@ operations.
 """
 from __future__ import print_function
 import numpy as np
-from typing import Tuple, List, Dict, Union, Iterator, Generator, Any, Optional
+from typing import cast, Tuple, List, Dict, Union, Iterator, Generator, Any, Optional
 import os, glob, re, random, warnings, copy, importlib, cv2
 import skimage.io as io
 import tifffile
@@ -1158,8 +1158,8 @@ def trainGenerator_track(
 
             if crop_windows:
                 cb, fb = utils.gettrackingboxes(seg)
-                assert isinstance(seg.shape, (int, int))  # for mypy
-                shiftY, shiftX = utils.getshiftvalues(shift_cropbox, seg.shape, cb)
+                shape = cast(Tuple[int, int], seg.shape)    # for mypy
+                shiftY, shiftX = utils.getshiftvalues(shift_cropbox, shape, cb)
             else:
                 cb = fb = utils.CroppingBox(
                     ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1]
@@ -1416,8 +1416,8 @@ def predictCompilefromseg_track(
 
                 # Cell-centered crop boxes:
                 if crop:
-                    assert isinstance(img.shape, (int, int))  # for mypy
-                    cb, fb = utils.gettrackingboxes(seg, img.shape)
+                    shape = cast(Tuple[int, int], img.shape)    # for mypy
+                    cb, fb = utils.gettrackingboxes(seg, shape)
                 else:
                     cb = fb = utils.CroppingBox(ytl=None, xtl=None, ybr=None, xbr=None)
                 boxes += [(cb, fb)]

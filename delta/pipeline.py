@@ -8,7 +8,7 @@ Created on Wed Jun 23 10:41:45 2021
 # Modules:
 import time
 import os
-from typing import List, Union, Dict, Optional, Any, Tuple
+from typing import cast, List, Union, Dict, Optional, Any, Tuple
 
 import cv2
 import numpy as np
@@ -1220,8 +1220,8 @@ class ROI:
                 curr_img = self.img_stack[frame]
                 prev_img = self.img_stack[frame - 1]
                 # Cell-centered crop boxes:
-                assert isinstance(curr_img.shape, (int, int))  # for mypy
-                cb, fb = utils.gettrackingboxes(cell, curr_img.shape)
+                shape = cast(Tuple[int, int], curr_img.shape)   # for mypy
+                cb, fb = utils.gettrackingboxes(cell, shape)
                 draw_offset = (-cb["xtl"] + fb["xtl"], -cb["ytl"] + fb["ytl"])
             else:
                 curr_img = cv2.resize(

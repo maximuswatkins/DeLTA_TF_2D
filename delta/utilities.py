@@ -12,7 +12,7 @@ import time
 import sys
 import importlib
 from threading import Thread
-from typing import overload, Tuple, List, Optional, Union, Any, Dict
+from typing import cast, Tuple, List, Optional, Union, Any, Dict
 
 import cv2
 import ffmpeg
@@ -26,7 +26,7 @@ from . import config as cfg
 
 Image = np.ndarray
 
-Contour = npt.NDArray[np.uint32]
+Contour = np.ndarray
 
 Labels = npt.NDArray[np.uint16]
 
@@ -527,8 +527,7 @@ def gettrackingboxes(
     """
 
     if frame_shape is None:
-        assert isinstance(cell.shape, (int, int))  # for mypy
-        frame_shape = cell.shape
+        frame_shape = cast(Tuple[int, int], cell.shape) # for mypy
 
     if target_size is None:
         target_size = cfg.target_size_track
@@ -860,7 +859,7 @@ def getpoles(
     # No label provided:
     if labels is None:
         lbls = label_seg(seg)
-        assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
+        assert isinstance(lbls, np.ndarray)  # needed for mypy on Python < 3.8
         labels = lbls
 
     # Get poles using skeleton method:
@@ -2315,7 +2314,7 @@ def roi_features(
     # Cell numbers and contours:
     cell_nbs, contours = getcellsinframe(labels_frame, return_contours=True)
     assert isinstance(cell_nbs, list)  # needed for mypy on Python < 3.8
-    assert isinstance(contours, np.ndarray)  # needed for mypy on Python < 3.8
+    assert isinstance(contours, list)  # needed for mypy on Python < 3.8
 
     # Loop through cells in image, extract single-cell features:
     cell_features = []
