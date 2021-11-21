@@ -779,7 +779,7 @@ class ROI:
         "ROI crop box"
         self.img_stack: List[Image] = []
         "Input images stack"
-        self.seg_stack: List = []
+        self.seg_stack: List[np.ndarray] = []
         "Segmentation images stack"
         self.lineage = utils.Lineage()
         "Lineage object for ROI"
@@ -877,13 +877,10 @@ class ROI:
         y = utils.opencv_areafilt(y, min_area=cfg.min_cell_area)
 
         # Append to segmentation results stack:
-        if frame is None:
+        if frame is None or frame == len(self.seg_stack):
             self.seg_stack.append(y)
         else:
-            if len(self.seg_stack) <= frame:
-                self.seg_stack += [
-                    None for _ in range(frame + 1 - len(self.seg_stack))
-                ]  # Extend list
+            assert frame < len(self.seg_stack)
             self.seg_stack[frame] = y
 
     def get_tracking_inputs(
