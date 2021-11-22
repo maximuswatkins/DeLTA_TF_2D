@@ -15,7 +15,7 @@ import delta
 # Load config ('2D' or 'mothermachine'):
 delta.config.load_config(presets="2D")
 
-# Use eval movie as example:
+# Use eval movie as example (or replace by None for interactive selection):
 file_path = delta.config.eval_movie
 
 # Init reader (use bioformats=True if working with nd2, czi, ome-tiff etc):
