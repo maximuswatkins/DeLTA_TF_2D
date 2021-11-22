@@ -18,7 +18,7 @@ underlying :ref:`Lineage class <lineage>` objects can be used for data analysis.
 
 You can reload the pickle file for any position with the following::
 
-    pos = delta.pipeline.Position(_,_,_)
+    pos = delta.pipeline.Position(None,None,None)
     pos.load('/path/to/PositionXXXXXX.pkl')
 
 or::

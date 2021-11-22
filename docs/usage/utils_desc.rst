@@ -21,7 +21,7 @@ such as the open format OME-TIFF, Nikon's .nd2 format, Olympus's .oib format,
 Zeiss's .czi format and many more. Or it can be a folder containing separate 
 image files for all positions, imaging channels, and timepoints.
 
-In order to read Bio-Formats compatible files, please use the `use_1bioformats`
+In order to read Bio-Formats compatible files, please use the `use_bioformats`
 flag::
 
     reader = delta.utilities.xpreader('/path/to/file.nd2', use_bioformats=True)
@@ -128,10 +128,10 @@ With the following *lineage-related* keys:
 * `frames`: The movie frames where this cell is present
 * `id`: The cell number in the lineage list (0-based indexing)
 * `mother`: The cell that spawned this cell (None if unknown)
-* `new_pole`: The pole of the cell that was further from the septum when division
-  occured
-* `old_pole`: The pole of the cell that was closer to the septum when division
-  occured
+* `new_pole`: The position of the new pole of the cell over time. This is 
+  the pole that was closer to the septum when division occured
+* `old_pole`: The position of the old pole of the cell over time. This is 
+  the pole that was further from the septum when division occured
 
 And the following *extracted feature* keys:
 
@@ -153,6 +153,10 @@ And the following *extracted feature* keys:
     extract. By default they are all extracted. We may add more features in the
     future, but we will not touch the lineage information structure.
 
+.. note::
+    Old pole and new pole are assigned randomly for the cells present at the 
+    beginning of the movie.
+
 If you want to access a specific value in time for a specific cell, you can use 
 the `getvalue()` method::
 
@@ -166,7 +170,9 @@ Or you can change a value with setvalue::
     lin.setvalue(cell_nb,timepoint,key,1294.45)
 
 We are currently working on methods that would allow to also re-assign lineage
-information and propagate those changes to the rest of the lineage tree in an
-effort to generate post-processing GUIs, but 
+information and propagate those changes to the rest of the lineage tree as part
+of our effort to generate post-processing GUIs, but 
 these methods are a work in progress and need to be extensively tested before
 they can be used.
+
+See also our :doc:`results analysis examples <analysis>`

@@ -42,7 +42,7 @@ Or after init but before processing::
 
     processor.resfolder = '/path/to/another/folder/'
 
-See also the :ref:`run pipeline script <run_pipeline>`
+See also the :ref:`run pipeline script <run_pipeline>` and the :ref:`xpreader class <xpreader>`
 
 Selectively process frames, positions, and features
 ---------------------------------------------------
