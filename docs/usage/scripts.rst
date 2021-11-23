@@ -60,7 +60,7 @@ interfaces to streamline the process but we do not yet have an estimate for when
 these would be finalized.
 
 .. note::
-    If you have developped your own training sets for any new application or simply
+    If you have developed your own training sets for any new application or simply
     to get better results better with your data and you would like to share them, feel free
     to contact us! We would be more than happy to make them available to the community or
     merge them with our training sets and train our latest models on them.
