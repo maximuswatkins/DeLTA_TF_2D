@@ -190,5 +190,5 @@ MP4 movie file
 This one is straight-forward: An MP4 movie file with h264 codecs is saved to
 disk with the other save files for quick checking of outputs quality. The 
 relevant functions that create and write the movie are
-:doc:`results_movie <../_generated/delta.pipeline.results_movie>`
+:doc:`results_movie <../_generated/delta.pipeline.Position.results_movie>`
 and :doc:`vidwrite <../_generated/delta.utilities.vidwrite>`
