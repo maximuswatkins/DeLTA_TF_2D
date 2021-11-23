@@ -1,4 +1,3 @@
-
 Output files
 =================
 
@@ -173,7 +172,7 @@ For each position, the data structure is as follows:
                     |       Cell length over time, in pixels.
                     |
                     |---mother : int
-                    |       Mother cell number for this cell. 0 if no mothernb
+                    |       Mother cell number for this cell. 0 if no mother
                     |       detected (eg first timepoint), 1-based indexing 
                     |       otherwise: In python, mother M is cell/item #M-1 in 
                     |       this lineage list.
