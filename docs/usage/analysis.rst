@@ -10,7 +10,7 @@ and the general logic of the analysis would be the same
 although there are some minor differences in how to index
 arrays and cells (See :doc:`Output files <outputs>`)
 
-2D eval movie from pickel file and Position object
+2D results from pickle file and Position object
 -----------------------------------------------------
 
 First after running e.g. :ref:`run_pipeline.py <run_pipeline>`
@@ -29,7 +29,7 @@ the region of interest (ie the whole frame)::
 
     lin = processor.positions[0].rois[0].lineage
 
-Check which cells are present in the first frame:
+Check which cells are present in the first frame::
 
     first_cells = lin.cellnumbers[0]
 
@@ -64,10 +64,14 @@ ancestor::
 
     def which_first(lineage, cell_nb, first_cells):
         
+        # Get cell dict:
         cell = lineage.cells[cell_nb]
         
+        # If orphan or reached one of the first two cells:
         if cell['mother'] is None or cell['mother'] in first_cells:
             return cell['mother']
+        
+        # Otherwise go up the lineage tree:
         else:
             return which_first(lineage, cell['mother'], first_cells)
 
@@ -89,6 +93,7 @@ based on the cells' ancestry::
     # Go over cells in last frame:
     for cnb in lin.cellnumbers[-1]:
         
+        # Which initial cell is ancestor?
         ancestor = which_first(lin, cnb, first_cells)
         
         # Pick color based on ancestor:
@@ -123,7 +128,8 @@ Mother machine from MAT file
 .. note::
     Here we are loading the MAT file in python. Because this 
     format is originally intended for Matlab, some indexes need
-    to be decreased by 1 in a few places.
+    to be decreased by 1 in a few places. The logic presented here
+    is otherwise applicable to Matlab
 
 Here we load the MAT file with scipy::
 
@@ -219,6 +225,7 @@ their generation::
                     ]=val*255
 
     plt.imshow(color_image)
+    plt.show()
 
 Which should produce an image like this:
 
