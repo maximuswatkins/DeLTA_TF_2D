@@ -17,11 +17,11 @@ URL = "https://gitlab.com/dunloplab/delta"
 
 INSTALL_REQUIRES = [
     "scikit-image>=0.18",
-    "tifffile>=2021",
+    "tifffile>=2020",
     "opencv-python>=4.1",
     "tensorflow>=2.0",
     "ffmpeg-python",
-    "python-bioformats",
+    "requests",
 ]
 
 setup(
