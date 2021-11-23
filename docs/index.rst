@@ -53,6 +53,9 @@ To get started on your own system, check out the
 download our :doc:`latest models <usage/assets_desc>`, and run the 
 :doc:`pipeline <usage/pipeline_desc>` on our data or your own.
 
+See also our :doc:`example scritps <usage/scripts>` and 
+:doc:`results analysis examples <usage/analysis>`
+
 Contents
 ----------
 
@@ -68,6 +71,7 @@ Contents
     usage/utils_desc
     usage/model_desc
     usage/scripts
+    usage/analysis
 
 API
 ----

@@ -2,6 +2,10 @@
 Installation
 =================================
 
+If you only want to rapidly check how DeLTA could perform on your 
+data first, please check out our free
+`Google Colab notebook <https://colab.research.google.com/drive/1UL9oXmcJFRBAm0BMQy_DMKg4VHYGgtxZ>`_.
+
 You can now install DeLTA directly from conda-forge, or from the git repository.
 
 We recommend using `Anaconda <https://www.anaconda.com/>`_ to install the 
@@ -26,15 +30,19 @@ able to setup environments with pip too.
 
 Hardware requirements
 ----------------------
-While this code can run on CPU, we recommend running it on GPU for 
+We recommend running DeLTA on GPU for 
 significantly faster processing. To do so you will need 
-`an nvidia gpu with a cuda compute capability of 3.5 or higher <https://developer.nvidia.com/cuda-gpus) and [an up-to-date gpu driver](https://www.nvidia.com/Download/index.aspx?lang=en-us>`_.
+`an nvidia gpu with a cuda compute capability of 3.5 or higher <https://developer.nvidia.com/cuda-gpus>`_
+and `an up-to-date gpu driver <https://www.nvidia.com/Download/index.aspx?lang=en-us>`_.
 If no compatible GPU/driver is found on the system, tensorflow will run on CPU.
 
 For more information see 
 `here <https://docs.anaconda.com/anaconda/user-guide/tasks/tensorflow/>`_ 
 and `here <https://www.tensorflow.org/guide/gpu>`_.
 
+If you do not have access to a compatible GPU, DeLTA will run fine on CPU but 
+will be slower. Computing clusters and cloud computing platforms are also an 
+alternative that has been working well for us.
 
 Prerequisites
 --------------
@@ -77,9 +85,9 @@ microscopy file formats, run the following::
     (delta_env)$ pip install python-bioformats
 
 .. note::
-    DeLTA is only available on conda-forge for Linux and MacOSX for now
-    because of build-issues on Windows, but we are in the process of also 
-    implementing this package for Windows.
+    For now DeLTA is only available on conda-forge for Linux and MacOSX for now
+    because of build-issues on Windows. You can however install from the .yml 
+    file below on Windows.
 
 .. note::
     You will need to activate the environment before you can import DeLTA in
@@ -103,6 +111,9 @@ Again, if you want to use python-bioformats, run::
     (base)$ conda activate delta_env
     (delta_env)$ conda install pip
     (delta_env)$ pip install python-bioformats
+
+.. note::
+    conda sometimes takes a long time to resolve the environment.
 
 Install with pip from requirements.txt
 --------------------------------------
@@ -134,6 +145,28 @@ cryptic message about not finding the file specified.
 
 See also 
 `Tensorflow's pip install instructions <https://www.tensorflow.org/install/pip>`_
+
+Check installation
+------------------
+
+You can check what libraries have been installed with::
+
+    (base)$ conda activate delta_env
+    (delta_env)$ conda list
+
+or with pip::
+
+    pip list
+
+To check that Tensorflow is able to detect the GPU, please run the following
+in the python interpreter:
+
+.. code-block:: python
+
+    >>> import tensorflow as tf
+    >>> tf.config.list_physical_devices()
+
+Your GPU should appear in the list.
 
 Troubleshooting
 ---------------
@@ -184,7 +217,8 @@ OOM - Out of memory (GPU)
 On GPU, you might run into memory problems. This is both linked to the batch 
 size and the size of the images. The batch size is straightforward to change, 
 lower the value at the beginning of the :ref:`training scripts <training_scripts>`.
-Note that lower batch sizes may mean slower training convergence or lower performance overall.
+Note that lower batch sizes may mean slower training convergence or lower 
+performance overall.
 
 The other solution would be to use a smaller image target size. However if the 
 original training images and masks are for example 512×512, downsizing them to 
@@ -193,9 +227,9 @@ between cells in the binary masks to disappear. Instead, training images should
 be resized upstream of DeLTA to make sure that your training set does feature 
 cell-to-cell borders in the segmentation masks.
 
-Another reason why this may happen is that the pipeline is trying to feed too many samples
-to the U-Nets at once. Try lowering pipeline_seg_batch and pipeline_track_batch in your
-JSON config file.
+Another reason why this may happen is that the pipeline is trying to feed too 
+many samples to the U-Nets at once. Try lowering pipeline_seg_batch and 
+pipeline_track_batch in your JSON config file.
 
 .. _recent_installs::
 

@@ -2110,8 +2110,8 @@ def legacysave(position, res_file):
         for c in cells:
             lin += [dict()]
             # Base lineage:
-            lin[-1]["mothernb"] = c["mother"] + 1 if c["mother"] is not None else 0
-            lin[-1]["framenbs"] = np.array(c["frames"], dtype=np.float32) + 1
+            lin[-1]["mother"] = c["mother"] + 1 if c["mother"] is not None else 0
+            lin[-1]["frames"] = np.array(c["frames"], dtype=np.float32) + 1
             lin[-1]["daughters"] = np.array(c["daughters"], dtype=np.float32) + 1
             lin[-1]["daughters"][np.isnan(lin[-1]["daughters"])] = 0
             if "edges" in c:
