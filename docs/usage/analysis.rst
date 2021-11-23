@@ -10,8 +10,8 @@ and the general logic of the analysis would be the same
 although there are some minor differences in how to index
 arrays and cells (See :doc:`Output files <outputs>`)
 
-2D results from pickle file and Position object
------------------------------------------------------
+2D results from .pkl file and Position/Lineage object
+--------------------------------------------------------
 
 First after running e.g. :ref:`run_pipeline.py <run_pipeline>`
 on the 2D evaluation movie you can reload the data to memory
@@ -57,7 +57,7 @@ You should get this:
     :align: center
 
 You can also display which cells are descended from 
-either of the first two cells over time.
+either of the first two cells on the last frame.
 
 First define a function to retrieve which of the first two cells is the
 ancestor::
@@ -75,8 +75,8 @@ ancestor::
         else:
             return which_first(lineage, cell['mother'], first_cells)
 
-Then go over every frame and use the labels stack to reconstruct the image
-based on the cells' ancestry::
+Then go over every cell of the last frame 
+to reconstruct the image based on each cells' ancestry::
 
     import numpy as np
 

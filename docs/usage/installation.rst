@@ -40,9 +40,9 @@ For more information see
 `here <https://docs.anaconda.com/anaconda/user-guide/tasks/tensorflow/>`_ 
 and `here <https://www.tensorflow.org/guide/gpu>`_.
 
-If you do not have access to a compatible GPU, DeLTA will run fine on CPU but will be slower. 
-Computing clusters and cloud computing platforms are also an alternative that has been working
-well for us.
+If you do not have access to a compatible GPU, DeLTA will run fine on CPU but 
+will be slower. Computing clusters and cloud computing platforms are also an 
+alternative that has been working well for us.
 
 Prerequisites
 --------------
@@ -113,7 +113,7 @@ Again, if you want to use python-bioformats, run::
     (delta_env)$ pip install python-bioformats
 
 .. note::
-    conda sometimes takes a long time to resolve the environment
+    conda sometimes takes a long time to resolve the environment.
 
 Install with pip from requirements.txt
 --------------------------------------
@@ -217,7 +217,8 @@ OOM - Out of memory (GPU)
 On GPU, you might run into memory problems. This is both linked to the batch 
 size and the size of the images. The batch size is straightforward to change, 
 lower the value at the beginning of the :ref:`training scripts <training_scripts>`.
-Note that lower batch sizes may mean slower training convergence or lower performance overall.
+Note that lower batch sizes may mean slower training convergence or lower 
+performance overall.
 
 The other solution would be to use a smaller image target size. However if the 
 original training images and masks are for example 512×512, downsizing them to 
@@ -226,9 +227,9 @@ between cells in the binary masks to disappear. Instead, training images should
 be resized upstream of DeLTA to make sure that your training set does feature 
 cell-to-cell borders in the segmentation masks.
 
-Another reason why this may happen is that the pipeline is trying to feed too many samples
-to the U-Nets at once. Try lowering pipeline_seg_batch and pipeline_track_batch in your
-JSON config file.
+Another reason why this may happen is that the pipeline is trying to feed too 
+many samples to the U-Nets at once. Try lowering pipeline_seg_batch and 
+pipeline_track_batch in your JSON config file.
 
 .. _recent_installs::
 
