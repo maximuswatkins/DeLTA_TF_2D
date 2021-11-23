@@ -163,7 +163,7 @@ For each position, the data structure is as follows:
                     |---fluo1/fluo2/fluo3... : 1D array of float32
                     |       Mean fluorescence value over time.
                     |
-                    |---framenbs : 1D array of float32
+                    |---frames : 1D array of float32
                     |       Frame numbers / timepoints where the cell is present. 
                     |       Frame numbers use 1-based indexing: In python, Frame
                     |       number F here corresponds to frame/timepoint #F-1 in
@@ -172,7 +172,7 @@ For each position, the data structure is as follows:
                     |---length : 1D array of float32
                     |       Cell length over time, in pixels.
                     |
-                    |---mothernb : int
+                    |---mother : int
                     |       Mother cell number for this cell. 0 if no mothernb
                     |       detected (eg first timepoint), 1-based indexing 
                     |       otherwise: In python, mother M is cell/item #M-1 in 

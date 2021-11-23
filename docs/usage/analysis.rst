@@ -153,10 +153,10 @@ in the sixth chamber::
     for daughter_nb in mother['daughters']:
         if daughter_nb > 0:
             daughter = lin[int(daughter_nb)-1] # No -1 in Matlab
-            plt.plot(daughter['framenbs'],daughter['fluo1'],color=[.5,.5,.5])
+            plt.plot(daughter['frames'],daughter['fluo1'],color=[.5,.5,.5])
 
     # Plot mother fluorescence:
-    plt.plot(mother['framenbs'], mother['fluo1'])
+    plt.plot(mother['frames'], mother['fluo1'])
 
     plt.xlabel('frame #')
     plt.ylabel('GFP (a.u.)')
@@ -177,10 +177,10 @@ their generation::
     # Function to count number of generations:
     def generation(lineage, cell_nb):
         
-        if lineage[cell_nb-1]['mothernb']==0: # No -1 in Matlab
+        if lineage[cell_nb-1]['mother']==0: # No -1 in Matlab
             return 0
         else:
-            return generation(lineage, lineage[cell_nb-1]['mothernb']) +1 # No -1 in Matlab
+            return generation(lineage, lineage[cell_nb-1]['mother']) +1 # No -1 in Matlab
 
 
     frame = 100 # Some random frame
