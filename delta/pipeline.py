@@ -1386,7 +1386,7 @@ class ROI:
                 )
 
         fr = self.label_stack[frame]
-        assert fr is not None  # FIXME: why is it not None?
+        assert fr is not None  # for mypy
         # Extract features for all cells in the ROI:
         cells, extracted_features = utils.roi_features(
             fr,
