@@ -922,7 +922,7 @@ def seg_weights_2D(
     if mask.ndim == 3:
         mask = mask[:, :, 0]
     if np.max(mask) == 255:
-        mask = mask / 255
+        mask[mask > 0] = 1
 
     # Extract all pixels that include the cells and it's border
     border = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel(20))
