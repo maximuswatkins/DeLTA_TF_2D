@@ -24,13 +24,13 @@ from skimage.morphology import skeletonize
 
 from . import config as cfg
 
-Image = np.ndarray
+Image = npt.NDArray[np.float32]
 
 Contour = np.ndarray
 
 Labels = npt.NDArray[np.uint16]
 
-Segmentation = npt.NDArray[np.uint8]
+SegmentationMask = npt.NDArray[np.uint8]
 
 Pole = npt.NDArray[np.uint16]
 
@@ -134,7 +134,7 @@ def deskew(image: Image) -> float:
     return rotation_number
 
 
-def imrotate(frame: np.ndarray, rotate: float) -> Image:
+def imrotate(frame: npt.NDArray[Any], rotate: float) -> npt.NDArray[Any]:
     """
     Rotate image
 
@@ -271,8 +271,8 @@ def getDriftTemplate(
 
 
 def opencv_areafilt(
-    I: np.ndarray, min_area: Optional[float] = 20, max_area: float = None
-) -> np.ndarray:
+    I: SegmentationMask, min_area: Optional[float] = 20, max_area: float = None
+) -> SegmentationMask:
     """
     Area filtering using openCV instead of skimage
 
@@ -316,7 +316,7 @@ def opencv_areafilt(
 #%% Image cropping & stitching
 
 
-def cropbox(img: Image, box: Optional[CroppingBox]) -> Image:
+def cropbox(img: npt.NDArray[Any], box: Optional[CroppingBox]) -> npt.NDArray[Any]:
     """
     Crop image
 
@@ -346,7 +346,7 @@ def cropbox(img: Image, box: Optional[CroppingBox]) -> Image:
 
 def create_windows(
     img: Image, target_size: Tuple[int, int] = (512, 512), min_overlap: int = 24
-) -> Tuple[np.ndarray, List[Tuple[int, int]], List[Tuple[int, int]]]:
+) -> Tuple[npt.NDArray[np.float32], List[Tuple[int, int]], List[Tuple[int, int]]]:
     """
     Crop input image into windows of set size.
 
@@ -434,8 +434,10 @@ def create_windows(
 
 
 def stitch_pic(
-    results: np.ndarray, loc_y: List[Tuple[int, int]], loc_x: List[Tuple[int, int]]
-) -> Image:
+    results: npt.NDArray[Any],
+    loc_y: List[Tuple[int, int]],
+    loc_x: List[Tuple[int, int]],
+) -> npt.NDArray[Any]:
     """
     Stitch segmentation back together from the windows of create_windows()
 
@@ -527,7 +529,7 @@ def gettrackingboxes(
     """
 
     if frame_shape is None:
-        frame_shape = cast(Tuple[int, int], cell.shape) # for mypy
+        frame_shape = cast(Tuple[int, int], cell.shape)  # for mypy
 
     if target_size is None:
         target_size = cfg.target_size_track
@@ -663,7 +665,7 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
     #
     # @overload
     # def label_seg(
-    #     seg: np.ndarray,
+    #     seg: SegmentationMask,
     #     cellnumbers: List[int],
     #     return_contours: Literal[True],
     #     background: int = 0,
@@ -673,7 +675,7 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
     #
     # @overload
     # def label_seg(
-    #     seg: np.ndarray,
+    #     seg: SegmentationMask,
     #     cellnumbers: List[int] = None,
     #     *,
     #     return_contours: Literal[True],
@@ -684,7 +686,7 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
     #
     # @overload
     # def label_seg(
-    #     seg: np.ndarray,
+    #     seg: SegmentationMask,
     #     cellnumbers: List[int] = None,
     #     *,
     #     return_contours: Literal[False] = False,
@@ -694,7 +696,7 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
 
 
 def label_seg(
-    seg: np.ndarray,
+    seg: SegmentationMask,
     cellnumbers: List[int] = None,
     return_contours: bool = False,
     background: int = 0,
@@ -834,7 +836,7 @@ def getcentroid(contour: np.ndarray) -> Tuple[int, int]:
 
 
 def getpoles(
-    seg: Segmentation, labels: Labels = None, scaling: Tuple[float, float] = None
+    seg: SegmentationMask, labels: Labels = None, scaling: Tuple[float, float] = None
 ) -> List[Tuple[Pole, Pole]]:
     """
     Get cell poles
@@ -891,7 +893,7 @@ def getpoles(
     return clean_poles
 
 
-def skeleton_poles(skel: npt.NDArray[np.bool_]) -> npt.NDArray[np.bool_]:
+def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
     """
     This function was adapted from stackoverflow
     #https://stackoverflow.com/questions/26537313/how-can-i-find-endpoints-of-binary-skeleton-image-in-opencv
@@ -923,7 +925,7 @@ def skeleton_poles(skel: npt.NDArray[np.bool_]) -> npt.NDArray[np.bool_]:
 
 
 def extrema_poles(
-    cellmask: Segmentation, scaling: Tuple[float, float] = None
+    cellmask: SegmentationMask, scaling: Tuple[float, float] = None
 ) -> Tuple[Pole, Pole]:
     """
     A slower and more rudimentary version of poles finding but that is
@@ -1020,7 +1022,7 @@ def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> List[List[P
     return poles
 
 
-def eucl(p1: np.ndarray, p2: np.ndarray) -> float:
+def eucl(p1: npt.NDArray[Any], p2: npt.NDArray[Any]) -> float:
     """
     Euclidean point to point distance
 
@@ -1045,7 +1047,7 @@ def eucl(p1: np.ndarray, p2: np.ndarray) -> float:
 
 def getTrackingScores(
     labels: Labels,
-    outputs: np.ndarray,
+    outputs: npt.NDArray[np.float32],
     boxes: List[Tuple[CroppingBox, CroppingBox]] = None,
 ) -> Optional[npt.NDArray[np.float32]]:
     """
@@ -2336,7 +2338,7 @@ def roi_features(
 
 def singlecell_features(
     contour: Contour,
-    mask: npt.NDArray[np.bool_],
+    mask: SegmentationMask,
     features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
     fluo_frames: np.ndarray = None,
     roi_box: CroppingBox = None,
@@ -2416,7 +2418,7 @@ def singlecell_features(
     return features_dict
 
 
-def image_edges(contour: Contour, image: Image) -> str:
+def image_edges(contour: Contour, image: npt.NDArray[Any]) -> str:
     """
     Identify if cell touches image borders
 
@@ -2518,7 +2520,7 @@ def cell_perimeter(contour: Contour) -> float:
 
 
 def cell_fluo(
-    fluo_frames: np.ndarray, mask: npt.NDArray[np.bool_], roi_box: CroppingBox = None
+    fluo_frames: np.ndarray, mask: SegmentationMask, roi_box: CroppingBox = None
 ) -> List[float]:
     """
     Extract mean fluorescence level from mask

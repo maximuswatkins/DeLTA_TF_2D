@@ -19,8 +19,6 @@ from .data import postprocess
 from . import utilities as utils
 from .utilities import cfg
 
-Image = np.ndarray
-
 
 class Pipeline:
     """
@@ -358,7 +356,7 @@ class Position:
 
     def preprocess(
         self,
-        reference: Image = None,
+        reference: utils.Image = None,
         rotation_correction: Union[float, bool] = True,
     ):
         """
@@ -433,7 +431,7 @@ class Position:
 
         self._preprocessed = True
 
-    def detect_rois(self, reference: Image):
+    def detect_rois(self, reference: utils.Image):
         """
         Use U-Net to detect ROIs (chambers etc...)
 
@@ -1039,13 +1037,13 @@ class ROI:
         "The ROI index number"
         self.box = box
         "ROI crop box"
-        self.img_stack: List[Image] = []
+        self.img_stack: List[utils.Image] = []
         "Input images stack"
-        self.seg_stack: List[np.ndarray] = []
+        self.seg_stack: List[utils.SegmentationMask] = []
         "Segmentation images stack"
         self.lineage = utils.Lineage()
         "Lineage object for ROI"
-        self.label_stack: List[Optional[npt.NDArray[np.uint16]]] = []
+        self.label_stack: List[Optional[utils.Labels]] = []
         "Labelled images stack"
         self.crop_windows: bool = crop_windows
         "Flag to crop overlapping windows for segmentation"
@@ -1061,7 +1059,7 @@ class ROI:
             )
 
     def get_segmentation_inputs(
-        self, img: Image
+        self, img: utils.Image
     ) -> Tuple[np.ndarray, Optional[Tuple[List, List]]]:
         """
         Compile segmentation inputs for ROI
@@ -1102,7 +1100,10 @@ class ROI:
         return x, None
 
     def process_segmentation_outputs(
-        self, y: np.ndarray, frame: int = None, windows: Tuple[List, List] = None
+        self,
+        y: npt.NDArray[np.uint8],
+        frame: int = None,
+        windows: Tuple[List, List] = None,
     ):
         """
         Process outputs after they have been segmented.
@@ -1220,7 +1221,7 @@ class ROI:
                 curr_img = self.img_stack[frame]
                 prev_img = self.img_stack[frame - 1]
                 # Cell-centered crop boxes:
-                shape = cast(Tuple[int, int], curr_img.shape)   # for mypy
+                shape = cast(Tuple[int, int], curr_img.shape)  # for mypy
                 cb, fb = utils.gettrackingboxes(cell, shape)
                 draw_offset = (-cb["xtl"] + fb["xtl"], -cb["ytl"] + fb["ytl"])
             else:
