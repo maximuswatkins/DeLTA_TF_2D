@@ -872,8 +872,8 @@ class Position:
 
         Returns
         -------
-        movie : TODO
-            TODO
+        movie : list of 3D numpy arrays
+            List of compiled movie frames
 
         """
 

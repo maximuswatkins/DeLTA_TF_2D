@@ -1220,9 +1220,10 @@ def getfnfromprototype(
     Parameters
     ----------
     prototype : str
-        TODO
+        Filename prototype, written in c-style format. See delta.utils.xpreader
+        for more details
     fileorder : str
-        TODO
+        Filenames ordering. See delta.utils.xpreader for more details
     position : int, optional
         Position/series index (0-based indexing).
     chamber : int, optional
@@ -1308,7 +1309,8 @@ def predictCompilefromseg_track(
         string appended to signal which cell is being seeded/tracked (from top
         to bottom)
     boxes : list of (dict, dict)
-        TODO
+        Cropping box and fill box to re-place output prediction masks in the
+        original image coordinates.
 
 
     """

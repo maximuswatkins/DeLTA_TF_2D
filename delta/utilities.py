@@ -719,8 +719,8 @@ def label_seg(
     label : 2D numpy array of uint16
         Labelled image. Each cell in the image is marked by adjacent pixels
         with values given by cellnumbers
-    contours : TODO
-        TODO
+    contours : list
+        List of cv2 contours for each cell. Returned if return_contours==True.
 
     """
     if seg.dtype == bool:
@@ -848,8 +848,9 @@ def getpoles(
     labels : 2D array of int, optional
         Cell labels map. If None, label_seg() will be applied to seg
         The default is None.
-    scaling : TODO
-        TODO
+    scaling : tuple of floats, optional
+        Scaling to apply in both directions to rescale poles' positions to
+        original image size (if resizing was applied)
 
     Returns
     -------
@@ -1060,8 +1061,9 @@ def getTrackingScores(
         tracking against. (ie segmentation mask of the 'current'/'new' frame)
     outputs : 4D array of floats
         Tracking U-Net output.
-    boxes : TODO
-        TODO
+    boxes : list of dict, optional
+        Cropping box and fill box to re-place output prediction masks in the
+        original coordinates to index the labels frame.
 
     Returns
     -------
@@ -1333,10 +1335,10 @@ class Lineage:
         ----------
         frame : int
             Frame that the cell first appears (1-based indexing).
-        new_pole : TODO
-            TODO
-        old_pole : TODO
-            TODO
+        new_pole : tuple of int, optional
+            Coordinates of the new pole
+        old_pole : tuple of int, optional
+            Coordinates of the old pole
         mother : int or None, optional
             Number of the mother cell in the lineage (1-based indexing).
             The default is None. (ie unknown mother)
@@ -2307,7 +2309,7 @@ def roi_features(
     Returns
     -------
     cell_nbs : list of ints
-        TODO
+        IDs of cells present in the labels frame
     cell_features : list of dict
         List of dictionary with values for requested features.
 
