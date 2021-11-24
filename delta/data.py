@@ -145,7 +145,7 @@ def postprocess(
 
     Returns
     -------
-    images : 2D numpy array
+    images : 2D or 3D numpy array
         Cleaned, binarized images. Note that the dimensions are squeezed before
         return (see numpy.squeeze doc)
 
@@ -182,7 +182,7 @@ def data_augmentation(
 
     Parameters
     ----------
-    images_input : list of 2D numpy arrays of floats
+    images_input : list of 2D numpy arrays
         Images to apply augmentation operations to.
     aug_par : dict
         Augmentation operations parameters. Accepted key-value pairs:
@@ -242,7 +242,7 @@ def data_augmentation(
 
     Returns
     -------
-    output : list of 2D numpy arrays of floats
+    output : list of 2D numpy arrays
         Augmented images array.
 
     """
