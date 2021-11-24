@@ -230,7 +230,7 @@ def _download_models(
 
     model_files = dict()
     for filename, google_id in model_ids.items():
-        print(f"Downloading model: {filename}...", end="")
+        print(f"Downloading model: {filename}...", end="", flush=True)
         model_files[filename] = os.path.join(models_dir, filename + ".hdf5")
         _download_file_from_google_drive(google_id, model_files[filename])
         print(" Done")
@@ -287,22 +287,22 @@ def _download_and_unzip(
     id: str, zip_file: str, folder: str, remove_previous: bool = False
 ) -> None:
 
-    print(f"Downloading zip: {zip_file}")
+    print(f"Downloading zip: {zip_file}...", end="", flush=True)
     _download_file_from_google_drive(id, zip_file)
     print(" Done")
 
     if remove_previous and os.path.exists(folder):
-        print("Removing previous extraction...", end="")
+        print("Removing previous extraction...", end="", flush=True)
         shutil.rmtree(folder)
         print(" Done")
 
-    print(f"Extracting to {folder}...", end="")
+    print(f"Extracting to {folder}...", end="", flush=True)
     if not os.path.exists(folder):
         os.makedirs(folder)
     shutil.unpack_archive(zip_file, folder)
     print(" Done")
 
-    print("Deleting archive...", end="")
+    print("Deleting archive...", end="", flush=True)
     os.remove(zip_file)
     print(" Done")
 
