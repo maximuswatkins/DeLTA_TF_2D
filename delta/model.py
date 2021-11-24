@@ -1,9 +1,10 @@
 """
-This file contains model definitions and loss/metrics functions definitions
+Module for model definitions and loss/metrics functions definitions
 
 @author: jblugagne
 """
 from typing import Union, List, Tuple, Callable
+
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import backend as K

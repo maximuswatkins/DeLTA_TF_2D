@@ -1,6 +1,7 @@
 """
-This file contains functions and class definitions that are used in pipeline.py
-A lot of functions are redundant from data.py, but we keep the files separate
+Module for utility functions and class definitions that are used in pipeline.py
+
+A few functions are redundant from data.py, but we keep the files separate
 to minimize the risk of unforeseen bugs.
 
 @author: jblugagne
@@ -18,7 +19,6 @@ import cv2
 import ffmpeg
 import numpy as np
 import numpy.typing as npt
-from scipy.io import savemat
 import matplotlib.cm as cm
 from skimage.morphology import skeletonize
 

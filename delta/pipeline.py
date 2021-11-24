@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jun 23 10:41:45 2021
+Module for the main processing pipeline.
 
 @author: jeanbaptiste
 """

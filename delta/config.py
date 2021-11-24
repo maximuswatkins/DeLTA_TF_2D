@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Feb  5 15:42:05 2021
+Module for configuration files and configuration parameters
 
 @author: jblugagne
 """
@@ -9,8 +9,14 @@ import json as _json
 from warnings import warn as _warn
 from typing import Tuple, Optional
 
-from . import __file__ as delta_init  # Path to __init__ file
+from . import __file__ as _delta_init  # Path to __init__ file
 
+_DELTA_DIR = _os.path.dirname(_delta_init)
+"DeLTA lib install directory"
+_LOADED = None
+"Which config file was loaded"
+
+# Parameters:
 presets: str
 "Type of analysis. Can be '2D', 'mothermachine', or your own custom name for presets"
 models: Tuple[str, ...]
@@ -60,10 +66,6 @@ this value. You can also try to increase it to improve speed"""
 pipeline_track_batch: int
 """If running into OOM issues during tracking with the pipeline, try lowering 
 this value. You can also try to increase it to improve speed"""
-
-_DELTA_DIR = _os.path.dirname(delta_init)
-
-_LOADED = None
 
 """
 IMPORTANT: Do not change the default parameters below. Update the .json files instead if necessary.
