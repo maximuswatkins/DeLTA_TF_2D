@@ -6,6 +6,8 @@ operations.
 """
 from __future__ import print_function
 import numpy as np
+import numpy.typing as npt
+from typing import cast, Tuple, List, Dict, Union, Iterator, Generator, Any, Optional
 import os, glob, re, random, warnings, copy, importlib, cv2
 import skimage.io as io
 import tifffile
@@ -26,37 +28,35 @@ else:
 #%% UTILITIES:
 
 
-def binarizerange(i):
+def binarizerange(array: utils.Image) -> utils.Image:
     """
     This function will binarize a numpy array by thresholding it in the middle
     of its range
 
     Parameters
     ----------
-    i : 2D numpy array
-        Input array/image.
+    array : 2D numpy array
+            Input array/image.
 
     Returns
     -------
     newi : 2D numpy array
-        Binarized image.
+           Binarized image.
 
     """
 
-    newi = i
-    newi[i > (np.amin(i) + np.amax(i)) / 2] = 1
-    newi[i <= (np.amin(i) + np.amax(i)) / 2] = 0
-    return newi
+    threshold = (np.amin(array) + np.amax(array)) / 2
+    return np.array(array > threshold, dtype=array.dtype)
 
 
 def readreshape(
-    filename,
-    target_size=(256, 32),
-    binarize=False,
-    order=1,
-    rangescale=True,
-    crop=False,
-):
+    filename: str,
+    target_size: Tuple[int, int] = (256, 32),
+    binarize: bool = False,
+    order: int = 1,
+    rangescale: bool = True,
+    crop: bool = False,
+) -> npt.NDArray[Any]:
     """
     Read image from disk and format it
 
@@ -122,7 +122,12 @@ def readreshape(
     return img
 
 
-def postprocess(images, square_size=5, min_size=None, crop=False):
+def postprocess(
+    images: npt.NDArray[np.float32],
+    square_size: int = 5,
+    min_size: float = None,
+    crop: bool = False,
+) -> npt.NDArray[np.float32]:
     """
     A generic binary image cleaning function based on mathematical morphology.
 
@@ -133,14 +138,14 @@ def postprocess(images, square_size=5, min_size=None, crop=False):
     square_size : int, optional
         Size of the square structuring element to use for morphological opening
         The default is 5.
-    min_size : int or None, optional
+    min_size : float or None, optional
         Remove objects smaller than this minimum area value. If None, the
         operation is not performed.
         The default is None.
 
     Returns
     -------
-    images : 2D numpy array
+    images : 2D or 3D numpy array
         Cleaned, binarized images. Note that the dimensions are squeezed before
         return (see numpy.squeeze doc)
 
@@ -166,13 +171,18 @@ def postprocess(images, square_size=5, min_size=None, crop=False):
 
 
 #%% DATA AUGMENTATION
-def data_augmentation(images_input, aug_par, order=0, time=0):
+def data_augmentation(
+    images_input: List[npt.NDArray[Any]],
+    aug_par: Dict[str, Any],
+    order: Union[int, List[int], Tuple[int, ...]] = 0,
+    time: Union[int, List[int]] = 0,
+) -> List[npt.NDArray[Any]]:
     """
     Data augmentation function
 
     Parameters
     ----------
-    images_input : list of 2D numpy arrays of floats
+    images_input : list of 2D numpy arrays
         Images to apply augmentation operations to.
     aug_par : dict
         Augmentation operations parameters. Accepted key-value pairs:
@@ -232,43 +242,37 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
 
     Returns
     -------
-    output : list of 2D numpy arrays of floats
+    output : list of 2D numpy arrays
         Augmented images array.
 
     """
 
     # processing inputs / initializing variables::
     output = list(images_input)
-    if np.isscalar(order) or len(order) == 1:
-        orderlist = [order] * len(images_input)
-    else:
-        orderlist = list(order)
+    orderlist = [order] * len(images_input) if isinstance(order, int) else list(order)
 
     # Apply augmentation operations:
 
     if "illumination_voodoo" in aug_par:
         if aug_par["illumination_voodoo"]:
             for index, item in enumerate(output):
-                if (
-                    order[index] > 0
-                ):  # Not super elegant, but tells me if binary or grayscale image
+                # Not super elegant, but tells me if binary or grayscale image
+                if orderlist[index] > 0:
                     output[index] = illumination_voodoo(item)
 
     if "histogram_voodoo" in aug_par:
         if aug_par["histogram_voodoo"]:
             for index, item in enumerate(output):
-                if (
-                    order[index] > 0
-                ):  # Not super elegant, but tells me if binary or grayscale image
+                # Not super elegant, but tells me if binary or grayscale image
+                if orderlist[index] > 0:
                     output[index] = histogram_voodoo(item)
 
     if "gaussian_noise" in aug_par:
         if aug_par["gaussian_noise"]:
             sigma = np.random.rand() * aug_par["gaussian_noise"]
             for index, item in enumerate(output):
-                if (
-                    order[index] > 0
-                ):  # Not super elegant, but tells me if binary or grayscale image
+                # Not super elegant, but tells me if binary or grayscale image
+                if orderlist[index] > 0:
                     item = item + np.random.normal(
                         0, sigma, item.shape
                     )  # Add Gaussian noise
@@ -280,9 +284,8 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
         if aug_par["gaussian_blur"]:
             sigma = np.random.rand() * aug_par["gaussian_blur"]
             for index, item in enumerate(output):
-                if (
-                    order[index] > 0
-                ):  # Not super elegant, but tells me if binary or grayscale image
+                # Not super elegant, but tells me if binary or grayscale image
+                if orderlist[index] > 0:
                     item = cv2.GaussianBlur(item, (5, 5), sigma)  # blur image
                     output[index] = item
 
@@ -291,9 +294,8 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
             output,
             sigma=aug_par["elastic_deformation"]["sigma"],
             points=aug_par["elastic_deformation"]["points"],
-            order=[
-                i * 3 for i in orderlist
-            ],  # Using bicubic interpolation instead of bilinear here
+            # Using bicubic interpolation instead of bilinear here
+            order=[i * 3 for i in orderlist],
             mode="nearest",
             axis=(0, 1),
             prefilter=False,
@@ -313,7 +315,7 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
 
     if "rotations_90d" in aug_par:  # Only works with square images right now!
         if aug_par["rotations_90d"]:
-            rot = random.randint(0, 3) * 90
+            rot = random.randint(0, 3) * 90.0
             if rot > 0:
                 for index, item in enumerate(output):
                     output[index] = trans.rotate(
@@ -327,9 +329,8 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
 
     # Zoom and shift operations are processed together:
     if "zoom" in aug_par:
-        zoom = random.expovariate(
-            3 * 1 / aug_par["zoom"]
-        )  # I want most of them to not be too zoomed
+        # I want most of them to not be too zoomed
+        zoom = random.expovariate(3 * 1 / aug_par["zoom"])
         zoom = aug_par["zoom"] if zoom > aug_par["zoom"] else zoom
     else:
         zoom = 0
@@ -354,7 +355,9 @@ def data_augmentation(images_input, aug_par, order=0, time=0):
     return output
 
 
-def zoomshift(I, zoomlevel, shiftX, shiftY, order=0):
+def zoomshift(
+    I: utils.Image, zoomlevel: float, shiftX: float, shiftY: float, order: int = 0
+) -> utils.Image:
     """
     This function zooms and shifts images.
 
@@ -364,9 +367,9 @@ def zoomshift(I, zoomlevel, shiftX, shiftY, order=0):
         input image.
     zoomlevel : float
         Additional zoom to apply to the image.
-    shiftX : int
+    shiftX : float
         X-axis shift to apply to the image, in pixels.
-    shiftY : int
+    shiftY : float
         Y-axis shift to apply to the image, in pixels.
     order : int, optional
         Interpolation order. The default is 0.
@@ -391,7 +394,9 @@ def zoomshift(I, zoomlevel, shiftX, shiftY, order=0):
     return I
 
 
-def shift(image, vector, order=0):
+def shift(
+    image: utils.Image, vector: Tuple[float, float], order: int = 0
+) -> utils.Image:
     """
     Image shifting function
 
@@ -399,7 +404,7 @@ def shift(image, vector, order=0):
     ----------
     image : 2D numpy array
         Input image.
-    vector : tuple of ints
+    vector : tuple of floats
         Translation/shit vector.
     order : int, optional
         Interpolation order. The default is 0.
@@ -416,7 +421,7 @@ def shift(image, vector, order=0):
     return shifted
 
 
-def histogram_voodoo(image, num_control_points=3):
+def histogram_voodoo(image: utils.Image, num_control_points: int = 3) -> utils.Image:
     """
     This function kindly provided by Daniel Eaton from the Paulsson lab.
     It performs an elastic deformation on the image histogram to simulate
@@ -445,7 +450,7 @@ def histogram_voodoo(image, num_control_points=3):
     return mapping(image)
 
 
-def illumination_voodoo(image, num_control_points=5):
+def illumination_voodoo(image: utils.Image, num_control_points: int = 5) -> utils.Image:
     """
     This function inspired by the one above.
     It simulates a variation in illumination along the length of the chamber
@@ -491,16 +496,16 @@ def illumination_voodoo(image, num_control_points=5):
 
 
 def trainGenerator_seg(
-    batch_size,
-    img_path,
-    mask_path,
-    weight_path,
-    target_size=(256, 32),
-    augment_params={},
-    preload=False,
-    seed=1,
-    crop_windows=False,
-):
+    batch_size: int,
+    img_path: str,
+    mask_path: str,
+    weight_path: Optional[str],
+    target_size: Tuple[int, int] = (256, 32),
+    augment_params: Dict[str, Any] = {},
+    preload: bool = False,
+    seed: int = 1,
+    crop_windows: bool = False,
+) -> Iterator[Tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]]:
     """
     Generator for training the segmentation U-Net.
 
@@ -572,9 +577,9 @@ def trainGenerator_seg(
                         os.path.join(weight_path, os.path.basename(filename)),
                         target_size=target_size,
                         order=0,
+                        rangescale=False,
+                        crop=crop_windows,
                     ),
-                    rangescale=False,
-                    crop=crop_windows,
                 )
 
     # Reset the pseudo-random generator:
@@ -620,8 +625,6 @@ def trainGenerator_seg(
                         rangescale=False,
                         crop=crop_windows,
                     )
-                else:
-                    weight = []
 
             if crop_windows:
                 y0 = np.random.randint(0, img.shape[0] - (target_size[0] - 1))
@@ -633,8 +636,6 @@ def trainGenerator_seg(
                 mask = mask[y0:y1, x0:x1]
                 if weight_path is not None:
                     weight = weight[y0:y1, x0:x1]
-                else:
-                    weight = []
 
             # Data augmentation:
             if weight_path is not None:
@@ -655,7 +656,12 @@ def trainGenerator_seg(
         yield (image_arr, mask_wei_arr)
 
 
-def saveResult_seg(save_path, npyfile, files_list=[], multipage=False):
+def saveResult_seg(
+    save_path: str,
+    npyfile: np.ndarray,
+    files_list: List[str] = [],
+    multipage: bool = False,
+):
     """
     Saves an array of segmentation output images to disk
 
@@ -702,8 +708,11 @@ def saveResult_seg(save_path, npyfile, files_list=[], multipage=False):
 
 
 def predictGenerator_seg(
-    files_path, files_list=None, target_size=(256, 32), crop=False
-):
+    files_path: str,
+    files_list: Union[List[str], Tuple[str, ...]] = None,
+    target_size: Tuple[int, int] = (256, 32),
+    crop: bool = False,
+) -> Iterator[np.ndarray]:
     """
     Get a generator for predicting segmentation on new image files
     once the segmentation U-Net has been trained.
@@ -730,7 +739,11 @@ def predictGenerator_seg(
 
     files_list = files_list or sorted(os.listdir(files_path))
 
-    def generator(files_path, files_list, target_size):
+    def generator(
+        files_path: str,
+        files_list: Union[List[str], Tuple[str, ...]],
+        target_size: Tuple[int, int],
+    ) -> Iterator[np.ndarray]:
         for index, fname in enumerate(files_list):
             img = readreshape(
                 os.path.join(files_path, fname),
@@ -738,9 +751,8 @@ def predictGenerator_seg(
                 order=1,
                 crop=crop,
             )
-            img = np.reshape(
-                img, (1,) + img.shape
-            )  # Tensorflow needs one extra single dimension (so that it is a 4D tensor)
+            # Tensorflow needs one extra single dimension (so that it is a 4D tensor)
+            img = np.reshape(img, (1,) + img.shape)
 
             yield img
 
@@ -748,7 +760,12 @@ def predictGenerator_seg(
     return mygen
 
 
-def seg_weights(mask, classweights=(1, 1), w0=12, sigma=2):
+def seg_weights(
+    mask: utils.SegmentationMask,
+    classweights: Tuple[float, float] = (1, 1),
+    w0: float = 12,
+    sigma: float = 2,
+) -> npt.NDArray[np.float32]:
     """
     This function computes the weight map as described in the original U-Net
     paper to force the model to learn borders
@@ -789,7 +806,7 @@ def seg_weights(mask, classweights=(1, 1), w0=12, sigma=2):
     distance_array = np.sort(distance_array, axis=-1)[:, :, 0:2]
 
     # Compute weights map:
-    weightmap = w0 * np.exp(-np.square(np.sum(distance_array, -1)) / (2 * sigma ^ 2))
+    weightmap = w0 * np.exp(-np.square(np.sum(distance_array, -1)) / (2 * sigma ** 2))
     weightmap = np.multiply(weightmap, mask == 0)
     weightmap = np.add(weightmap, (mask[:, :, 0] == 0) * classweights[0])
     weightmap = np.add(weightmap, (mask[:, :, 0] == 1) * classweights[1])
@@ -797,7 +814,7 @@ def seg_weights(mask, classweights=(1, 1), w0=12, sigma=2):
     return weightmap
 
 
-def kernel(n):
+def kernel(n: int) -> utils.SegmentationMask:
     """
 
 
@@ -816,7 +833,9 @@ def kernel(n):
     return kernel
 
 
-def estimate_seg2D_classweights(mask_path, sample_size=None):
+def estimate_seg2D_classweights(
+    mask_path: str, sample_size: int = None
+) -> Tuple[float, float]:
     """
 
     Parameters
@@ -828,9 +847,9 @@ def estimate_seg2D_classweights(mask_path, sample_size=None):
 
     Returns
     -------
-    class1 : Int
+    class1 : float
         weight of class 1.
-    class2 : Int
+    class2 : float
         weight of class 2.
 
     """
@@ -870,15 +889,17 @@ def estimate_seg2D_classweights(mask_path, sample_size=None):
 
     if c1 > c2:
         class1 = c2 / c1
-        class2 = 1
+        class2 = 1.0
     else:
-        class1 = 1
-        class2 = 1 * c1 / c2
+        class1 = 1.0
+        class2 = 1.0 * c1 / c2
 
     return class1, class2
 
 
-def seg_weights_2D(mask, classweights=(1, 1)):
+def seg_weights_2D(
+    mask: utils.SegmentationMask, classweights: Tuple[int, int] = (1, 1)
+) -> npt.NDArray[np.float32]:
     """
 
     This function computes custom weightmaps designed for bacterial images where borders are difficult to distinguish
@@ -901,7 +922,7 @@ def seg_weights_2D(mask, classweights=(1, 1)):
     if mask.ndim == 3:
         mask = mask[:, :, 0]
     if np.max(mask) == 255:
-        mask = mask / 255
+        mask[mask > 0] = 1
 
     # Extract all pixels that include the cells and it's border
     border = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel(20))
@@ -941,7 +962,7 @@ def seg_weights_2D(mask, classweights=(1, 1)):
     return weightmap
 
 
-def estimateClassweights(gene, num_samples=30):
+def estimateClassweights(gene: Iterator, num_samples: int = 30) -> Tuple[float, ...]:
     """
     Estimate the class weights to use with the weighted
     categorical cross-entropy based on the output of the trainGenerator_track
@@ -983,9 +1004,10 @@ def estimateClassweights(gene, num_samples=30):
     # weight for this class will be set to 0. This is for the tracking case
     # (Where there are only empty daughter images in the training set)
     # Try changing the num_samples value if this is a problem
-    class_weights = [
-        (x / num_samples) ** -1 if x != 0 else 0 for x in class_counts
-    ]  # Normalize by nb of samples and invert to get weigths, unless x == 0 to avoid Infinite weights or errors
+
+    # Normalize by nb of samples and invert to get weigths, unless x == 0 to
+    # avoid Infinite weights or errors
+    class_weights = tuple(num_samples / x if x != 0 else 0 for x in class_counts)
 
     return class_weights
 
@@ -994,19 +1016,19 @@ def estimateClassweights(gene, num_samples=30):
 
 
 def trainGenerator_track(
-    batch_size,
-    img_path,
-    seg_path,
-    previmg_path,
-    segall_path,
-    track_path,
-    weights_path=None,
-    augment_params={},
-    crop_windows=False,
-    target_size=(256, 32),
-    shift_cropbox=0,
-    seed=1,
-):
+    batch_size: int,
+    img_path: str,
+    seg_path: str,
+    previmg_path: str,
+    segall_path: str,
+    track_path: str,
+    weights_path: str = None,
+    augment_params: Dict[str, Any] = {},
+    crop_windows: bool = False,
+    target_size: Tuple[int, int] = (256, 32),
+    shift_cropbox: int = 0,
+    seed: int = 1,
+) -> Iterator[Tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]]:
     """
     Generator for training the tracking U-Net.
 
@@ -1084,8 +1106,10 @@ def trainGenerator_track(
             filename = image_name_arr[index]
 
             # Read images:
-            img = readreshape(filename, target_size=target_size, order=1, crop=True)
-            seg = readreshape(
+            img: utils.Image = readreshape(
+                filename, target_size=target_size, order=1, crop=True
+            )
+            seg: utils.SegmentationMask = readreshape(
                 os.path.join(seg_path, os.path.basename(filename)),
                 target_size=target_size,
                 binarize=True,
@@ -1093,13 +1117,13 @@ def trainGenerator_track(
                 rangescale=False,
                 crop=True,
             )
-            previmg = readreshape(
+            previmg: utils.Image = readreshape(
                 os.path.join(previmg_path, os.path.basename(filename)),
                 target_size=target_size,
                 order=1,
                 crop=True,
             )
-            segall = readreshape(
+            segall: utils.SegmentationMask = readreshape(
                 os.path.join(segall_path, os.path.basename(filename)),
                 target_size=target_size,
                 binarize=True,
@@ -1108,7 +1132,7 @@ def trainGenerator_track(
                 crop=True,
             )
 
-            track = readreshape(
+            track: utils.SegmentationMask = readreshape(
                 os.path.join(track_path, os.path.basename(filename)),
                 target_size=target_size,
                 binarize=True,
@@ -1140,9 +1164,12 @@ def trainGenerator_track(
 
             if crop_windows:
                 cb, fb = utils.gettrackingboxes(seg)
-                shiftY, shiftX = utils.getshiftvalues(shift_cropbox, seg.shape, cb)
+                shape = cast(Tuple[int, int], seg.shape)  # for mypy
+                shiftY, shiftX = utils.getshiftvalues(shift_cropbox, shape, cb)
             else:
-                cb = fb = dict(ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1])
+                cb = fb = utils.CroppingBox(
+                    ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1]
+                )
                 shiftY, shiftX = 0, 0
 
             # Add into arrays:
@@ -1178,19 +1205,33 @@ def trainGenerator_track(
         yield X, Y
 
 
-def getfnfromprototype(prototype, fileorder, position, chamber, frame, cellnb=None):
+def getfnfromprototype(
+    prototype: str,
+    fileorder: str,
+    position: int = None,
+    chamber: int = None,
+    frame: int = None,
+    cellnb: int = None,
+) -> str:
     """
     Generate full filename for specific frame based on file path,
     prototype, fileorder, and filenamesindexing
 
     Parameters
     ----------
-    position : int
+    prototype : str
+        Filename prototype, written in c-style format. See delta.utils.xpreader
+        for more details
+    fileorder : str
+        Filenames ordering. See delta.utils.xpreader for more details
+    position : int, optional
         Position/series index (0-based indexing).
-    channel : int
+    chamber : int, optional
         Imaging chamber index (0-based indexing).
-    frame : int
+    frame : int, optional
         Frame/timepoint index (0-based indexing).
+    cellnb: int, optional
+        Cell index (0-based indexing).
 
     Returns
     -------
@@ -1202,12 +1243,16 @@ def getfnfromprototype(prototype, fileorder, position, chamber, frame, cellnb=No
 
     for i in fileorder:
         if i == "p":
+            assert position is not None
             filenumbers.append(position)
         if i == "c":
+            assert chamber is not None
             filenumbers.append(chamber)
         if i == "t":
+            assert frame is not None
             filenumbers.append(frame)
         if i == "n":
+            assert cellnb is not None
             filenumbers.append(cellnb)
 
     if cellnb is not None:
@@ -1221,8 +1266,16 @@ def getfnfromprototype(prototype, fileorder, position, chamber, frame, cellnb=No
 
 
 def predictCompilefromseg_track(
-    img_path, seg_path, files_list=[], target_size=(256, 32), crop=False
-):
+    img_path: str,
+    seg_path: str,
+    files_list: Union[List[str], Tuple[str, ...]] = [],
+    target_size: Tuple[int, int] = (256, 32),
+    crop: bool = False,
+) -> Tuple[
+    npt.NDArray[np.float32],
+    List[str],
+    List[Tuple[utils.CroppingBox, utils.CroppingBox]],
+]:
     """
     Compile an inputs array for tracking prediction with the tracking U-Net,
     directly from U-Net segmentation masks saved to disk.
@@ -1255,6 +1308,9 @@ def predictCompilefromseg_track(
         Position%02d_Chamber%02d_Frame%03d_Cell%02d.png, with the '_Cell%02d'
         string appended to signal which cell is being seeded/tracked (from top
         to bottom)
+    boxes : list of (dict, dict)
+        Cropping box and fill box to re-place output prediction masks in the
+        original image coordinates.
 
 
     """
@@ -1265,7 +1321,9 @@ def predictCompilefromseg_track(
 
     ind = 0
 
-    numstrs = re.findall(r"\d+", files_list[0])  # Get digits sequences in first filename
+    numstrs = re.findall(
+        r"\d+", files_list[0]
+    )  # Get digits sequences in first filename
     charstrs = re.findall(
         r"\D+", files_list[0]
     )  # Get character sequences in first filename
@@ -1317,6 +1375,7 @@ def predictCompilefromseg_track(
     for index, item in enumerate(files_list):
         filename = os.path.basename(item)
         # Get position, chamber & frame numbers:
+        cha: Optional[int]
         if fileorder == "pct":
             (pos, cha, fra) = list(map(int, re.findall(r"\d+", filename)))
         elif fileorder == "pt":
@@ -1369,9 +1428,10 @@ def predictCompilefromseg_track(
 
                 # Cell-centered crop boxes:
                 if crop:
-                    cb, fb = utils.gettrackingboxes(seg, img.shape)
+                    shape = cast(Tuple[int, int], img.shape)  # for mypy
+                    cb, fb = utils.gettrackingboxes(seg, shape)
                 else:
-                    cb = fb = dict(ytl=None, xtl=None, ybr=None, xbr=None)
+                    cb = fb = utils.CroppingBox(ytl=None, xtl=None, ybr=None, xbr=None)
                 boxes += [(cb, fb)]
 
                 # Current image
@@ -1411,7 +1471,9 @@ def predictCompilefromseg_track(
     return inputs_arr, seg_name_list, boxes
 
 
-def tracking_weights(track, segall, halo_distance=50):
+def tracking_weights(
+    track: np.ndarray, segall: utils.SegmentationMask, halo_distance: int = 50
+) -> npt.NDArray[np.float32]:
     """
     Compute weights for tracking training sets
 
@@ -1434,7 +1496,7 @@ def tracking_weights(track, segall, halo_distance=50):
 
     # Cell escaped / disappeared:
     if np.max(track) == 0:
-        weights = ((segall > 0).astype(np.uint8) * 20) + 1
+        weights = ((segall > 0).astype(np.float32) * 20) + 1
         return weights
 
     # Distance from the tracked cell:
@@ -1466,7 +1528,11 @@ def tracking_weights(track, segall, halo_distance=50):
     return weights
 
 
-def saveResult_track(save_path, npyfile, files_list=None):
+def saveResult_track(
+    save_path: str,
+    npyfile: np.ndarray,
+    files_list: Union[List[str], Tuple[str, ...]] = None,
+):
     """
     Save tracking output masks to disk
 
@@ -1492,7 +1558,7 @@ def saveResult_track(save_path, npyfile, files_list=None):
         if files_list:
             filenameMo = os.path.join(save_path, os.path.basename(files_list[i]))
         else:
-            filenameMo = os.path.join(save_path, "tracking_09d.png" % i)
+            filenameMo = os.path.join(save_path, "tracking_%09d.png" % i)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             io.imsave(filenameMo, (mother * 255).astype(np.uint8))

@@ -8,9 +8,12 @@ Created on Wed Jun 23 10:41:45 2021
 # Modules:
 import time
 import os
+from typing import cast, List, Union, Dict, Optional, Any, Tuple
 
 import cv2
 import numpy as np
+import numpy.typing as npt
+from scipy.io import savemat
 
 from .data import postprocess
 from . import utilities as utils
@@ -23,7 +26,12 @@ class Pipeline:
     """
 
     def __init__(
-        self, xpreader, resfolder=None, on_the_fly=False, reload=False, verbose=1
+        self,
+        xpreader: utils.xpreader,
+        resfolder: str = None,
+        on_the_fly: bool = False,
+        reload: bool = False,
+        verbose: int = 1,
     ):
         """
         Initialize Pipeline
@@ -35,6 +43,8 @@ class Pipeline:
         resfolder : str, optional
             Path to folder to save results to.
             The default is None.
+        on_the_fly : bool, optional
+            TODO
         reload : bool, optional
             Flag to reload previous position files from resfolder.
             The default is False.
@@ -49,11 +59,9 @@ class Pipeline:
 
         super().__init__()
 
-        self.reader = xpreader
+        self.reader: utils.xpreader = xpreader
         "Experiment reader object"
-        self.resfolder = resfolder
-        "Folder to save results to"
-        self.positions = []
+        self.positions: List[Position] = []
         "List of Position objects under current experiment"
         self.rotation_correction = cfg.rotation_correction
         "Flag to perform rotation correction"
@@ -66,20 +74,22 @@ class Pipeline:
         self.daemon = True
         "Run the pipeline as a daemon process (not functional yet)"
 
-        if self.reader.resfolder is not None:
-            self.resfolder = self.reader.resfolder
-
         # Load models:
         self.models = utils.loadmodels()
         "Dictionary of Tensorflow models"
 
         # Create result files folders
-        if self.resfolder is None:
+        if resfolder is not None:
+            self.resfolder = resfolder
+        elif self.reader.resfolder is not None:
+            self.resfolder = self.reader.resfolder
+        else:
             xpfile = self.reader.filename
             if os.path.isdir(xpfile):
                 self.resfolder = os.path.join(xpfile, "delta_results")
             else:
                 self.resfolder = os.path.splitext(xpfile)[0] + "_delta_results"
+
         if not os.path.exists(self.resfolder):
             os.mkdir(self.resfolder)
 
@@ -102,7 +112,12 @@ class Pipeline:
                     os.path.join(self.resfolder, "Position%06d" % (p))
                 )
 
-    def preprocess(self, positions=None, references=None, ROIs="model"):
+    def preprocess(
+        self,
+        positions: List[int] = None,
+        references: np.ndarray = None,
+        ROIs: Optional[str] = "model",
+    ):
         """
         Pre-process positions (Rotation correction, identify ROIs,
         initialize drift correction)
@@ -133,21 +148,23 @@ class Pipeline:
 
         # Process positions to run:
         if positions is None:
-            positions_torun = range(self.reader.positions)
+            positions_torun = list(range(self.reader.positions))
         else:
             positions_torun = positions
-
-        # If no reference images provided, pass Nones:
-        if references is None:
-            references = [None for _ in positions_torun]
 
         # Run preprocessing:
         for p in positions_torun:
             self.positions[p].preprocess(
-                reference=references[p], rotation_correction=self.rotation_correction
+                reference=references[p] if isinstance(references, np.ndarray) else None,
+                rotation_correction=self.rotation_correction,
             )
 
-    def process(self, positions=None, frames=None, features=None):
+    def process(
+        self,
+        positions: List[int] = None,
+        frames: List[int] = None,
+        features: Tuple[str, ...] = None,
+    ):
         """
         Run pipeline.
 
@@ -173,12 +190,13 @@ class Pipeline:
             frames = [f for f in range(self.reader.timepoints)]
 
         if positions is None:
-            positions = range(self.reader.positions)
+            positions = list(range(self.reader.positions))
 
         if features is None:
-            features = ["length", "width", "area", "perimeter", "edges"]
+            features_list = ["length", "width", "area", "perimeter", "edges"]
             for c in range(1, self.reader.channels):
-                features += ["fluo%d" % (c,)]
+                features_list += ["fluo%d" % (c,)]
+            features = tuple(features_list)
 
         # Run through positions:
         for p in positions:
@@ -258,7 +276,12 @@ class Position:
     """
 
     def __init__(
-        self, position_nb, reader, models, drift_correction=True, crop_windows=False
+        self,
+        position_nb: int,
+        reader: utils.xpreader,
+        models: Dict,
+        drift_correction: bool = True,
+        crop_windows: bool = False,
     ):
         """
         Initialize Position
@@ -283,24 +306,24 @@ class Position:
         """
         self.position_nb = position_nb
         "Position index number in the experiment"
-        self.reader = reader
+        self.reader: utils.xpreader = reader
         "Experiment reader object"
         self.models = models
         "List of Tensorflow models"
-        self.rois = []
+        self.rois: List[ROI] = []
         "List of ROI objects under position"
-        self.drift_values = [[], []]
+        self.drift_values: List = [[], []]
         "XY drift correction values over time"
         self.drift_correction = drift_correction
         "Flag to perform drift correction"
-        self.crop_windows = crop_windows
+        self.crop_windows: bool = crop_windows
         "Flag to crop overlapping windows for segmentation"
-        self.verbose = 1
+        self.verbose: int = 1
         "Console output verbosity"
-        self._preprocessed = False
-        self._pickle_skip = ("reader", "models", "_pickle_skip")
+        self._preprocessed: bool = False
+        self._pickle_skip: Tuple[str, ...] = ("reader", "models", "_pickle_skip")
 
-    def __getstate__(self):
+    def __getstate__(self) -> Dict[str, Any]:
         """
         For pickle
 
@@ -311,16 +334,9 @@ class Position:
 
         """
 
-        state = dict()
-        for (k, v) in self.__dict__.items():
-            if k in self._pickle_skip:
-                state[k] = None
-            else:
-                state[k] = v
+        return {k: v for k, v in self.__dict__.items() if k not in self._pickle_skip}
 
-        return state
-
-    def _msg(self, string):
+    def _msg(self, string: str):
         """
         Print timestamped messages
 
@@ -338,7 +354,11 @@ class Position:
         if self.verbose:
             print("%s, Position %d - " % (time.ctime(), self.position_nb) + string)
 
-    def preprocess(self, reference=None, rotation_correction=True):
+    def preprocess(
+        self,
+        reference: utils.Image = None,
+        rotation_correction: Union[float, bool] = True,
+    ):
         """
         Pre-process position (Rotation correction, identify ROIs,
         initialize drift correction)
@@ -349,8 +369,9 @@ class Position:
             Reference image to use to perform pre-processing. If None,
             the first image of each position will be used.
             The default is None.
-        rotation_correction : bool, optional
-            Flag to perform rotation correction. The default is True.
+        rotation_correction : float or bool, optional
+            If bool, flag whether to perform rotation correction.
+            If number, value of rotation correction.  The default is True.
 
         Returns
         -------
@@ -387,7 +408,7 @@ class Position:
             self.rois = [
                 ROI(
                     roi_nb=0,
-                    box=dict(
+                    box=utils.CroppingBox(
                         xtl=0, ytl=0, xbr=reference.shape[1], ybr=reference.shape[0]
                     ),
                     crop_windows=self.crop_windows,
@@ -410,7 +431,7 @@ class Position:
 
         self._preprocessed = True
 
-    def detect_rois(self, reference):
+    def detect_rois(self, reference: utils.Image):
         """
         Use U-Net to detect ROIs (chambers etc...)
 
@@ -447,7 +468,7 @@ class Position:
         for b, box in enumerate(roisboxes):
             self.rois += [ROI(roi_nb=b, box=box, crop_windows=self.crop_windows)]
 
-    def segment(self, frames):
+    def segment(self, frames: List[int]):
         """
         Segment cells in all ROIs in position
 
@@ -486,12 +507,12 @@ class Position:
 
         # Run through frames and ROIs and compile segmentation inputs:
         x = []
-        references = []
+        references: List[Tuple[int, int, int, Optional[Tuple[List, List]]]] = []
         for f, img in enumerate(trans_frames):
             for r, roi in enumerate(self.rois):
                 inputs, windows = roi.get_segmentation_inputs(img)
                 x += [inputs]
-                references += [[r, len(x[-1]), f, windows]]
+                references += [(r, len(x[-1]), f, windows)]
         x = np.concatenate(x)
 
         # Run segmentation model:
@@ -508,7 +529,7 @@ class Position:
             )
             i += ref[1]
 
-    def track(self, frames):
+    def track(self, frames: List[int]):
         """
         Track cells in all ROIs in frames
 
@@ -544,7 +565,7 @@ class Position:
                 inputs, boxes = roi.get_tracking_inputs(frame=f)
                 if inputs is not None:
                     x += [inputs]
-                    references += [[r, len(x[-1]), f, boxes]]
+                    references += [(r, len(x[-1]), f, boxes)]
 
             # Predict:
             if len(x) > 0:
@@ -569,7 +590,15 @@ class Position:
                 i += ref[1]
 
     def features(
-        self, frames, features=("length", "width", "area", "perimeter", "edges")
+        self,
+        frames: List[int],
+        features: Tuple[str, ...] = (
+            "length",
+            "width",
+            "area",
+            "perimeter",
+            "edges",
+        ),
     ):
         """
         Extract features for all ROIs in frames
@@ -578,9 +607,9 @@ class Position:
         ----------
         frames : list of int
             List of frames to run.
-        features : list of str, optional
+        features : list or tuple of str, optional
             List of features to extract.
-            The default is ('length','width','area').
+            The default is ("length", "width", "area", "perimeter", "edges").
 
         Returns
         -------
@@ -631,7 +660,12 @@ class Position:
                     features=features,
                 )
 
-    def save(self, filename=None, frames=None, save_format=("pickle", "movie")):
+    def save(
+        self,
+        filename: str = None,
+        frames: List[int] = None,
+        save_format: Tuple[str, ...] = ("pickle", "movie"),
+    ):
         """
         Save to disk
 
@@ -645,9 +679,9 @@ class Position:
             List of frames to save in movie. If None, all frames are run.
             The default is None.
         save_format : tuple of str, optional
-            Formats to save the data to. Options are 'pickle', 'legacy' (ie
-            Matlab format), and 'movie' for saving an mp4 movie.
-            The default is ('pickle', 'movie').
+            Formats to save the data to. Options are "pickle', 'legacy' (ie
+            Matlab format), and "movie' for saving an mp4 movie.
+            The default is ("pickle', 'movie').
 
         Returns
         -------
@@ -662,7 +696,7 @@ class Position:
 
         if "legacy" in save_format:
             self._msg("Saving to legacy format\n%s" % filename + ".mat")
-            utils.legacysave(self, filename + ".mat")
+            self.legacysave(filename + ".mat")
 
         if "pickle" in save_format:
             self._msg("Saving to pickle format\n%s" % filename + ".pkl")
@@ -673,10 +707,10 @@ class Position:
 
         if "movie" in save_format:
             self._msg("Saving results movie\n%s" % filename + ".mp4")
-            movie = utils.results_movie(self, frames=frames)
+            movie = self.results_movie(frames=frames)
             utils.vidwrite(movie, filename + ".mp4", verbose=False)
 
-    def load(self, filename):
+    def load(self, filename: str):
         """
         Load position from pickle file
 
@@ -691,7 +725,7 @@ class Position:
 
         """
 
-        p = utils.load_position(filename)
+        p = load_position(filename)
 
         for (k, v) in p.__dict__.items():
             if k not in self._pickle_skip:
@@ -713,13 +747,273 @@ class Position:
             if k not in self._pickle_skip:
                 setattr(self, k, None)
 
+    def legacysave(self, res_file: str) -> None:
+        """
+        Save pipeline data in the legacy Matlab format
+
+        Parameters
+        ----------
+        res_file : str
+            Path to save file.
+
+        Returns
+        -------
+        None.
+
+        """
+
+        # File reader info
+        moviedimensions = [
+            self.reader.y,
+            self.reader.x,
+            self.reader.channels,
+            self.reader.timepoints,
+        ]
+        xpfile = self.reader.filename
+
+        # If No ROIs detected for position:
+        if len(self.rois) == 0:
+            savemat(
+                res_file,
+                {
+                    "res": [],
+                    "tiffile": xpfile,
+                    "moviedimensions": moviedimensions,
+                    "proc": {"rotation": self.rotate, "chambers": [], "XYdrift": []},
+                },
+            )
+            return
+
+        # Initialize data structure/dict:
+        data = dict(moviedimensions=moviedimensions, tifffile=xpfile)
+
+        # Proc dict/structure:
+        data["proc"] = dict(
+            rotation=self.rotate,
+            XYdrift=np.array(self.drift_values, dtype=np.float64),
+            chambers=np.array(
+                [
+                    [
+                        r.box["xtl"],
+                        r.box["ytl"],
+                        r.box["xbr"] - r.box["xtl"],
+                        r.box["ybr"] - r.box["ytl"],
+                    ]
+                    for r in self.rois
+                ],
+                dtype=np.float64,
+            ),
+        )
+
+        # Lineages:
+        data["res"] = []
+        for r in self.rois:
+            res: Dict[str, Any] = dict()
+
+            # Resized labels stack: (ie original ROI size)
+            res["labelsstack_resized"] = np.array(r.label_stack, dtype=np.uint16)
+
+            # Not resized stack: (ie U-Net seg target size)
+            label_stack = []
+            for f, cellnbs in enumerate(r.lineage.cellnumbers):
+                label_stack += [
+                    utils.label_seg(r.seg_stack[f], [c + 1 for c in cellnbs])
+                ]
+            res["labelsstack"] = np.array(label_stack, dtype=np.uint16)
+
+            # Run through cells, update to 1-based indexing
+            cells = r.lineage.cells
+            lin: List[Dict[str, Any]] = []
+            for c in cells:
+                lin += [dict()]
+                # Base lineage:
+                lin[-1]["mother"] = c["mother"] + 1 if c["mother"] is not None else 0
+                lin[-1]["frames"] = np.array(c["frames"], dtype=np.float32) + 1
+                lin[-1]["daughters"] = np.array(c["daughters"], dtype=np.float32) + 1
+                lin[-1]["daughters"][np.isnan(lin[-1]["daughters"])] = 0
+                if "edges" in c:
+                    lin[-1]["edges"] = c["edges"]
+                # Morphological features:
+                if "area" in c:
+                    lin[-1]["area"] = np.array(c["area"], dtype=np.float32)
+                if "width" in c:
+                    lin[-1]["width"] = np.array(c["width"], dtype=np.float32)
+                if "length" in c:
+                    lin[-1]["length"] = np.array(c["length"], dtype=np.float32)
+                if "perimeter" in c:
+                    lin[-1]["perimeter"] = np.array(c["perimeter"], dtype=np.float32)
+                # Loop through potential fluo channels:
+                fluo = 0
+                while True:
+                    fluo += 1
+                    fluostr = "fluo%d" % fluo
+                    if fluostr in c:
+                        lin[-1][fluostr] = np.array(c[fluostr], dtype=np.float32)
+                    else:
+                        break
+            # Store into res dict:
+            res["lineage"] = lin
+
+            # Store into data structure:
+            data["res"] += [res]
+
+        # Finally, save to disk:
+        savemat(res_file, data)
+
+    def results_movie(self, frames: List[int] = None) -> Any:
+        """
+        Generate movie illustrating segmentation and tracking
+
+        Parameters
+        ----------
+        frames : list of int or None, optional
+            Frames to generate the movie for. If None, all frames are run.
+            The default is None.
+
+        Returns
+        -------
+        movie : list of 3D numpy arrays
+            List of compiled movie frames
+
+        """
+
+        # Re-read trans frames:
+        trans_frames = self.reader.getframes(
+            positions=self.position_nb,
+            channels=0,
+            frames=frames,
+            rescale=(0, 1),
+            squeeze_dimensions=False,
+            rotate=self.rotate,
+        )
+        trans_frames = trans_frames[0, :, 0]
+        if self.drift_correction:
+            trans_frames, _ = utils.driftcorr(trans_frames, drift=self.drift_values)
+        movie = []
+
+        assert isinstance(frames, list)  # FIXME: what happens if frames is None?
+        # Run through frames, compile movie:
+        for f, fnb in enumerate(frames):
+
+            frame = trans_frames[f]
+
+            # RGB-ify:
+            frame = np.repeat(frame[:, :, np.newaxis], 3, axis=-1)
+
+            # Add frame number text:
+            frame = cv2.putText(
+                frame,
+                text="frame %06d" % (fnb,),
+                org=(int(frame.shape[0] * 0.05), int(frame.shape[0] * 0.97)),
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=1,
+                color=(1, 1, 1, 1),
+                thickness=2,
+            )
+
+            for r, roi in enumerate(self.rois):
+
+                # Get chamber-specific variables:
+                colors = utils.getrandomcolors(len(roi.lineage.cells), seed=r)
+                fr = roi.label_stack[fnb]
+                assert fr is not None  # FIXME: why is it not None?
+                cells, contours = utils.getcellsinframe(fr, return_contours=True)
+                assert isinstance(cells, list)  # needed for mypy on Python < 3.8
+
+                if roi.box is None:
+                    xtl, ytl = (0, 0)
+                else:
+                    xtl, ytl = (roi.box["xtl"], roi.box["ytl"])
+
+                # Run through cells in labelled frame:
+                for c, cell in enumerate(cells):
+
+                    # Draw contours:
+                    frame = cv2.drawContours(
+                        frame,
+                        contours,
+                        c,
+                        color=colors[cell],
+                        thickness=1,
+                        offset=(xtl, ytl),
+                    )
+
+                    # Draw poles:
+                    oldpole = roi.lineage.getvalue(cell, fnb, "old_pole")
+                    assert isinstance(oldpole, np.ndarray)  # for mypy
+                    frame = cv2.drawMarker(
+                        frame,
+                        (oldpole[1] + xtl, oldpole[0] + ytl),
+                        color=colors[cell],
+                        markerType=cv2.MARKER_TILTED_CROSS,
+                        markerSize=3,
+                        thickness=1,
+                    )
+
+                    daughter = roi.lineage.getvalue(cell, fnb, "daughters")
+                    bornago = roi.lineage.cells[cell]["frames"].index(fnb)
+                    mother = roi.lineage.cells[cell]["mother"]
+
+                    if daughter is None and (bornago > 0 or mother is None):
+                        newpole = roi.lineage.getvalue(cell, fnb, "new_pole")
+                        frame = cv2.drawMarker(
+                            frame,
+                            (newpole[1] + xtl, newpole[0] + ytl),
+                            color=[1, 1, 1],
+                            markerType=cv2.MARKER_TILTED_CROSS,
+                            markerSize=3,
+                            thickness=1,
+                        )
+
+                    # Plot division arrow:
+                    if daughter is not None:
+
+                        newpole = roi.lineage.getvalue(cell, fnb, "new_pole")
+                        daupole = roi.lineage.getvalue(daughter, fnb, "new_pole")
+                        # Plot arrow:
+                        frame = cv2.arrowedLine(
+                            frame,
+                            (newpole[1] + xtl, newpole[0] + ytl),
+                            (daupole[1] + xtl, daupole[0] + ytl),
+                            color=(1, 1, 1),
+                            thickness=1,
+                        )
+
+            # Add to movie array:
+            movie += [(frame * 255).astype(np.uint8)]
+
+        return movie
+
+
+def load_position(filename: str) -> Position:
+    """
+    Load position object from pickle file
+
+    Parameters
+    ----------
+    filename : str
+        Path to saved pickle file.
+
+    Returns
+    -------
+    p : pipeline.Position object
+        Reloaded Position object. (without reader and models)
+
+    """
+
+    import pickle
+
+    with open(filename, "rb") as file:
+        p = pickle.load(file)
+    return p
+
 
 class ROI:
     """
     ROI processor object
     """
 
-    def __init__(self, roi_nb, box, crop_windows=False):
+    def __init__(self, roi_nb: int, box: utils.CroppingBox, crop_windows: bool = False):
         """
         Initialize ROI
 
@@ -743,17 +1037,17 @@ class ROI:
         "The ROI index number"
         self.box = box
         "ROI crop box"
-        self.img_stack = []
+        self.img_stack: List[utils.Image] = []
         "Input images stack"
-        self.seg_stack = []
+        self.seg_stack: List[utils.SegmentationMask] = []
         "Segmentation images stack"
         self.lineage = utils.Lineage()
         "Lineage object for ROI"
-        self.label_stack = []
+        self.label_stack: List[Optional[utils.Labels]] = []
         "Labelled images stack"
-        self.crop_windows = crop_windows
+        self.crop_windows: bool = crop_windows
         "Flag to crop overlapping windows for segmentation"
-        self.verbose = 1
+        self.verbose: int = 1
         "Console outputs verbosity"
 
         if crop_windows:
@@ -764,7 +1058,9 @@ class ROI:
                 (box["xbr"] - box["xtl"]) / cfg.target_size_seg[1],
             )
 
-    def get_segmentation_inputs(self, img):
+    def get_segmentation_inputs(
+        self, img: utils.Image
+    ) -> Tuple[np.ndarray, Optional[Tuple[List, List]]]:
         """
         Compile segmentation inputs for ROI
 
@@ -796,17 +1092,19 @@ class ROI:
             windows = (windows_y, windows_x)
             # Shape x to expected format:
             x = x[:, :, :, np.newaxis]
+            return x, windows
+        # Resize to unet input size
+        x = cv2.resize(i, dsize=cfg.target_size_seg[::-1])
+        # Shape x to expected format:
+        x = x[np.newaxis, :, :, np.newaxis]
+        return x, None
 
-        else:
-            # Resize to unet input size
-            x = cv2.resize(i, dsize=cfg.target_size_seg[::-1])
-            windows = None
-            # Shape x to expected format:
-            x = x[np.newaxis, :, :, np.newaxis]
-
-        return x, windows
-
-    def process_segmentation_outputs(self, y, frame=None, windows=None):
+    def process_segmentation_outputs(
+        self,
+        y: npt.NDArray[np.uint8],
+        frame: int = None,
+        windows: Tuple[List, List] = None,
+    ):
         """
         Process outputs after they have been segmented.
 
@@ -842,16 +1140,18 @@ class ROI:
         y = utils.opencv_areafilt(y, min_area=cfg.min_cell_area)
 
         # Append to segmentation results stack:
-        if frame is None:
+        if frame is None or frame == len(self.seg_stack):
             self.seg_stack.append(y)
         else:
-            if len(self.seg_stack) <= frame:
-                self.seg_stack += [
-                    None for _ in range(frame + 1 - len(self.seg_stack))
-                ]  # Extend list
+            assert frame < len(self.seg_stack)
             self.seg_stack[frame] = y
 
-    def get_tracking_inputs(self, frame=None):
+    def get_tracking_inputs(
+        self, frame: int = None
+    ) -> Union[
+        Tuple[np.ndarray, List[Tuple[utils.CroppingBox, utils.CroppingBox]]],
+        Tuple[None, None],
+    ]:
         """
         Compile tracking inputs for ROI
 
@@ -874,7 +1174,7 @@ class ROI:
             cfg.target_size_track[1], cfg.target_size_track[0], 4). If no
             previous cells to track from (e.g. first frame or glitch), None is
             returned.
-        boxes : List of dict or None
+        boxes : List of tuples of 2 dicts or None
             Crop and fill boxes to re-place outputs in the ROI
 
         """
@@ -916,11 +1216,13 @@ class ROI:
         boxes = []
         for c, cell in enumerate(cells):
 
+            draw_offset: Optional[Tuple[float, float]]
             if self.crop_windows:
                 curr_img = self.img_stack[frame]
                 prev_img = self.img_stack[frame - 1]
                 # Cell-centered crop boxes:
-                cb, fb = utils.gettrackingboxes(cell, curr_img.shape)
+                shape = cast(Tuple[int, int], curr_img.shape)  # for mypy
+                cb, fb = utils.gettrackingboxes(cell, shape)
                 draw_offset = (-cb["xtl"] + fb["xtl"], -cb["ytl"] + fb["ytl"])
             else:
                 curr_img = cv2.resize(
@@ -929,7 +1231,7 @@ class ROI:
                 prev_img = cv2.resize(
                     self.img_stack[frame - 1], dsize=cfg.target_size_seg[::-1]
                 )
-                cb = fb = dict(ytl=None, xtl=None, ybr=None, xbr=None)
+                cb = fb = utils.CroppingBox(ytl=None, xtl=None, ybr=None, xbr=None)
                 draw_offset = None
             boxes += [(cb, fb)]
 
@@ -961,7 +1263,12 @@ class ROI:
         # Return tracking inputs and crop and fill boxes:
         return x, boxes
 
-    def process_tracking_outputs(self, y, frame=None, boxes=None):
+    def process_tracking_outputs(
+        self,
+        y: np.ndarray,
+        frame: int = None,
+        boxes: List[Tuple[utils.CroppingBox, utils.CroppingBox]] = None,
+    ):
         """
         Process output from tracking U-Net
 
@@ -974,7 +1281,7 @@ class ROI:
             The frame to process for. If None, the earliest frame not yet
             tracked is run.
             The default is None.
-        boxes : List of dict or None
+        boxes : List of tuples of 2 dicts or None
             Crop and fill boxes to re-place outputs in the ROI
 
         Returns
@@ -988,6 +1295,7 @@ class ROI:
 
         # Get scores and attributions:
         labels = utils.label_seg(self.seg_stack[frame])
+        assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
         scores = utils.getTrackingScores(
             labels, y[:, :, :, 0], boxes=boxes if self.crop_windows else None
         )
@@ -1016,9 +1324,15 @@ class ROI:
 
     def extract_features(
         self,
-        frame=None,
-        fluo_frames=None,
-        features=("length", "width", "area", "perimeter", "edges"),
+        frame: int = None,
+        fluo_frames: np.ndarray = None,
+        features: Tuple[str, ...] = (
+            "length",
+            "width",
+            "area",
+            "perimeter",
+            "edges",
+        ),
     ):
         """
         Extract single cell features
@@ -1033,10 +1347,10 @@ class ROI:
             Fluorescent images to extract fluo from. Dimensions are
             (channels, size_y, size_x).
             The default is None.
-        features : list of str, optional
-            Features to extract. Options are ('length','width','area','fluo1',
-            'fluo2','fluo3'...)
-            The default is ('length','width','area').
+        features : list or tuple of str, optional
+            Features to extract. Options are ("length", "width", "area", "fluo1",
+            "fluo2", "fluo3"...)
+            The default is ("length", "width", "area", "perimeter", "edges").
 
         Returns
         -------
@@ -1050,9 +1364,7 @@ class ROI:
 
         # Add Nones to label stack list if not long enough:
         if len(self.label_stack) <= frame:
-            self.label_stack += [
-                None for _ in range(frame + 1 - len(self.label_stack))
-            ]  # Initialize
+            self.label_stack += [None] * (frame + 1 - len(self.label_stack))
 
         # Compile labels frame:
         if self.label_stack[frame] is None:
@@ -1061,6 +1373,7 @@ class ROI:
             else:
                 cell_nbs = [c + 1 for c in self.lineage.cellnumbers[frame]]
             labels = utils.label_seg(self.seg_stack[frame], cell_nbs)
+            assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
 
             if self.crop_windows:
                 self.label_stack[frame] = labels
@@ -1073,9 +1386,11 @@ class ROI:
                     labels, resize, interpolation=cv2.INTER_NEAREST
                 )
 
+        fr = self.label_stack[frame]
+        assert fr is not None  # for mypy
         # Extract features for all cells in the ROI:
         cells, extracted_features = utils.roi_features(
-            self.label_stack[frame],
+            fr,
             features=features,
             fluo_frames=fluo_frames,
             roi_box=self.box,

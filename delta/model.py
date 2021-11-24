@@ -3,6 +3,7 @@ This file contains model definitions and loss/metrics functions definitions
 
 @author: jblugagne
 """
+from typing import Union, List, Tuple, Callable
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import backend as K
@@ -22,7 +23,9 @@ from tensorflow.keras.optimizers import Adam
 #%% Losses/metrics
 
 
-def pixelwise_weighted_binary_crossentropy_seg(y_true, y_pred):
+def pixelwise_weighted_binary_crossentropy_seg(
+    y_true: tf.Tensor, y_pred: tf.Tensor
+) -> tf.Tensor:
     """
     Pixel-wise weighted binary cross-entropy loss.
     The code is adapted from the Keras TF backend.
@@ -77,7 +80,9 @@ def pixelwise_weighted_binary_crossentropy_seg(y_true, y_pred):
     return loss
 
 
-def pixelwise_weighted_binary_crossentropy_track(y_true, y_pred):
+def pixelwise_weighted_binary_crossentropy_track(
+    y_true: tf.Tensor, y_pred: tf.Tensor
+) -> tf.Tensor:
     """
     Pixel-wise weighted binary cross-entropy loss.
     The code is adapted from the Keras TF backend.
@@ -128,7 +133,9 @@ def pixelwise_weighted_binary_crossentropy_track(y_true, y_pred):
     return loss
 
 
-def class_weighted_categorical_crossentropy(class_weights):
+def class_weighted_categorical_crossentropy(
+    class_weights: Union[List[float], Tuple[float, ...]]
+) -> Callable[[tf.Tensor, tf.Tensor], float]:
     """
     Generate class-weighted categorical cross-entropy loss function.
     The code is adapted from the Keras TF backend.
@@ -146,7 +153,7 @@ def class_weighted_categorical_crossentropy(class_weights):
 
     """
 
-    def loss_function(y_true, y_pred):
+    def loss_function(y_true: tf.Tensor, y_pred: tf.Tensor) -> float:
 
         # scale preds so that the class probas of each sample sum to 1
         y_pred /= tf.reduce_sum(y_pred, -1, True)
@@ -165,7 +172,7 @@ def class_weighted_categorical_crossentropy(class_weights):
     return loss_function
 
 
-def unstack_acc(y_true, y_pred):
+def unstack_acc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     """
     Unstacks the mask from the weights in the output tensor for
     segmentation and computes binary accuracy
@@ -196,7 +203,11 @@ def unstack_acc(y_true, y_pred):
 
 #%% Models
 # Generic unet declaration:
-def unet(input_size=(256, 32, 1), final_activation="sigmoid", output_classes=1):
+def unet(
+    input_size: Tuple[int, int, int] = (256, 32, 1),
+    final_activation: str = "sigmoid",
+    output_classes: int = 1,
+) -> Model:
     """
     Generic U-Net declaration.
 
@@ -279,7 +290,9 @@ def unet(input_size=(256, 32, 1), final_activation="sigmoid", output_classes=1):
 
 
 # Use the following model for segmentation:
-def unet_seg(pretrained_weights=None, input_size=(256, 32, 1)):
+def unet_seg(
+    pretrained_weights: str = None, input_size: Tuple[int, int, int] = (256, 32, 1)
+) -> Model:
     """
     Cell segmentation U-Net definition function.
 
@@ -314,7 +327,9 @@ def unet_seg(pretrained_weights=None, input_size=(256, 32, 1)):
 
 
 # Use the following model for tracking and lineage reconstruction:
-def unet_track(pretrained_weights=None, input_size=(256, 32, 4)):
+def unet_track(
+    pretrained_weights: str = None, input_size: Tuple[int, int, int] = (256, 32, 4)
+) -> Model:
     """
     Tracking U-Net definition function.
 
@@ -349,7 +364,7 @@ def unet_track(pretrained_weights=None, input_size=(256, 32, 4)):
 
 
 # Use the following model for segmentation:
-def unet_rois(input_size=(512, 512, 1)):
+def unet_rois(input_size: Tuple[int, int, int] = (512, 512, 1)) -> Model:
     """
     ROIs segmentation U-Net.
 

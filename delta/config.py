@@ -7,8 +7,59 @@ Created on Fri Feb  5 15:42:05 2021
 import os as _os
 import json as _json
 from warnings import warn as _warn
+from typing import Tuple, Optional
 
 from . import __file__ as delta_init  # Path to __init__ file
+
+presets: str
+"Type of analysis. Can be '2D', 'mothermachine', or your own custom name for presets"
+models: Tuple[str, ...]
+"Which models will be run"
+model_file_rois: str
+"Model file for ROIs segmentation"
+model_file_seg: str
+"Model file for cell segmentation"
+model_file_track: str
+"Model file for cell tracking"
+target_size_rois: Tuple[int, int]
+"ROI U-Net target/input image size"
+target_size_seg: Tuple[int, int]
+"segmentation U-Net target/input image size"
+target_size_track: Tuple[int, int]
+"tracking U-Net target/input image size"
+training_set_rois: str
+"Path to ROIs U-Net training set"
+training_set_seg: str
+"Path to segmentation training set"
+training_set_track: str
+"Path to tracking training set"
+eval_movie: str
+"Path to evaluation movie / image sequence"
+rotation_correction: bool
+"Flag to try to automatically correct image rotation (for microfluidic devices)"
+drift_correction: bool
+"Flag to correct drift over time (for microfluidic devices / ROIs)"
+crop_windows: bool
+"Flag to crop input image into windows of size target_size_seg for segmentation, otherwise resize them"
+min_roi_area: float
+"Minimum area of detected ROIs, in pixels. Can be set to 0. (N/A for 2D)"
+whole_frame_drift: bool
+"If correcting for drift, use the entire frame instead of the region above the chambers"
+min_cell_area: float
+"Minimum area of detected cells, in pixels. Can be set to 0"
+save_format: Tuple[str, ...]
+"Format to save output data to"
+TF_CPP_MIN_LOG_LEVEL: str
+"Debugging messages level from Tensorflow ('0' = most verbose to '3' = not verbose)"
+memory_growth_limit: Optional[float]
+"""If running into OOM issues or having trouble with cuDNN loading, try setting 
+memory_growth_limit to a value in MB: (eg 1024, 2048...)"""
+pipeline_seg_batch: int
+"""If running into OOM issues during segmentation with the pipeline, try lowering 
+this value. You can also try to increase it to improve speed"""
+pipeline_track_batch: int
+"""If running into OOM issues during tracking with the pipeline, try lowering 
+this value. You can also try to increase it to improve speed"""
 
 _DELTA_DIR = _os.path.dirname(delta_init)
 
@@ -71,7 +122,7 @@ _DEFAULTS_mothermachine = dict(
 )
 
 
-def load_config(json_file=None, presets="2D", config_level=None):
+def load_config(json_file: str = None, presets: str = "2D", config_level: str = None):
     """
     Loads json configuration files
 
@@ -191,7 +242,7 @@ def load_config(json_file=None, presets="2D", config_level=None):
                 print(e)
 
 
-def _read_json(json_file):
+def _read_json(json_file: str):
 
     # Load file:
     print("Loading configuration from: %s" % json_file)
@@ -200,7 +251,7 @@ def _read_json(json_file):
 
     # Type cast:
     for k, v in variables.items():
-        if type(v) == list:
+        if isinstance(v, list):
             variables[k] = tuple(v)  # Always use tuples, not lists in config
 
     return variables

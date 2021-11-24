@@ -12,21 +12,49 @@ import time
 import sys
 import importlib
 from threading import Thread
+from typing import cast, Tuple, List, Optional, Union, Any, Dict
 
 import cv2
 import ffmpeg
 import numpy as np
+import numpy.typing as npt
 from scipy.io import savemat
 import matplotlib.cm as cm
 from skimage.morphology import skeletonize
 
 from . import config as cfg
 
+Image = npt.NDArray[np.float32]
+
+Contour = np.ndarray
+
+Labels = npt.NDArray[np.uint16]
+
+SegmentationMask = npt.NDArray[np.uint8]
+
+Pole = npt.NDArray[np.uint16]
+
+# TODO: properly type this
+class CroppingBox(Dict):
+    xtl: Any
+    ytl: Any
+    xbr: Any
+    ybr: Any
+
+
+class Cell(Dict):
+    id: int
+    mother: Optional[int]
+    frames: List[int]
+    daughters: List[Optional[int]]
+    new_pole: List[Optional[Pole]]
+    old_pole: List[Optional[Pole]]
+
 
 #%% Image correction
 
 
-def rangescale(frame, rescale):
+def rangescale(frame: Image, rescale: Tuple[float, float]) -> Image:
     """
     Rescale image values to be within range
 
@@ -51,7 +79,7 @@ def rangescale(frame, rescale):
     return frame
 
 
-def deskew(image):
+def deskew(image: Image) -> float:
     """
     Compute rotation angle of chambers in image for rotation correction.
     From: https://gist.github.com/panzerama/beebb12a1f9f61e1a7aa8233791bc253
@@ -106,7 +134,7 @@ def deskew(image):
     return rotation_number
 
 
-def imrotate(frame, rotate):
+def imrotate(frame: npt.NDArray[Any], rotate: float) -> npt.NDArray[Any]:
     """
     Rotate image
 
@@ -190,7 +218,7 @@ def driftcorr(img, template=None, box=None, drift=None):
             _, _, _, max_loc = cv2.minMaxLoc(res)
             ycorr[i] = max_loc[0] - res.shape[1] / 2
             xcorr[i] = max_loc[1] - res.shape[0] / 2
-        T = np.float32([[1, 0, -ycorr[i]], [0, 1, -xcorr[i]]])
+        T = np.array([[1, 0, -ycorr[i]], [0, 1, -xcorr[i]]], dtype=np.float32)
         img[i] = cv2.warpAffine(img[i], T, img.shape[3:0:-1])
 
     if twoDflag:
@@ -199,7 +227,9 @@ def driftcorr(img, template=None, box=None, drift=None):
         return img, (xcorr, ycorr)
 
 
-def getDriftTemplate(chamberboxes, img, whole_frame=False):
+def getDriftTemplate(
+    chamberboxes: List[CroppingBox], img: Image, whole_frame: bool = False
+) -> Optional[Image]:
     """
     This function retrieves a region above the chambers to use as drift template
 
@@ -228,7 +258,7 @@ def getDriftTemplate(chamberboxes, img, whole_frame=False):
         round(i * 0.025) for i in img.shape
     ]  # Cutting out 2.5% of the image on eahc side as drift margin
 
-    box = dict(
+    box = CroppingBox(
         xtl=x_cut,
         xbr=-x_cut,
         ytl=y_cut,
@@ -240,7 +270,9 @@ def getDriftTemplate(chamberboxes, img, whole_frame=False):
     return cropbox(img, box)
 
 
-def opencv_areafilt(I, min_area=20, max_area=None):
+def opencv_areafilt(
+    I: SegmentationMask, min_area: Optional[float] = 20, max_area: float = None
+) -> SegmentationMask:
     """
     Area filtering using openCV instead of skimage
 
@@ -248,10 +280,10 @@ def opencv_areafilt(I, min_area=20, max_area=None):
     ----------
     I : 2D array
         Segmentation mask.
-    min_area : int or None, optional
+    min_area : float or None, optional
         Minimum object area.
         The default is 20
-    max_area : int or None, optional
+    max_area : float or None, optional
         Maximum object area.
         The default is None.
 
@@ -284,7 +316,7 @@ def opencv_areafilt(I, min_area=20, max_area=None):
 #%% Image cropping & stitching
 
 
-def cropbox(img, box):
+def cropbox(img: npt.NDArray[Any], box: Optional[CroppingBox]) -> npt.NDArray[Any]:
     """
     Crop image
 
@@ -292,7 +324,7 @@ def cropbox(img, box):
     ----------
     img : 2D numpy array
         Image to crop.
-    box : Dictionary
+    box : Dictionary or None
         Dictionary describing the box to cut out, containing the following
         elements:
             - 'xtl': Top-left corner X coordinate.
@@ -312,7 +344,9 @@ def cropbox(img, box):
         return img[box["ytl"] : box["ybr"], box["xtl"] : box["xbr"]]
 
 
-def create_windows(img, target_size=(512, 512), min_overlap=24):
+def create_windows(
+    img: Image, target_size: Tuple[int, int] = (512, 512), min_overlap: int = 24
+) -> Tuple[npt.NDArray[np.float32], List[Tuple[int, int]], List[Tuple[int, int]]]:
     """
     Crop input image into windows of set size.
 
@@ -399,7 +433,11 @@ def create_windows(img, target_size=(512, 512), min_overlap=24):
     return windows, loc_y, loc_x
 
 
-def stitch_pic(results, loc_y, loc_x):
+def stitch_pic(
+    results: npt.NDArray[Any],
+    loc_y: List[Tuple[int, int]],
+    loc_x: List[Tuple[int, int]],
+) -> npt.NDArray[Any]:
     """
     Stitch segmentation back together from the windows of create_windows()
 
@@ -457,7 +495,11 @@ def stitch_pic(results, loc_y, loc_x):
     return stitch
 
 
-def gettrackingboxes(cell, frame_shape=None, target_size=None):
+def gettrackingboxes(
+    cell: npt.NDArray[np.uint8],
+    frame_shape: Tuple[int, int] = None,
+    target_size: Tuple[int, int] = None,
+) -> Tuple[CroppingBox, CroppingBox]:
     """
     Get a crop box and a fill box around a cell that fits the tracking target
     size
@@ -487,7 +529,7 @@ def gettrackingboxes(cell, frame_shape=None, target_size=None):
     """
 
     if frame_shape is None:
-        frame_shape = cell.shape
+        frame_shape = cast(Tuple[int, int], cell.shape)  # for mypy
 
     if target_size is None:
         target_size = cfg.target_size_track
@@ -500,7 +542,7 @@ def gettrackingboxes(cell, frame_shape=None, target_size=None):
     ytl = int(max(cy - target_size[0] / 2, 0))
     ybr = int(min(cy + target_size[0] / 2, frame_shape[0]))
 
-    cropbox = {"xtl": xtl, "ytl": ytl, "xbr": xbr, "ybr": ybr}
+    cropbox = CroppingBox({"xtl": xtl, "ytl": ytl, "xbr": xbr, "ybr": ybr})
 
     xtl = int(max(target_size[1] / 2 - cx, 0))
     xbr = int(min(target_size[1] / 2 + frame_shape[1] - cx, target_size[1]))
@@ -508,12 +550,14 @@ def gettrackingboxes(cell, frame_shape=None, target_size=None):
     ytl = int(max(target_size[0] / 2 - cy, 0))
     ybr = int(min(target_size[0] / 2 + frame_shape[0] - cy, target_size[0]))
 
-    fillbox = {"xtl": xtl, "ytl": ytl, "xbr": xbr, "ybr": ybr}
+    fillbox = CroppingBox({"xtl": xtl, "ytl": ytl, "xbr": xbr, "ybr": ybr})
 
     return cropbox, fillbox
 
 
-def getshiftvalues(shift, img_shape, cb):
+def getshiftvalues(
+    shift: int, img_shape: Tuple[int, int], cb: CroppingBox
+) -> Tuple[int, int]:
     """
 
     Parameters
@@ -548,7 +592,7 @@ def getshiftvalues(shift, img_shape, cb):
 #%% Masks, labels, objects identification
 
 
-def find_contours(mask):
+def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
     """
     wrapper for CV2's findContours() because it
     keeps changing signatures
@@ -574,7 +618,7 @@ def find_contours(mask):
     return contours
 
 
-def getROIBoxes(chambersmask):
+def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
     """
     Extract the bounding boxes of the chambers in the binary mask
     produced by the chambers identification unet
@@ -601,7 +645,7 @@ def getROIBoxes(chambersmask):
     for chamber in contours:
         xtl, ytl, boxwidth, boxheight = cv2.boundingRect(chamber)
         chamberboxes.append(
-            dict(
+            CroppingBox(
                 xtl=xtl,
                 ytl=int(
                     ytl - (boxheight * 0.1)
@@ -615,8 +659,48 @@ def getROIBoxes(chambersmask):
     )  # Sorting by top-left X (normally sorted by Y top left)
     return chamberboxes
 
+    #### These prototypes help mypy understand the return type of the function
+    #    but can only be used from Python 3.8 because of typing.Literal
+    #
+    #
+    # @overload
+    # def label_seg(
+    #     seg: SegmentationMask,
+    #     cellnumbers: List[int],
+    #     return_contours: Literal[True],
+    #     background: int = 0,
+    # ) -> Tuple[Labels, List[Contour]]:
+    #     ...
+    #
+    #
+    # @overload
+    # def label_seg(
+    #     seg: SegmentationMask,
+    #     cellnumbers: List[int] = None,
+    #     *,
+    #     return_contours: Literal[True],
+    #     background: int = 0
+    # ) -> Tuple[Labels, List[Contour]]:
+    #     ...
+    #
+    #
+    # @overload
+    # def label_seg(
+    #     seg: SegmentationMask,
+    #     cellnumbers: List[int] = None,
+    #     *,
+    #     return_contours: Literal[False] = False,
+    #     background: int = 0
+    # ) -> Labels:
+    ...
 
-def label_seg(seg, cellnumbers=None, return_contours=False, background=0):
+
+def label_seg(
+    seg: SegmentationMask,
+    cellnumbers: List[int] = None,
+    return_contours: bool = False,
+    background: int = 0,
+) -> Union[Labels, Tuple[Labels, List[Contour]]]:
     """
     Label cells in segmentation mask
 
@@ -635,6 +719,8 @@ def label_seg(seg, cellnumbers=None, return_contours=False, background=0):
     label : 2D numpy array of uint16
         Labelled image. Each cell in the image is marked by adjacent pixels
         with values given by cellnumbers
+    contours : list
+        List of cv2 contours for each cell. Returned if return_contours==True.
 
     """
     if seg.dtype == bool:
@@ -654,7 +740,27 @@ def label_seg(seg, cellnumbers=None, return_contours=False, background=0):
         return label
 
 
-def getcellsinframe(labels, return_contours=False, background=0):
+#### These prototypes help mypy understand the return type of the function
+#    but can only be used from Python 3.8 because of typing.Literal
+#
+#
+# @overload
+# def getcellsinframe(
+#     labels: Labels, return_contours: Literal[True], background: int = 0
+# ) -> Tuple[List[int], List[Contour]]:
+#     ...
+#
+#
+# @overload
+# def getcellsinframe(
+#     labels: Labels, return_contours: Literal[False] = False, background: int = 0
+# ) -> List[int]:
+#     ...
+
+
+def getcellsinframe(
+    labels: Labels, return_contours: bool = False, background: int = 0
+) -> Union[List[int], Tuple[List[int], List[Contour]]]:
     """
     Get numbers of cells present in frame, sorted along Y axis
 
@@ -692,7 +798,7 @@ def getcellsinframe(labels, return_contours=False, background=0):
         return cells
 
 
-def getcentroid(contour):
+def getcentroid(contour: np.ndarray) -> Tuple[int, int]:
     """
     Get centroid of cv2 contour
 
@@ -729,7 +835,9 @@ def getcentroid(contour):
 #%% Poles
 
 
-def getpoles(seg, labels=None, scaling=None):
+def getpoles(
+    seg: SegmentationMask, labels: Labels = None, scaling: Tuple[float, float] = None
+) -> List[Tuple[Pole, Pole]]:
     """
     Get cell poles
 
@@ -740,6 +848,9 @@ def getpoles(seg, labels=None, scaling=None):
     labels : 2D array of int, optional
         Cell labels map. If None, label_seg() will be applied to seg
         The default is None.
+    scaling : tuple of floats, optional
+        Scaling to apply in both directions to rescale poles' positions to
+        original image size (if resizing was applied)
 
     Returns
     -------
@@ -750,30 +861,40 @@ def getpoles(seg, labels=None, scaling=None):
 
     # No label provided:
     if labels is None:
-        labels = label_seg(seg)
+        lbls = label_seg(seg)
+        assert isinstance(lbls, np.ndarray)  # needed for mypy on Python < 3.8
+        labels = lbls
 
     # Get poles using skeleton method:
     skel = skeletonize(seg, method="lee")
     ends_map = skeleton_poles(skel)
     poles = extract_poles(ends_map, labels)
 
+    clean_poles = []
+
     # Make sure cells have 2 poles each:
     for p in range(len(poles)):
-        if len(poles[p]) > 2:
-            poles[p] = two_poles(poles[p])
         if len(poles[p]) < 2:  # Sometimes skeletonize fails
-            poles[p] = extrema_poles(labels == p + 1, scaling=scaling)
+            clean_poles.append(extrema_poles(labels == p + 1, scaling=scaling))
+        elif len(poles[p]) == 2:
+            clean_poles.append((poles[p][0], poles[p][1]))
+        else:
+            clean_poles.append(two_poles(poles[p]))
 
     # Apply scaling:
     if scaling:
-        for c in poles:
-            for p in c:
-                p[:] = [int(yx * scale) for yx, scale in zip(p, scaling)]
+        clean_poles = [
+            (
+                np.round(p1 * scaling).astype(np.uint16),
+                np.round(p2 * scaling).astype(np.uint16),
+            )
+            for p1, p2 in clean_poles
+        ]
 
-    return poles
+    return clean_poles
 
 
-def skeleton_poles(skel):
+def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
     """
     This function was adapted from stackoverflow
     #https://stackoverflow.com/questions/26537313/how-can-i-find-endpoints-of-binary-skeleton-image-in-opencv
@@ -783,29 +904,30 @@ def skeleton_poles(skel):
     Parameters
     ----------
     skel : 2D numpy array of bool
-        Contains skeletons of single cells from the segmentation
+        Contains skeletons of single cells from the segmentation.
 
     Returns
     -------
-    out : 2D numpy array
-        Contains the poles of the skeletons from the input (skel).
+    out : 2D numpy array of bool
+        Contains True at the poles of the skeletons from the input.
 
     """
+    # create an integer array from the boolean one
+    skel_uint8 = np.array(skel, dtype=np.uint8)
 
     # apply the convolution
-    kernel = np.uint8([[1, 1, 1], [1, 10, 1], [1, 1, 1]])
-    src_depth = -1
-    filtered = cv2.filter2D(skel, src_depth, kernel)
+    kernel = np.array([[1, 1, 1], [1, 10, 1], [1, 1, 1]], dtype=np.uint8)
+    ddepth = -1  # same depth as the source
+    filtered = cv2.filter2D(skel_uint8, ddepth, kernel, borderType=cv2.BORDER_ISOLATED)
 
     # now look through to find the value of 11
     # this returns a mask of the poles
-    out = np.zeros_like(skel)
-    out[np.where(filtered == 11)] = 1
-
-    return out
+    return filtered == 11
 
 
-def extrema_poles(cellmask, scaling=None):
+def extrema_poles(
+    cellmask: SegmentationMask, scaling: Tuple[float, float] = None
+) -> Tuple[Pole, Pole]:
     """
     A slower and more rudimentary version of poles finding but that is
     guaranteed to find exactly 2 poles
@@ -817,8 +939,8 @@ def extrema_poles(cellmask, scaling=None):
 
     Returns
     -------
-    poles : list of 2 1D arrays
-        List of two poles, each being a 2-element array of y-x coordinates.
+    poles : tuple of 2 1D arrays
+        Two poles, each being a 2-element array of y-x coordinates.
 
     """
 
@@ -829,12 +951,12 @@ def extrema_poles(cellmask, scaling=None):
         i = np.lexsort((x, y))
     else:  # Horizontal cell
         i = np.lexsort((y, x))
-    poles = [np.array((y[i[0]], x[i[0]])), np.array((y[i[-1]], x[i[-1]]))]
+    poles = (np.array((y[i[0]], x[i[0]])), np.array((y[i[-1]], x[i[-1]])))
 
     return poles
 
 
-def two_poles(poles):
+def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
     """
     Sometimes the skeleton produces more than 2 poles.
     Thus function selects only 2 poles in the skeleton.
@@ -848,12 +970,12 @@ def two_poles(poles):
 
     Returns
     -------
-    poles : List of 2 1D array
-        List of two poles, each being a 2-element array of y-x coordinates.
+    poles : tuple of 2 1D arrays
+        Two poles, each being a 2-element array of y-x coordinates.
 
     """
 
-    dist = 0
+    dist = 0.0
     # Measure the distance from the first endpoint to all the other poles
     for i in range(1, len(poles)):
         d = eucl(poles[0], poles[i])
@@ -862,7 +984,7 @@ def two_poles(poles):
             i_max = i
 
     # Redo the same thing starting from the furthest endpoint:
-    dist = 0
+    dist = 0.0
     for j in range(len(poles)):
         if j != i_max:  # skip same point
             d = eucl(poles[i_max], poles[j])
@@ -870,10 +992,10 @@ def two_poles(poles):
                 dist = d
                 j_max = j
 
-    return [poles[i_max], poles[j_max]]
+    return (poles[i_max], poles[j_max])
 
 
-def extract_poles(end_img, labels):
+def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> List[List[Pole]]:
     """
     Extract poles per cell from ends image
 
@@ -886,13 +1008,13 @@ def extract_poles(end_img, labels):
 
     Returns
     -------
-    poles : list of tuples of 2 1D numpy arrays
-        For each cell, tuple of 2 numpy arrays with the y-x coordinates
-        of the poles.
+    poles : list of tuples of 1D numpy arrays
+        For each cell, list of numpy arrays with the y-x coordinates
+        of the poles.  In principle, each list has two poles but sometimes not.
 
     """
     locations = end_img.nonzero()
-    poles = [[] for _ in range(np.max(labels))]
+    poles: List[List[Pole]] = [[] for _ in range(np.max(labels))]
     for p in range(len(locations[0])):
 
         cell = labels[locations[0][p], locations[1][p]] - 1
@@ -901,7 +1023,7 @@ def extract_poles(end_img, labels):
     return poles
 
 
-def eucl(p1, p2):
+def eucl(p1: npt.NDArray[Any], p2: npt.NDArray[Any]) -> float:
     """
     Euclidean point to point distance
 
@@ -924,7 +1046,11 @@ def eucl(p1, p2):
 #%% Lineage
 
 
-def getTrackingScores(labels, outputs, boxes=None):
+def getTrackingScores(
+    labels: Labels,
+    outputs: npt.NDArray[np.float32],
+    boxes: List[Tuple[CroppingBox, CroppingBox]] = None,
+) -> Optional[npt.NDArray[np.float32]]:
     """
     Get overlap scores between input/target cells and tracking outputs
 
@@ -935,10 +1061,13 @@ def getTrackingScores(labels, outputs, boxes=None):
         tracking against. (ie segmentation mask of the 'current'/'new' frame)
     outputs : 4D array of floats
         Tracking U-Net output.
+    boxes : list of dict, optional
+        Cropping box and fill box to re-place output prediction masks in the
+        original coordinates to index the labels frame.
 
     Returns
     -------
-    scores : 2D array of floats
+    scores : 2D array of floats, or None
         Overlap scores matrix between tracking predictions and current
         segmentation mask for each new-old cell.
 
@@ -998,7 +1127,7 @@ def getTrackingScores(labels, outputs, boxes=None):
     return scores
 
 
-def getAttributions(scores):
+def getAttributions(scores: npt.NDArray[np.float32]) -> npt.NDArray[np.bool_]:
     """
     Get attribution matrix from tracking scores
 
@@ -1062,7 +1191,13 @@ class Lineage:
         self.cellnumbers = []
         "List of cells present in FOV at each timepoint"
 
-    def update(self, cell, frame, attrib=[], poles=[]):
+    def update(
+        self,
+        cell: Optional[int],
+        frame: int,
+        attrib: List[int] = [],
+        poles: List[Tuple[Pole, Pole]] = [],
+    ) -> None:
         """
         Attribute cell from previous frame to cell(s) in new frame.
 
@@ -1076,7 +1211,7 @@ class Lineage:
         attrib : list of int, optional
             Cell index(es) in current frame to attribute the previous cell to.
             The default is [].
-        poles : list of lists of 1D numpy arrays, optional
+        poles : list of tuples of 2 1D numpy arrays, optional
             List of poles for the cells in the new frame.
             The default is [].
 
@@ -1098,8 +1233,10 @@ class Lineage:
 
         # If no attribution: (new/orphan cell)
         if cell is None and len(attrib) > 0:
-            poles[0].sort(key=lambda p: p[0], reverse=True)
-            cellnum = self.createcell(frame, new_pole=poles[0][0], old_pole=poles[0][1])
+            new_pole, old_pole = sorted(
+                list(poles[0]), key=lambda p: p[0], reverse=True
+            )
+            cellnum = self.createcell(frame, new_pole=new_pole, old_pole=old_pole)
             self.cellnumbers[frame][attrib[0]] = cellnum
 
         # Simple tracking event:
@@ -1109,6 +1246,8 @@ class Lineage:
             # Poles of mother/previous/old cell:
             prev_old = self.getvalue(cellnum, frame - 1, "old_pole")
             prev_new = self.getvalue(cellnum, frame - 1, "new_pole")
+            assert isinstance(prev_old, np.ndarray)  # for mypy
+            assert isinstance(prev_new, np.ndarray)  # for mypy
             # Find which pole is new vs old:
             if eucl(poles[0][0], prev_old) + eucl(poles[0][1], prev_new) < eucl(
                 poles[0][0], prev_new
@@ -1127,6 +1266,8 @@ class Lineage:
             # Poles of mother/previous/old cell:
             prev_old = self.getvalue(mothernum, frame - 1, "old_pole")
             prev_new = self.getvalue(mothernum, frame - 1, "new_pole")
+            assert isinstance(prev_old, np.ndarray)  # for mypy
+            assert isinstance(prev_new, np.ndarray)  # for mypy
             # Find new new poles (2 closest of the poles of the new cells):
             min_dist = np.inf
             for c1 in range(2):
@@ -1180,7 +1321,13 @@ class Lineage:
                 )
                 self.cellnumbers[frame][attrib[1]] = mothernum
 
-    def createcell(self, frame, new_pole=None, old_pole=None, mother=None):
+    def createcell(
+        self,
+        frame: int,
+        new_pole: Pole = None,
+        old_pole: Pole = None,
+        mother: int = None,
+    ) -> int:
         """
         Create cell to append to lineage list
 
@@ -1188,6 +1335,10 @@ class Lineage:
         ----------
         frame : int
             Frame that the cell first appears (1-based indexing).
+        new_pole : tuple of int, optional
+            Coordinates of the new pole
+        old_pole : tuple of int, optional
+            Coordinates of the old pole
         mother : int or None, optional
             Number of the mother cell in the lineage (1-based indexing).
             The default is None. (ie unknown mother)
@@ -1199,19 +1350,28 @@ class Lineage:
 
         """
 
-        new_cell = {
-            "id": len(self.cells),
-            "mother": mother,
-            "frames": [frame],
-            "daughters": [None],
-            "new_pole": [new_pole],
-            "old_pole": [old_pole],
-        }
+        new_cell = Cell(
+            {
+                "id": len(self.cells),
+                "mother": mother,
+                "frames": [frame],
+                "daughters": [None],
+                "new_pole": [new_pole],
+                "old_pole": [old_pole],
+            }
+        )
         self.cells.append(new_cell)
 
         return new_cell["id"]
 
-    def updatecell(self, cell, frame, daughter=None, new_pole=None, old_pole=None):
+    def updatecell(
+        self,
+        cell: int,
+        frame: int,
+        daughter: int = None,
+        new_pole: Pole = None,
+        old_pole: Pole = None,
+    ) -> None:
         """
         Update cell lineage values
 
@@ -1240,7 +1400,9 @@ class Lineage:
         self.cells[cell]["old_pole"] += [old_pole]
         self.cells[cell]["new_pole"] += [new_pole]
 
-    def setvalue(self, cell, frame, feature, value):
+    def setvalue(
+        self, cell: int, frame: int, feature: str, value: Union[int, float, str]
+    ) -> None:
         """
         Set feature value for specific cell and frame/timepoint
 
@@ -1272,16 +1434,16 @@ class Lineage:
             raise ValueError("Cell %d is not present in frame %f" % (cell, frame))
 
         # Get cell dict
-        cell = self.cells[cell]
+        cell_dict = self.cells[cell]
 
         # If feature doesn't exist yet, create list:
-        if feature not in cell:
-            cell[feature] = [None for _ in range(len(cell["frames"]))]
+        if feature not in cell_dict:
+            cell_dict[feature] = [None for _ in range(len(cell_dict["frames"]))]
 
         # Add value:
-        cell[feature][i] = value
+        cell_dict[feature][i] = value
 
-    def getvalue(self, cell, frame, feature):
+    def getvalue(self, cell: int, frame: int, feature: str) -> Union[int, float, str]:
         """
         Get feature value for specific timepoint/frame
 
@@ -1317,7 +1479,7 @@ class Lineage:
 #%% Image files
 
 
-def getxppathdialog(ask_folder=False):
+def getxppathdialog(ask_folder: bool = False) -> str:
     """
     Pop up window to select experiment file or folder.
 
@@ -1362,12 +1524,12 @@ class xpreader:
     def __init__(
         self,
         filename=None,
-        channelnames=None,
-        use_bioformats=False,
-        prototype=None,
-        fileorder="pct",
-        filenamesindexing=1,
-        watchfiles=False,
+        channelnames: Tuple[str] = None,
+        use_bioformats: bool = False,
+        prototype: str = None,
+        fileorder: str = "pct",
+        filenamesindexing: int = 1,
+        watchfiles: bool = False,
     ):
         """
         Initialize experiment reader
@@ -1438,22 +1600,22 @@ class xpreader:
         "File indexing start (if image files sequence)"
         self.prototype = prototype
         "File name prototype (if image files sequence)"
-        self.resfolder = None
+        self.resfolder: str
 
         # Init base parameters:
         self.filetype = None
         "Type / extension of `filehandle`"
-        self.filehandle = None
+        self.filehandle: Any
         "Handle to file reader or base directory"
-        self.positions = None
+        self.positions: int
         "Number of positions in experiment"
-        self.channels = None
+        self.channels: int
         "Number of imaging channels"
-        self.x = None
+        self.x: int
         "Size of images along X axis"
-        self.y = None
+        self.y: int
         "Size of images along Y axis"
-        self.dtype = None
+        self.dtype: str
         "Datatype of images"
 
         # Retrieve command line arguments (if any)
@@ -1590,7 +1752,7 @@ class xpreader:
             self.y = s.shape[s.axes.find("Y")]
             self.dtype = s.pages[0].asarray().dtype
 
-    def _command_line_init(self, cmdln_arguments):
+    def _command_line_init(self, cmdln_arguments: List[str]) -> None:
         """
         Initialization routine if command line arguments were passed
 
@@ -1637,7 +1799,7 @@ class xpreader:
                 self.prototype = cmdln_arguments[i + 1]
                 i += 2
 
-    def _interactive_init(self):
+    def _interactive_init(self) -> None:
         """
         Interactive initialization routine.
 
@@ -1710,7 +1872,7 @@ class xpreader:
                 raise ValueError("Invalid experiment type")
             print()
 
-    def close(self):
+    def close(self) -> None:
         # Close bioformats or tif reader
         if self.use_bioformats:
             self.filehandle.close()
@@ -1720,7 +1882,7 @@ class xpreader:
         elif self.filetype == "tif":  # Nothing to do if sequence directory
             self.filehandle.close()
 
-    def getfilenamefromprototype(self, position, channel, frame):
+    def getfilenamefromprototype(self, position: int, channel: int, frame: int) -> str:
         """
         Generate full filename for specific frame based on file path,
         prototype, fileorder, and filenamesindexing
@@ -1740,28 +1902,25 @@ class xpreader:
             Filename.
 
         """
-        filenumbers = []
+        filenumbers = tuple(
+            {"p": position, "c": channel, "t": frame}[c] + self.filenamesindexing
+            for c in self.fileorder
+        )
+        assert self.prototype is not None  # FIXME: why is it not?
+        return os.path.join(self.filehandle, self.prototype % filenumbers)
 
-        for i in self.fileorder:
-            if i == "p":
-                filenumbers.append(position + self.filenamesindexing)
-            if i == "c":
-                filenumbers.append(channel + self.filenamesindexing)
-            if i == "t":
-                filenumbers.append(frame + self.filenamesindexing)
-        return os.path.join(self.filehandle, self.prototype % tuple(filenumbers))
-
+    # TODO: typecheck this function
     def getframes(
         self,
         positions=None,
         channels=None,
         frames=None,
-        squeeze_dimensions=True,
-        resize=None,
-        rescale=None,
-        globalrescale=None,
-        rotate=None,
-    ):
+        squeeze_dimensions: bool = True,
+        resize: Tuple[int, int] = None,
+        rescale: Tuple[float, float] = None,
+        globalrescale: Tuple[float, float] = None,
+        rotate: float = None,
+    ) -> np.ndarray:
         """
         Get frames from experiment.
 
@@ -1815,37 +1974,36 @@ class xpreader:
             dimensions order being: Position, Time, Channel, Y, X
 
         """
-
         # Handle options:
         if positions is None:  # No positions specified: load all
             positions = list(range(self.positions))
-        elif type(positions) is not list and type(positions) is not tuple:
+        elif not isinstance(positions, list) and not isinstance(positions, tuple):
             positions = [positions]
 
         if channels is None:  # No channel specified: load all
             channels = list(range(self.channels))
-        elif type(channels) is str:  # refer to 1 channel by name (eg 'gfp')
+        elif isinstance(channels, str):  # refer to 1 channel by name (eg 'gfp')
             if self.channelnames is None:
                 raise ValueError("Set channel names first")
             if channels in self.channelnames:
                 channels = [self.channelnames.index(channels)]
             else:
                 raise ValueError(channels + " is not a valid channel name.")
-        elif type(channels) is list or type(channels) is tuple:
+        elif isinstance(channels, list) or isinstance(channels, tuple):
             # If list of ints, nothing to do
-            if len(channels) == 0:  # Empty list of channels: Return None
-                return None
-            elif all(
-                [type(c) is str for c in channels]
+            if all(
+                [isinstance(c, str) for c in channels]
             ):  # refer to channels by list/tuple of names:
                 if self.channelnames is None:
                     raise ValueError("Set channel names first")
-                for i, c in enumerate(channels):
-                    if c in self.channelnames:
-                        channels[i] = self.channelnames.index(c)
+                channels_list = []
+                for channel in channels:
+                    if channel in self.channelnames:
+                        channels_list.append(self.channelnames.index(channel))
                     else:
-                        raise ValueError(c + " is not a valid channel name.")
-        elif type(channels) is not list and type(channels) is not tuple:
+                        raise ValueError(channel + " is not a valid channel name.")
+                channels = channels_list
+        elif not isinstance(channels, list) and not isinstance(channels, tuple):
             channels = [channels]
 
         if frames is None:  # No frames specfied: load all
@@ -1873,10 +2031,7 @@ class xpreader:
                     self.watcher.old[p][c] = frames[-1]
 
         # Allocate memory:
-        if rescale is None:
-            dt = self.dtype
-        else:
-            dt = np.float32
+        dt: Union[str, type] = self.dtype if rescale is None else np.float32
         if resize is None:
             output = np.empty(
                 [len(positions), len(frames), len(channels), self.y, self.x], dtype=dt
@@ -1975,7 +2130,7 @@ class files_watcher(Thread):
 
         Returns
         -------
-        newfiles : list of tuples
+        newfiles : list of tuples of 2 ints
             List containing all new files position and channel.
 
         """
@@ -1991,13 +2146,13 @@ class files_watcher(Thread):
 #%% Saving & Loading results
 
 
-def loadmodels(toload=None):
+def loadmodels(toload: Tuple[str, ...] = None) -> Dict[str, Any]:
     """
     Load models (as specified in config.py)
 
     Parameters
     ----------
-    toload : list of str, or None, optional
+    toload : tuple of str, or None, optional
         Which of the 3 models to load. If None, cfg.models will be used.
         The default is None.
 
@@ -2030,245 +2185,7 @@ def loadmodels(toload=None):
     return models
 
 
-def legacysave(position, res_file):
-    """
-    Save pipeline data in the legacy Matlab format
-
-    Parameters
-    ----------
-    position : pipeline.Position object
-        Position object to save data for.
-    res_file : str
-        Path to save file.
-
-    Returns
-    -------
-    None.
-
-    """
-
-    # File reader info
-    moviedimensions = [
-        position.reader.y,
-        position.reader.x,
-        position.reader.channels,
-        position.reader.timepoints,
-    ]
-    xpfile = position.reader.filename
-
-    # If No ROIs detected for position:
-    if len(position.rois) == 0:
-        savemat(
-            res_file,
-            {
-                "res": [],
-                "tiffile": xpfile,
-                "moviedimensions": moviedimensions,
-                "proc": {"rotation": position.rotate, "chambers": [], "XYdrift": []},
-            },
-        )
-        return
-
-    # Initialize data structure/dict:
-    data = dict(moviedimensions=moviedimensions, tifffile=xpfile)
-
-    # Proc dict/structure:
-    data["proc"] = dict(
-        rotation=position.rotate,
-        XYdrift=np.array(position.drift_values, dtype=np.float64),
-        chambers=np.array(
-            [
-                [
-                    r.box["xtl"],
-                    r.box["ytl"],
-                    r.box["xbr"] - r.box["xtl"],
-                    r.box["ybr"] - r.box["ytl"],
-                ]
-                for r in position.rois
-            ],
-            dtype=np.float64,
-        ),
-    )
-
-    # Lineages:
-    data["res"] = []
-    for r in position.rois:
-        res = dict()
-
-        # Resized labels stack: (ie original ROI size)
-        res["labelsstack_resized"] = np.array(r.label_stack, dtype=np.uint16)
-
-        # Not resized stack: (ie U-Net seg target size)
-        label_stack = []
-        for f, cellnbs in enumerate(r.lineage.cellnumbers):
-            label_stack += [label_seg(r.seg_stack[f], [c + 1 for c in cellnbs])]
-        res["labelsstack"] = np.array(label_stack, dtype=np.uint16)
-
-        # Run through cells, update to 1-based indexing
-        cells = r.lineage.cells
-        lin = []
-        for c in cells:
-            lin += [dict()]
-            # Base lineage:
-            lin[-1]["mother"] = c["mother"] + 1 if c["mother"] is not None else 0
-            lin[-1]["frames"] = np.array(c["frames"], dtype=np.float32) + 1
-            lin[-1]["daughters"] = np.array(c["daughters"], dtype=np.float32) + 1
-            lin[-1]["daughters"][np.isnan(lin[-1]["daughters"])] = 0
-            if "edges" in c:
-                lin[-1]["edges"] = c["edges"]
-            # Morphological features:
-            if "area" in c:
-                lin[-1]["area"] = np.array(c["area"], dtype=np.float32)
-            if "width" in c:
-                lin[-1]["width"] = np.array(c["width"], dtype=np.float32)
-            if "length" in c:
-                lin[-1]["length"] = np.array(c["length"], dtype=np.float32)
-            if "perimeter" in c:
-                lin[-1]["perimeter"] = np.array(c["perimeter"], dtype=np.float32)
-            # Loop through potential fluo channels:
-            fluo = 0
-            while True:
-                fluo += 1
-                fluostr = "fluo%d" % fluo
-                if fluostr in c:
-                    lin[-1][fluostr] = np.array(c[fluostr], dtype=np.float32)
-                else:
-                    break
-        # Store into res dict:
-        res["lineage"] = lin
-
-        # Store into data structure:
-        data["res"] += [res]
-
-    # Finally, save to disk:
-    savemat(res_file, data)
-
-
-def results_movie(position, frames=None):
-    """
-    Generate movie illustrating segmentation and tracking
-
-    Parameters
-    ----------
-    position : pipeline.Position object
-        Position object to save data for.
-    frames : list of int or None, optional
-        Frames to generate the movie for. If None, all frames are run.
-        The default is None.
-
-    Returns
-    -------
-    movie : TYPE
-        DESCRIPTION.
-
-    """
-
-    # Re-read trans frames:
-    trans_frames = position.reader.getframes(
-        positions=position.position_nb,
-        channels=0,
-        frames=frames,
-        rescale=(0, 1),
-        squeeze_dimensions=False,
-        rotate=position.rotate,
-    )
-    trans_frames = trans_frames[0, :, 0]
-    if position.drift_correction:
-        trans_frames, _ = driftcorr(trans_frames, drift=position.drift_values)
-    movie = []
-
-    # Run through frames, compile movie:
-    for f, fnb in enumerate(frames):
-
-        frame = trans_frames[f]
-
-        # RGB-ify:
-        frame = np.repeat(frame[:, :, np.newaxis], 3, axis=-1)
-
-        # Add frame number text:
-        frame = cv2.putText(
-            frame,
-            text="frame %06d" % (fnb,),
-            org=(int(frame.shape[0] * 0.05), int(frame.shape[0] * 0.97)),
-            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-            fontScale=1,
-            color=(1, 1, 1, 1),
-            thickness=2,
-        )
-
-        for r, roi in enumerate(position.rois):
-
-            # Get chamber-specific variables:
-            colors = getrandomcolors(len(roi.lineage.cells), seed=r)
-            cells, contours = getcellsinframe(
-                roi.label_stack[fnb], return_contours=True
-            )
-
-            if roi.box is None:
-                xtl, ytl = (0, 0)
-            else:
-                xtl, ytl = (roi.box["xtl"], roi.box["ytl"])
-
-            # Run through cells in labelled frame:
-            for c, cell in enumerate(cells):
-
-                # Draw contours:
-                frame = cv2.drawContours(
-                    frame,
-                    contours,
-                    c,
-                    color=colors[cell],
-                    thickness=1,
-                    offset=(xtl, ytl),
-                )
-
-                # Draw poles:
-                oldpole = roi.lineage.getvalue(cell, fnb, "old_pole")
-                frame = cv2.drawMarker(
-                    frame,
-                    (oldpole[1] + xtl, oldpole[0] + ytl),
-                    color=colors[cell],
-                    markerType=cv2.MARKER_TILTED_CROSS,
-                    markerSize=3,
-                    thickness=1,
-                )
-
-                daughter = roi.lineage.getvalue(cell, fnb, "daughters")
-                bornago = roi.lineage.cells[cell]["frames"].index(fnb)
-                mother = roi.lineage.cells[cell]["mother"]
-
-                if daughter is None and (bornago > 0 or mother is None):
-                    newpole = roi.lineage.getvalue(cell, fnb, "new_pole")
-                    frame = cv2.drawMarker(
-                        frame,
-                        (newpole[1] + xtl, newpole[0] + ytl),
-                        color=[1, 1, 1],
-                        markerType=cv2.MARKER_TILTED_CROSS,
-                        markerSize=3,
-                        thickness=1,
-                    )
-
-                # Plot division arrow:
-                if daughter is not None:
-
-                    newpole = roi.lineage.getvalue(cell, fnb, "new_pole")
-                    daupole = roi.lineage.getvalue(daughter, fnb, "new_pole")
-                    # Plot arrow:
-                    frame = cv2.arrowedLine(
-                        frame,
-                        (newpole[1] + xtl, newpole[0] + ytl),
-                        (daupole[1] + xtl, daupole[0] + ytl),
-                        color=(1, 1, 1),
-                        thickness=1,
-                    )
-
-        # Add to movie array:
-        movie += [(frame * 255).astype(np.uint8)]
-
-    return movie
-
-
-def getrandomcolors(num_colors, seed=0):
+def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, float]]:
     """
     Pseudo-randomly generate list of random hsv colors.
 
@@ -2299,7 +2216,9 @@ def getrandomcolors(num_colors, seed=0):
     return colors
 
 
-def vidwrite(images, filename, crf=20, verbose=1):
+def vidwrite(
+    images: np.ndarray, filename: str, crf: int = 20, verbose: int = 1
+) -> None:
     """
     Write images stack to video file with h264 compression.
 
@@ -2357,38 +2276,15 @@ def vidwrite(images, filename, crf=20, verbose=1):
     process.wait()
 
 
-def load_position(filename):
-    """
-    Load position object from pickle file
-
-    Parameters
-    ----------
-    filename : str
-        Path to saved pickle file.
-
-    Returns
-    -------
-    p : pipeline.Position object
-        Reloaded Position object. (without reader and models)
-
-    """
-
-    import pickle
-
-    with open(filename, "rb") as file:
-        p = pickle.load(file)
-    return p
-
-
 #%% Feature extraction
 
 
 def roi_features(
-    labels_frame,
-    features=("length", "width", "area", "perimeter", "edges"),
-    fluo_frames=None,
-    roi_box=None,
-):
+    labels_frame: npt.NDArray[np.uint16],
+    features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
+    fluo_frames: np.ndarray = None,
+    roi_box: CroppingBox = None,
+) -> Tuple[List[int], List[Dict[str, Any]]]:
     """
     Extract single-cell morphological and fluorescence features
 
@@ -2412,6 +2308,8 @@ def roi_features(
 
     Returns
     -------
+    cell_nbs : list of ints
+        IDs of cells present in the labels frame
     cell_features : list of dict
         List of dictionary with values for requested features.
 
@@ -2419,6 +2317,8 @@ def roi_features(
 
     # Cell numbers and contours:
     cell_nbs, contours = getcellsinframe(labels_frame, return_contours=True)
+    assert isinstance(cell_nbs, list)  # needed for mypy on Python < 3.8
+    assert isinstance(contours, list)  # needed for mypy on Python < 3.8
 
     # Loop through cells in image, extract single-cell features:
     cell_features = []
@@ -2439,12 +2339,12 @@ def roi_features(
 
 
 def singlecell_features(
-    contour,
-    mask,
-    features=("length", "width", "area", "perimeter", "edges"),
-    fluo_frames=None,
-    roi_box=None,
-):
+    contour: Contour,
+    mask: SegmentationMask,
+    features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
+    fluo_frames: np.ndarray = None,
+    roi_box: CroppingBox = None,
+) -> Dict[str, Any]:
     """
     Extract features for a single cell
 
@@ -2480,7 +2380,7 @@ def singlecell_features(
 
     """
 
-    features_dict = dict()
+    features_dict: Dict[str, Any] = dict()
 
     # Morphological features:
     if "edges" in features:
@@ -2507,9 +2407,9 @@ def singlecell_features(
         if len(fluo_features) != fluo_frames.shape[0]:
             raise ValueError(
                 (
-                    "You should provide exactly as many fluo frames as you want ",
-                    "fluo features to extract. Here fluo_frames.shape[0]=%d but ",
-                    "you ask for %d fluo features: %s",
+                    "You should provide exactly as many fluo frames as you want "
+                    "fluo features to extract. Here fluo_frames.shape[0]=%d but "
+                    "you ask for %d fluo features: %s"
                 )
                 % (fluo_frames.shape[0], len(fluo_features), str(fluo_features))
             )
@@ -2520,7 +2420,7 @@ def singlecell_features(
     return features_dict
 
 
-def image_edges(contour, image):
+def image_edges(contour: Contour, image: npt.NDArray[Any]) -> str:
     """
     Identify if cell touches image borders
 
@@ -2552,7 +2452,7 @@ def image_edges(contour, image):
     return edge_str
 
 
-def cell_width_length(contour):
+def cell_width_length(contour: Contour) -> Tuple[float, float]:
     """
     Mesure width and length of single cell
 
@@ -2579,7 +2479,7 @@ def cell_width_length(contour):
     return width, length
 
 
-def cell_area(contour):
+def cell_area(contour: Contour) -> float:
     """
     Area of a single cell
 
@@ -2600,7 +2500,7 @@ def cell_area(contour):
     return area
 
 
-def cell_perimeter(contour):
+def cell_perimeter(contour: Contour) -> float:
     """
     Get single cell perimeter
 
@@ -2621,7 +2521,9 @@ def cell_perimeter(contour):
     return perimeter
 
 
-def cell_fluo(fluo_frames, mask, roi_box=None):
+def cell_fluo(
+    fluo_frames: np.ndarray, mask: SegmentationMask, roi_box: CroppingBox = None
+) -> List[float]:
     """
     Extract mean fluorescence level from mask
 
@@ -2663,7 +2565,7 @@ def cell_fluo(fluo_frames, mask, roi_box=None):
 #%% Misc
 
 
-def findfirst(mylist):
+def findfirst(mylist: List) -> Optional[int]:
     """
     Find first non-zero element of list
 
@@ -2674,8 +2576,8 @@ def findfirst(mylist):
 
     Returns
     -------
-    int
-        index of first non-zero element (or None).
+    int or None
+        Index of first non-zero element, if it exists.
 
     """
     return next((i for i, x in enumerate(mylist) if x > 0), None)
