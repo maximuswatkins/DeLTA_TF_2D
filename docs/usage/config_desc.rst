@@ -15,7 +15,7 @@ The :doc:`assets <assets_desc>` module can automatically write config files base
 on downloaded assets, but you can also write your own JSON config files if you 
 want to change default config values. JSON files can be opened with any text
 editor, and are fairly readable. For more information on each parameter, check
-out the comments at the top of `config.py <https://gitlab.com/dunloplab/delta/-/blob/master/delta/config.py>`_
+out the API.
 
 Before running any operation with DeLTA, you will need to load a configuration
 file. To do so, you can simply run the following after import::
