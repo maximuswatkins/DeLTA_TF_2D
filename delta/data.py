@@ -1494,7 +1494,7 @@ def tracking_weights(
 
     # Cell escaped / disappeared:
     if np.max(track) == 0:
-        weights = ((segall > 0).astype(np.uint8) * 20) + 1
+        weights = ((segall > 0).astype(np.float32) * 20) + 1
         return weights
 
     # Distance from the tracked cell:
