@@ -6,12 +6,9 @@ Created on Tue Nov  9 16:40:02 2021
 @author: jeanbaptiste
 """
 import os
-import sys
 
 import pytest
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from delta.utilities import cfg
 from delta.model import unet_rois, unet_seg, unet_track
