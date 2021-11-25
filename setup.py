@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 HERE = pathlib.Path(__file__).parent
 
-VERSION = "2.0.0"
+VERSION = "2.0_gamma3"
 PACKAGE_NAME = "delta2"
 AUTHOR = "Jean-Baptiste Lugagne, Owen OConnor"
 AUTHOR_EMAIL = "jblugagne@bu.edu, ooconnor@bu.edu"
