@@ -27,7 +27,7 @@ model_file_seg: str = ''
 "Model file for cell segmentation"
 model_file_track: str = ''
 "Model file for cell tracking"
-target_size_rois: Tuple[int, int] = ()
+target_size_rois: Tuple[int, int] = (0, 0)
 "ROI U-Net target/input image size"
 target_size_seg: Tuple[int, int] = ()
 "segmentation U-Net target/input image size"
