@@ -1,22 +1,28 @@
 """
-This file contains function definitions for data manipulations and input/output
-operations.
+Module for data manipulations and input/output operations.
 
 @author: jblugagne
 """
 from __future__ import print_function
+
+import os
+import glob
+import re
+import random
+import warnings
+import copy
+import importlib
+from typing import cast, Tuple, List, Dict, Union, Iterator, Generator, Any, Optional
+
+import cv2
 import numpy as np
 import numpy.typing as npt
-from typing import cast, Tuple, List, Dict, Union, Iterator, Generator, Any, Optional
-import os, glob, re, random, warnings, copy, importlib, cv2
 import skimage.io as io
 import tifffile
 import skimage.transform as trans
 from skimage.measure import label
 import skimage.morphology as morph
 from scipy import interpolate
-from . import utilities as utils
-
 
 # Try to import elastic deformations, issue warning if not found:
 if importlib.util.find_spec("elasticdeform") is None:
@@ -24,6 +30,7 @@ if importlib.util.find_spec("elasticdeform") is None:
 else:
     import elasticdeform
 
+from . import utilities as utils
 
 #%% UTILITIES:
 

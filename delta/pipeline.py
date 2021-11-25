@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jun 23 10:41:45 2021
+Module for the main processing pipeline.
 
 @author: jeanbaptiste
 """
@@ -9,6 +9,7 @@ Created on Wed Jun 23 10:41:45 2021
 import time
 import os
 from typing import cast, List, Union, Dict, Optional, Any, Tuple
+import warnings
 
 import cv2
 import numpy as np
@@ -58,6 +59,12 @@ class Pipeline:
         """
 
         super().__init__()
+        
+        if cfg._LOADED is None:
+            warnings.warn(
+                """You do not seem to have loaded a configuration file yet.
+                This will most likely cause errors."""
+                )
 
         self.reader: utils.xpreader = xpreader
         "Experiment reader object"

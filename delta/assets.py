@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Nov  5 16:34:55 2021
+Module to handle assets (model files, training sets, evalution movies...),
+downloads, and writing configuration files
 
 @author: jeanbaptiste
 """

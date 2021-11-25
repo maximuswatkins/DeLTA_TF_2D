@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Feb  5 15:42:05 2021
+Module for configuration files and configuration parameters
 
 @author: jblugagne
 """
@@ -9,61 +9,63 @@ import json as _json
 from warnings import warn as _warn
 from typing import Tuple, Optional
 
-from . import __file__ as delta_init  # Path to __init__ file
+from . import __file__ as _delta_init  # Path to __init__ file
 
-presets: str
-"Type of analysis. Can be '2D', 'mothermachine', or your own custom name for presets"
-models: Tuple[str, ...]
+_DELTA_DIR = _os.path.dirname(_delta_init)
+"DeLTA lib install directory"
+_LOADED = None
+"Which config file was loaded"
+
+# Parameters:
+presets: str = ''
+"Type of analysis: can be '2D', 'mothermachine', or your own custom name for presets"
+models: Tuple[str, ...] = ()
 "Which models will be run"
-model_file_rois: str
+model_file_rois: str = ''
 "Model file for ROIs segmentation"
-model_file_seg: str
+model_file_seg: str = ''
 "Model file for cell segmentation"
-model_file_track: str
+model_file_track: str = ''
 "Model file for cell tracking"
-target_size_rois: Tuple[int, int]
+target_size_rois: Tuple[int, int] = (0, 0)
 "ROI U-Net target/input image size"
-target_size_seg: Tuple[int, int]
+target_size_seg: Tuple[int, int] = (0, 0)
 "segmentation U-Net target/input image size"
-target_size_track: Tuple[int, int]
+target_size_track: Tuple[int, int] = (0, 0)
 "tracking U-Net target/input image size"
-training_set_rois: str
+training_set_rois: str = ''
 "Path to ROIs U-Net training set"
-training_set_seg: str
+training_set_seg: str = ''
 "Path to segmentation training set"
-training_set_track: str
+training_set_track: str = ''
 "Path to tracking training set"
-eval_movie: str
+eval_movie: str = ''
 "Path to evaluation movie / image sequence"
-rotation_correction: bool
+rotation_correction: bool = False
 "Flag to try to automatically correct image rotation (for microfluidic devices)"
-drift_correction: bool
+drift_correction: bool = False
 "Flag to correct drift over time (for microfluidic devices / ROIs)"
-crop_windows: bool
+crop_windows: bool = False
 "Flag to crop input image into windows of size target_size_seg for segmentation, otherwise resize them"
-min_roi_area: float
+min_roi_area: float = 0.0
 "Minimum area of detected ROIs, in pixels. Can be set to 0. (N/A for 2D)"
-whole_frame_drift: bool
+whole_frame_drift: bool = False
 "If correcting for drift, use the entire frame instead of the region above the chambers"
-min_cell_area: float
+min_cell_area: float = 0.0
 "Minimum area of detected cells, in pixels. Can be set to 0"
-save_format: Tuple[str, ...]
+save_format: Tuple[str, ...] = ()
 "Format to save output data to"
-TF_CPP_MIN_LOG_LEVEL: str
+TF_CPP_MIN_LOG_LEVEL: str = ''
 "Debugging messages level from Tensorflow ('0' = most verbose to '3' = not verbose)"
-memory_growth_limit: Optional[float]
+memory_growth_limit: Optional[float] = None
 """If running into OOM issues or having trouble with cuDNN loading, try setting 
 memory_growth_limit to a value in MB: (eg 1024, 2048...)"""
-pipeline_seg_batch: int
+pipeline_seg_batch: int = 0
 """If running into OOM issues during segmentation with the pipeline, try lowering 
 this value. You can also try to increase it to improve speed"""
-pipeline_track_batch: int
+pipeline_track_batch: int = 0
 """If running into OOM issues during tracking with the pipeline, try lowering 
 this value. You can also try to increase it to improve speed"""
-
-_DELTA_DIR = _os.path.dirname(delta_init)
-
-_LOADED = None
 
 """
 IMPORTANT: Do not change the default parameters below. Update the .json files instead if necessary.
