@@ -19,7 +19,7 @@ _LOADED = None
 # Parameters:
 presets: str = ''
 "Type of analysis: can be '2D', 'mothermachine', or your own custom name for presets"
-models: Tuple[str, ...] = ''
+models: Tuple[str, ...] = ()
 "Which models will be run"
 model_file_rois: str = ''
 "Model file for ROIs segmentation"
