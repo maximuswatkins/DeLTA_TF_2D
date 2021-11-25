@@ -29,9 +29,9 @@ model_file_track: str = ''
 "Model file for cell tracking"
 target_size_rois: Tuple[int, int] = (0, 0)
 "ROI U-Net target/input image size"
-target_size_seg: Tuple[int, int] = ()
+target_size_seg: Tuple[int, int] = (0, 0)
 "segmentation U-Net target/input image size"
-target_size_track: Tuple[int, int] = ()
+target_size_track: Tuple[int, int] = (0, 0)
 "tracking U-Net target/input image size"
 training_set_rois: str = ''
 "Path to ROIs U-Net training set"
