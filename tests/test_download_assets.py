@@ -6,11 +6,8 @@ Created on Sun Nov  7 10:57:26 2021
 @author: jeanbaptiste
 """
 import os
-import sys
 
 import pytest
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import delta
 

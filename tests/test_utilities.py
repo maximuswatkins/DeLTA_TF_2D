@@ -6,16 +6,12 @@ Created on Tue Oct 19 15:01:05 2021
 @author: ooconnor
 """
 #
-import os
-import sys
 import random
 
 import pytest
 import numpy as np
 import cv2
 from scipy.ndimage import binary_fill_holes
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from delta import utils
 
