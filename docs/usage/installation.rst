@@ -137,14 +137,14 @@ run on GPU
 
 then you should be able to run either of the following:
 
-* | Install dependencies from the requirements file::
-  | 
-  |     $ pip install -r requirements.txt
-  | 
-* | Install from the online Python Package Index (PyPI)::
-  | 
-  |     $ pip install delta2
-  |
+* Install dependencies from the requirements file::
+   
+       $ pip install -r requirements.txt
+   
+* Install from the online Python Package Index (PyPI)::
+   
+       $ pip install delta2
+  
 
 .. note::
 	You might want to create a virtual environment
