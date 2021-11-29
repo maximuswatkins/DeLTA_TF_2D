@@ -823,7 +823,7 @@ def seg_weights(
 
 def kernel(n: int) -> utils.SegmentationMask:
     """
-
+    Get kernel for morphological operations
 
     Parameters
     ----------
@@ -844,6 +844,7 @@ def estimate_seg2D_classweights(
     mask_path: str, sample_size: int = None
 ) -> Tuple[float, float]:
     """
+    Estimate the weights to assign each class in the weight maps
 
     Parameters
     ----------
@@ -908,8 +909,8 @@ def seg_weights_2D(
     mask: utils.SegmentationMask, classweights: Tuple[int, int] = (1, 1)
 ) -> npt.NDArray[np.float32]:
     """
-
-    This function computes custom weightmaps designed for bacterial images where borders are difficult to distinguish
+    Compute custom weightmaps designed for bacterial images 
+    where borders are difficult to distinguish
 
     Parameters
     ----------
