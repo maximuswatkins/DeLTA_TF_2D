@@ -1,4 +1,3 @@
-
 Installation
 =================================
 
@@ -194,12 +193,12 @@ it):
 
     >>> import delta
 
-However, if you installed the dependencies but are running from the sources in
-the repo, you will need to have delta in your python path. The simplest way to 
-do it is to cd into the root of the delta git repository and try to import from
-there. However, since you will probably want to import DeLTA from other parts of 
-your system, you will need to append the path to the repository to your 
-`PYTHONPATH` environment variable. You can do that in multiple ways:
+However, if you installed the dependencies from delta_env.yml or requirements.txt
+and are running from the sources in the repo, you will need to have delta in your
+python search path. The simplest way to do it is to cd into the root of the delta 
+git repository and try to import from there. However, since you will probably 
+want to import DeLTA from other parts of your system, you will need to append the
+path to the repository to your `PYTHONPATH` environment variable:
 
 1. You can append temporarily from within python:
     
