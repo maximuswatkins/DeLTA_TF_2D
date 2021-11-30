@@ -800,7 +800,7 @@ def seg_weights(
     """
 
     # Get cell labels mask:
-    lblimg, lblnb = label(mask, connectivity=1, return_num=True)
+    lblimg, lblnb = label(mask, connectivity=2, return_num=True)
 
     # Compute cell-to-cell distance masks:
     distance_array = float("inf") * np.ones(mask.shape[0:2] + (max(lblnb, 2),))
