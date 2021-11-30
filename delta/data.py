@@ -800,6 +800,7 @@ def seg_weights(
     """
 
     # Get cell labels mask:
+    # `connectivity=2` is used to be consistent with `findContours` from OpenCV
     lblimg, lblnb = label(mask, connectivity=2, return_num=True)
 
     # Compute cell-to-cell distance masks:
