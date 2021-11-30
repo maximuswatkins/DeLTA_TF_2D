@@ -815,8 +815,8 @@ def seg_weights(
     # Compute weights map:
     weightmap = w0 * np.exp(-np.square(np.sum(distance_array, -1)) / (2 * sigma ** 2))
     weightmap = np.multiply(weightmap, mask == 0)
-    weightmap = np.add(weightmap, (mask[:, :, 0] == 0) * classweights[0])
-    weightmap = np.add(weightmap, (mask[:, :, 0] == 1) * classweights[1])
+    weightmap = np.add(weightmap, (mask == 0) * classweights[0])
+    weightmap = np.add(weightmap, (mask == 1) * classweights[1])
 
     return weightmap
 
