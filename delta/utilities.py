@@ -1600,7 +1600,7 @@ class xpreader:
         "File indexing start (if image files sequence)"
         self.prototype = prototype
         "File name prototype (if image files sequence)"
-        self.resfolder: str = filename
+        self.resfolder: str = None
 
         # Init base parameters:
         self.filetype = None
