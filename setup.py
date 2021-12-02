@@ -41,9 +41,8 @@ setup(
     tests_require=["pytest"],
     package_data={
         "tests": [
-            "data/movie_tif/*.tif",
-            "data/movie_mothermachine_tif/*.tif",
-            "data/movie_tif/*.tif",
+            "data/movie_2D_tif/*.tif",
+            "data/movie_mothermachine_tif/*.tif"
         ]
     },
 )
