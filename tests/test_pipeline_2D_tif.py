@@ -23,8 +23,8 @@ def test_pipeline_tif_stack():
 
     # 'Pretend' arguments were passed to the cmd line:
     sys.argv = [sys.argv[0]]
-    sys.argv.append(os.path.join(_root_dir(), "data/movie_tif"))
-    sys.argv.append(os.path.join(_root_dir(), "data/movie_tif/results"))
+    sys.argv.append(os.path.join(_root_dir(), "data/movie_2D_tif"))
+    sys.argv.append(os.path.join(_root_dir(), "data/movie_2D_tif/results"))
 
     # Load configuration:
     delta.utils.cfg.load_config(presets="2D", config_level="global")
