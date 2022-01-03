@@ -7,13 +7,13 @@ to minimize the risk of unforeseen bugs.
 @author: jblugagne
 """
 
-import os
 import re
 import time
 import sys
 import importlib
 from threading import Thread
 from typing import cast, Tuple, List, Optional, Union, Any, Dict
+from pathlib import Path
 
 import cv2
 import ffmpeg
@@ -1600,7 +1600,6 @@ class xpreader:
         "File indexing start (if image files sequence)"
         self.prototype = prototype
         "File name prototype (if image files sequence)"
-        self.resfolder: Optional[str] = None
 
         # Init base parameters:
         self.filetype = None
@@ -1628,12 +1627,15 @@ class xpreader:
             else:
                 # Interactive selection and pop up window:
                 self._interactive_init()
-
+                
+        self.filename = Path(self.filename)
+        
         self.channelnames = channelnames
+        
         "Names of the imaging channels (optional)"
         self.watchfiles = watchfiles
 
-        _, file_extension = os.path.splitext(self.filename)
+        file_extension = self.filename.suffix
 
         if self.use_bioformats:
             import bioformats
@@ -1641,8 +1643,8 @@ class xpreader:
 
             javabridge.start_vm(class_path=bioformats.JARS)
             self.filetype = file_extension.lower()[1:]
-            self.filehandle = bioformats.ImageReader(self.filename)
-            md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=self.filename))
+            self.filehandle = bioformats.ImageReader(str(self.filename))
+            md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=str(self.filename)))
             self.positions = md.get_image_count()
             self.timepoints = md.image(
                 0
@@ -1653,24 +1655,22 @@ class xpreader:
             # Get first image to get datatype (there's probably a better way to do this...)
             self.dtype = self.filehandle.read(rescale=False, c=0).dtype
 
-        elif os.path.isdir(
-            self.filename
-        ):  # Experiment is stored as individual image TIFF files in a folder
+        elif self.filename.is_dir():  # Experiment is stored as individual image TIFF files in a folder
             self.filetype = "dir"
             self.filehandle = self.filename
             # If filename prototype is not provided, guess it from the first file:
             if self.prototype is None:
                 imgfiles = [
                     x
-                    for x in os.listdir(self.filename)
-                    if os.path.splitext(x)[1].lower() in (".tif", ".tiff")
+                    for x in self.filename.iterdir()
+                    if x.suffix.lower() in (".tif", ".tiff")
                 ]
                 # Here we assume all images in the folder follow the same naming convention:
                 numstrs = re.findall(
-                    r"\d+", imgfiles[0]
+                    r"\d+", imgfiles[0].name
                 )  # Get digits sequences in first filename
                 charstrs = re.findall(
-                    r"\D+", imgfiles[0]
+                    r"\D+", imgfiles[0].name
                 )  # Get character sequences in first filename
                 if len(numstrs) != 3 or len(charstrs) != 4:
                     raise ValueError(
@@ -1697,27 +1697,21 @@ class xpreader:
             # Get number of positions:
             if "p" in self.fileorder:
                 self.positions = 0
-                while os.path.exists(
-                    self.getfilenamefromprototype(self.positions, 0, 0)
-                ):
+                while self.getfilenamefromprototype(self.positions, 0, 0).exists():
                     self.positions += 1
             else:
                 self.positions = 1
             # Get number of channels:
             if "c" in self.fileorder:
                 self.channels = 0
-                while os.path.exists(
-                    self.getfilenamefromprototype(0, self.channels, 0)
-                ):
+                while self.getfilenamefromprototype(0, self.channels, 0).exists():
                     self.channels += 1
             else:
                 self.channels = 1
             # Get number of frames/timepoints:
             if "t" in self.fileorder:
                 self.timepoints = 0
-                while os.path.exists(
-                    self.getfilenamefromprototype(0, 0, self.timepoints)
-                ):
+                while self.getfilenamefromprototype(0, 0, self.timepoints).exists():
                     self.timepoints += 1
             else:
                 self.timepoints = 1  # I guess this shouldn't really happen
@@ -1729,7 +1723,8 @@ class xpreader:
             else:
                 # Load first image, get image data from it
                 I = cv2.imread(
-                    self.getfilenamefromprototype(0, 0, 0), cv2.IMREAD_ANYDEPTH
+                    str(self.getfilenamefromprototype(0, 0, 0)),
+                    cv2.IMREAD_ANYDEPTH
                 )
                 self.x = I.shape[1]
                 self.y = I.shape[0]
@@ -1741,7 +1736,8 @@ class xpreader:
             from skimage.external.tifffile import TiffFile
 
             self.filetype = "tif"
-            self.filehandle = TiffFile(self.filename)
+        
+            self.filehandle = TiffFile(str(self.filename))
             self.positions = len(self.filehandle.series)
             s = self.filehandle.series[
                 0
@@ -1767,36 +1763,35 @@ class xpreader:
 
         """
 
-        self.filename = cmdln_arguments[1]
-
-        if len(cmdln_arguments) > 2 and cmdln_arguments[2][0] != "-":
-            self.resfolder = cmdln_arguments[2]
-            i = 3  # i =3 means there was a results folder specified
-        else:
-            i = 2  # i = 2 means there was no results folder specified
+        self.filename = Path(cmdln_arguments[1])
 
         if importlib.util.find_spec("bioformats"):
             import bioformats
 
             self.use_bioformats = (
                 True
-                if os.path.splitext(self.filename)[-1][1:]
+                if self.filename.suffix[1:]
                 in bioformats.READABLE_FORMATS
                 else False
             )
-
+        i=2
         while i < len(cmdln_arguments):
             if cmdln_arguments[i] == "--bio-formats":
                 self.use_bioformats = bool(int(cmdln_arguments[i + 1]))
                 i += 2
-            if cmdln_arguments[i] == "--order":
+            elif cmdln_arguments[i] == "--order":
                 self.fileorder = cmdln_arguments[i + 1]
                 i += 2
-            if cmdln_arguments[i] == "--index":
+            elif cmdln_arguments[i] == "--index":
                 self.filenamesindexing = int(cmdln_arguments[i + 1])
                 i += 2
-            if cmdln_arguments[i] == "--proto":
+            elif cmdln_arguments[i] == "--proto":
                 self.prototype = cmdln_arguments[i + 1]
+                i += 2
+            elif cmdln_arguments[i] == "--resfolder": # Resfolder will be read in pipeline
+                i += 2
+            else:
+                print(f'Not valid argument {cmdln_arguments[i]}')
                 i += 2
 
     def _interactive_init(self) -> None:
@@ -1907,7 +1902,7 @@ class xpreader:
             for c in self.fileorder
         )
         assert self.prototype is not None  # FIXME: why is it not?
-        return os.path.join(self.filehandle, self.prototype % filenumbers)
+        return self.filehandle / (self.prototype % filenumbers)
 
     # TODO: typecheck this function
     def getframes(
@@ -2053,7 +2048,7 @@ class xpreader:
                         )
                     elif self.filetype == "dir":
                         frame = cv2.imread(
-                            self.getfilenamefromprototype(pos, cha, fra),
+                            str(self.getfilenamefromprototype(pos, cha, fra)),
                             cv2.IMREAD_ANYDEPTH,
                         )
                     elif self.filetype == "tif":
@@ -2115,9 +2110,7 @@ class files_watcher(Thread):
 
                     # Check if new files have been written:
                     i = self.new[p][channel]
-                    while os.path.exists(
-                        self.reader.getfilenamefromprototype(p, channel, i + 1)
-                    ):
+                    while self.reader.getfilenamefromprototype(p, channel, i + 1).exists():
                         i += 1
 
                     # Store new timepoint number:
@@ -2258,7 +2251,7 @@ def vidwrite(
             r=7,
         )
         .output(
-            filename, pix_fmt="yuv420p", vcodec="libx264", crf=crf, preset="veryslow"
+            str(filename), pix_fmt="yuv420p", vcodec="libx264", crf=crf, preset="veryslow"
         )
         .global_args(*quiet)
         .overwrite_output()

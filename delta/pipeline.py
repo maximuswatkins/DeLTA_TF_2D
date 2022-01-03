@@ -7,14 +7,15 @@ Module for the main processing pipeline.
 
 # Modules:
 import time
-import os
 from typing import cast, List, Union, Dict, Optional, Any, Tuple
 import warnings
+import sys
 
 import cv2
 import numpy as np
 import numpy.typing as npt
 from scipy.io import savemat
+from pathlib import Path
 
 from .data import postprocess
 from . import utilities as utils
@@ -85,20 +86,21 @@ class Pipeline:
         self.models = utils.loadmodels()
         "Dictionary of Tensorflow models"
 
+        for arg_index,arg in enumerate(sys.argv):
+            if sys.argv[arg_index] == '--resfolder':
+                resfolder = sys.argv[arg_index+1]
+                
         # Create result files folders
         if resfolder is not None:
-            self.resfolder = resfolder
-        elif self.reader.resfolder is not None:
-            self.resfolder = self.reader.resfolder
+            self.resfolder = Path(resfolder)
         else:
             xpfile = self.reader.filename
-            if os.path.isdir(xpfile):
-                self.resfolder = os.path.join(xpfile, "delta_results")
+            if xpfile.is_dir():
+                self.resfolder = xpfile / "delta_results"
             else:
-                self.resfolder = os.path.splitext(xpfile)[0] + "_delta_results"
-
-        if not os.path.exists(self.resfolder):
-            os.mkdir(self.resfolder)
+                self.resfolder = xpfile.with_suffix('').with_name("_delta_results")
+        
+        self.resfolder.mkdir(exist_ok=True)
 
         # Initialize position processors:
         for p in range(self.reader.positions):
@@ -116,7 +118,7 @@ class Pipeline:
         if reload:
             for p in range(self.reader.positions):
                 self.positions[p].load(
-                    os.path.join(self.resfolder, "Position%06d" % (p))
+                    self.resfolder / ("Position%06d" % (p))
                 )
 
     def preprocess(
@@ -225,7 +227,7 @@ class Pipeline:
 
             # Save to disk and clear memory:
             self.positions[p].save(
-                filename=os.path.join(self.resfolder, "Position%06d" % (p)),
+                filename= self.resfolder / ("Position%06d" % (p)),
                 frames=frames,
                 save_format=self.save_format,
             )
@@ -697,25 +699,23 @@ class Position:
         """
 
         if filename is None:
-            filename = "./Position%06d" % (self.position_nb,)
-        else:
-            os.path.splitext(filename)[0]  # remove extension if any
-
+            filename = Path("./Position%06d" % (self.position_nb,))
+            
         if "legacy" in save_format:
-            self._msg("Saving to legacy format\n%s" % filename + ".mat")
-            self.legacysave(filename + ".mat")
+            self._msg("Saving to legacy format\n%s" % filename.with_suffix(".mat"))
+            self.legacysave(filename.with_suffix(".mat"))
 
         if "pickle" in save_format:
-            self._msg("Saving to pickle format\n%s" % filename + ".pkl")
+            self._msg("Saving to pickle format\n%s" % filename.with_suffix(".pkl"))
             import pickle
 
-            with open(filename + ".pkl", "wb") as file:
+            with open(filename.with_suffix(".pkl"), "wb") as file:
                 pickle.dump(self, file)
 
         if "movie" in save_format:
-            self._msg("Saving results movie\n%s" % filename + ".mp4")
+            self._msg("Saving results movie\n%s" % filename.with_suffix(".mp4"))
             movie = self.results_movie(frames=frames)
-            utils.vidwrite(movie, filename + ".mp4", verbose=False)
+            utils.vidwrite(movie, filename.with_suffix(".mp4"), verbose=False)
 
     def load(self, filename: str):
         """
@@ -784,7 +784,7 @@ class Position:
                 res_file,
                 {
                     "res": [],
-                    "tiffile": xpfile,
+                    "tiffile": str(xpfile),
                     "moviedimensions": moviedimensions,
                     "proc": {"rotation": self.rotate, "chambers": [], "XYdrift": []},
                 },
@@ -792,7 +792,7 @@ class Position:
             return
 
         # Initialize data structure/dict:
-        data = dict(moviedimensions=moviedimensions, tifffile=xpfile)
+        data = dict(moviedimensions=moviedimensions, tifffile=str(xpfile))
 
         # Proc dict/structure:
         data["proc"] = dict(
