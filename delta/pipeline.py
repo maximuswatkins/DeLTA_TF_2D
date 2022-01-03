@@ -699,7 +699,9 @@ class Position:
         """
 
         if filename is None:
-            filename = Path("./Position%06d" % (self.position_nb,))
+            filename = "./Position%06d" % (self.position_nb,)
+            
+        filename = Path(filename)
             
         if "legacy" in save_format:
             self._msg("Saving to legacy format\n%s" % filename.with_suffix(".mat"))
