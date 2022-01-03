@@ -98,7 +98,7 @@ class Pipeline:
             if xpfile.is_dir():
                 self.resfolder = xpfile / "delta_results"
             else:
-                self.resfolder = xpfile.with_suffix('').with_name("_delta_results")
+                self.resfolder = xpfile.with_name(xpfile.stem + "_delta_results")
         
         self.resfolder.mkdir(exist_ok=True)
 
