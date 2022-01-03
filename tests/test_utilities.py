@@ -12,8 +12,10 @@ import pytest
 import numpy as np
 import cv2
 from scipy.ndimage import binary_fill_holes
+from pathlib import Path
+import sys
 
-from delta import utils
+from delta import utils,pipeline
 
 #%% Eval create_windows
 
@@ -218,11 +220,6 @@ def test_extract_poles():
 
 #%% Test xpreader
 
-
-from pathlib import Path
-import sys
-import delta
-
 class Test_xpreader():
 
     def test_2D_tif_cmdln_filename_noresfolder(self):
@@ -231,13 +228,13 @@ class Test_xpreader():
         sys.argv.append(Path(__file__).parent / 'data' / 'movie_2D_tif')
     
         # Load configuration:
-        delta.utils.cfg.load_config(presets="2D", config_level="global")
+        utils.cfg.load_config(presets="2D", config_level="global")
     
         # Init reader
-        xpreader = delta.utils.xpreader()
+        xpreader = utils.xpreader()
     
         # Init pipeline:
-        xp = delta.pipeline.Pipeline(xpreader)
+        xp = pipeline.Pipeline(xpreader)
 
     def test_2D_tif_cmdln_allargs(self):
     # 'Pretend' arguments were passed to the cmd line:
@@ -257,39 +254,39 @@ class Test_xpreader():
         sys.argv.append('Position%02dChanel%02dFrame%06d.tif')  # Currently there is a typo where it is chanel not channel
 
         # Load configuration:
-        delta.utils.cfg.load_config(presets="2D", config_level="global")
+        utils.cfg.load_config(presets="2D", config_level="global")
     
         # Init reader
-        xpreader = delta.utils.xpreader()
+        xpreader = utils.xpreader()
     
         # Init pipeline:
-        xp = delta.pipeline.Pipeline(xpreader)
+        xp = pipeline.Pipeline(xpreader)
         
     def test_2D_tif_xpreader_filename_noresfolder(self):
         
         sys.argv = [sys.argv[0]]
   
         # Load configuration:
-        delta.utils.cfg.load_config(presets="2D", config_level="global")
+        utils.cfg.load_config(presets="2D", config_level="global")
     
         # Init reader
-        xpreader = delta.utils.xpreader(Path(__file__).parent / 'data' / 'movie_2D_tif')
+        xpreader = utils.xpreader(Path(__file__).parent / 'data' / 'movie_2D_tif')
     
         # Init pipeline:
-        xp = delta.pipeline.Pipeline(xpreader)
+        xp = pipeline.Pipeline(xpreader)
         
     def test_2D_tif_xpreader_filename_and_resfolder(self):
         
         sys.argv = [sys.argv[0]]
   
         # Load configuration:
-        delta.utils.cfg.load_config(presets="2D", config_level="global")
+        utils.cfg.load_config(presets="2D", config_level="global")
     
         # Init reader
-        xpreader = delta.utils.xpreader(Path(__file__).parent / 'data' / 'movie_2D_tif')
+        xpreader = utils.xpreader(Path(__file__).parent / 'data' / 'movie_2D_tif')
     
         # Init pipeline:
-        xp = delta.pipeline.Pipeline(
+        xp = pipeline.Pipeline(
             xpreader,
             resfolder = Path(__file__).parent / 'data' / 'movie_2D_tif' / 'results'
             )
@@ -299,12 +296,12 @@ class Test_xpreader():
         sys.argv = [sys.argv[0]]
   
         # Load configuration:
-        delta.utils.cfg.load_config(presets="2D", config_level="global")
+        utils.cfg.load_config(presets="2D", config_level="global")
     
         # Init reader
-        xpreader = delta.utils.xpreader(Path(__file__).parent / 'data' / 'movie_mothermachine_tif')
+        xpreader = utils.xpreader(Path(__file__).parent / 'data' / 'movie_mothermachine_tif')
     
         # Init pipeline:
-        xp = delta.pipeline.Pipeline(xpreader)
+        xp = pipeline.Pipeline(xpreader)
         
         
