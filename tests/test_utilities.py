@@ -225,7 +225,7 @@ class Test_xpreader():
     def test_2D_tif_cmdln_filename_noresfolder(self):
     # 'Pretend' arguments were passed to the cmd line:
         sys.argv = [sys.argv[0]]
-        sys.argv.append(Path(__file__).parent / 'data' / 'movie_2D_tif')
+        sys.argv.append(str(Path(__file__).parent / 'data' / 'movie_2D_tif'))
     
         # Load configuration:
         utils.cfg.load_config(presets="2D", config_level="global")
@@ -239,16 +239,16 @@ class Test_xpreader():
     def test_2D_tif_cmdln_allargs(self):
     # 'Pretend' arguments were passed to the cmd line:
         sys.argv = [sys.argv[0]]
-        sys.argv.append(Path(__file__).parent / 'data' / 'movie_2D_tif')
+        sys.argv.append(str(Path(__file__).parent / 'data' / 'movie_2D_tif'))
         
         sys.argv.append('--resfolder')
-        sys.argv.append(Path(__file__).parent / 'data' / 'movie_2D_tif' / 'results')
+        sys.argv.append(str(Path(__file__).parent / 'data' / 'movie_2D_tif' / 'results'))
         
         sys.argv.append('--order')
         sys.argv.append('pct')
         
         sys.argv.append('--index')
-        sys.argv.append(1)
+        sys.argv.append('1')
     
         sys.argv.append('--prototype')
         sys.argv.append('Position%02dChanel%02dFrame%06d.tif')  # Currently there is a typo where it is chanel not channel

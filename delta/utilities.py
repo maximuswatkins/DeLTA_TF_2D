@@ -1877,7 +1877,7 @@ class xpreader:
         elif self.filetype == "tif":  # Nothing to do if sequence directory
             self.filehandle.close()
 
-    def getfilenamefromprototype(self, position: int, channel: int, frame: int) -> str:
+    def getfilenamefromprototype(self, position: int, channel: int, frame: int) -> Path:
         """
         Generate full filename for specific frame based on file path,
         prototype, fileorder, and filenamesindexing
@@ -2210,7 +2210,7 @@ def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, 
 
 
 def vidwrite(
-    images: np.ndarray, filename: str, crf: int = 20, verbose: int = 1
+    images: np.ndarray, filename: Union[str, Path], crf: int = 20, verbose: int = 1
 ) -> None:
     """
     Write images stack to video file with h264 compression.
@@ -2219,7 +2219,7 @@ def vidwrite(
     ----------
     images : 4D numpy array
         Stack of RGB images to write to video file.
-    filename : str
+    filename : str or Path
         File name to write video to. (Overwritten if exists)
     crf : int, optional
         Compression rate. 'Sane' values are 17-28. See

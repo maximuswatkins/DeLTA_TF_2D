@@ -30,7 +30,7 @@ class Pipeline:
     def __init__(
         self,
         xpreader: utils.xpreader,
-        resfolder: str = None,
+        resfolder: Union[str, Path] = None,
         on_the_fly: bool = False,
         reload: bool = False,
         verbose: int = 1,
@@ -42,7 +42,7 @@ class Pipeline:
         ----------
         xpreader : object
             utilities xpreader object.
-        resfolder : str, optional
+        resfolder : str or Path, optional
             Path to folder to save results to.
             The default is None.
         on_the_fly : bool, optional
@@ -671,7 +671,7 @@ class Position:
 
     def save(
         self,
-        filename: str = None,
+        filename: Union[str, Path] = None,
         frames: List[int] = None,
         save_format: Tuple[str, ...] = ("pickle", "movie"),
     ):
@@ -719,13 +719,13 @@ class Position:
             movie = self.results_movie(frames=frames)
             utils.vidwrite(movie, filename.with_suffix(".mp4"), verbose=False)
 
-    def load(self, filename: str):
+    def load(self, filename: Union[str, Path]):
         """
         Load position from pickle file
 
         Parameters
         ----------
-        filename : str or None, optional
+        filename : str or Path, optional
             File name for save file.
 
         Returns
@@ -756,13 +756,13 @@ class Position:
             if k not in self._pickle_skip:
                 setattr(self, k, None)
 
-    def legacysave(self, res_file: str) -> None:
+    def legacysave(self, res_file: Union[str, Path]) -> None:
         """
         Save pipeline data in the legacy Matlab format
 
         Parameters
         ----------
-        res_file : str
+        res_file : str or Path
             Path to save file.
 
         Returns
@@ -994,13 +994,13 @@ class Position:
         return movie
 
 
-def load_position(filename: str) -> Position:
+def load_position(filename: Union[str, Path]) -> Position:
     """
     Load position object from pickle file
 
     Parameters
     ----------
-    filename : str
+    filename : str or Path
         Path to saved pickle file.
 
     Returns
