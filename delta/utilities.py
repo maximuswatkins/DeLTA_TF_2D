@@ -2163,7 +2163,7 @@ def loadmodels(toload: Tuple[str, ...] = None) -> Dict[str, Any]:
 
     """
 
-    from .model import unet_rois, unet_seg, unet_track
+    import tensorflow as tf
 
     if toload is None:
         toload = cfg.models
@@ -2171,16 +2171,13 @@ def loadmodels(toload: Tuple[str, ...] = None) -> Dict[str, Any]:
     models = dict()
 
     if "rois" in toload:
-        models["rois"] = unet_rois(input_size=cfg.target_size_rois + (1,))
-        models["rois"].load_weights(cfg.model_file_rois)
+        models["rois"] = tf.keras.models.load_model(cfg.model_file_rois,compile=False)
 
     if "segmentation" in toload:
-        models["segmentation"] = unet_seg(input_size=cfg.target_size_seg + (1,))
-        models["segmentation"].load_weights(cfg.model_file_seg)
+        models["segmentation"] = tf.keras.models.load_model(cfg.model_file_seg,compile=False)
 
     if "tracking" in toload:
-        models["tracking"] = unet_track(input_size=cfg.target_size_track + (4,))
-        models["tracking"].load_weights(cfg.model_file_track)
+        models["tracking"] = tf.keras.models.load_model(cfg.model_file_track,compile=False)
 
     return models
 
