@@ -12,8 +12,10 @@ import pytest
 import numpy as np
 import cv2
 from scipy.ndimage import binary_fill_holes
+from pathlib import Path
+import sys
 
-from delta import utils
+from delta import utils,pipeline
 
 #%% Eval create_windows
 
@@ -21,7 +23,6 @@ from delta import utils
 def rand_img(image_size):
     img = np.random.random(image_size)
     return img
-
 
 @pytest.mark.order(2)
 class Test_create_windows:
@@ -217,3 +218,90 @@ def test_extract_poles():
             ]
     assert np.array_equal(poles, solution)
 
+#%% Test xpreader
+
+class Test_xpreader():
+
+    def test_2D_tif_cmdln_filename_noresfolder(self):
+    # 'Pretend' arguments were passed to the cmd line:
+        sys.argv = [sys.argv[0]]
+        sys.argv.append(str(Path(__file__).parent / 'data' / 'movie_2D_tif'))
+    
+        # Load configuration:
+        utils.cfg.load_config(presets="2D", config_level="global")
+    
+        # Init reader
+        xpreader = utils.xpreader()
+    
+        # Init pipeline:
+        xp = pipeline.Pipeline(xpreader)
+
+    def test_2D_tif_cmdln_allargs(self):
+    # 'Pretend' arguments were passed to the cmd line:
+        sys.argv = [sys.argv[0]]
+        sys.argv.append(str(Path(__file__).parent / 'data' / 'movie_2D_tif'))
+        
+        sys.argv.append('--resfolder')
+        sys.argv.append(str(Path(__file__).parent / 'data' / 'movie_2D_tif' / 'results'))
+        
+        sys.argv.append('--order')
+        sys.argv.append('pct')
+        
+        sys.argv.append('--index')
+        sys.argv.append('1')
+    
+        sys.argv.append('--prototype')
+        sys.argv.append('Position%02dChanel%02dFrame%06d.tif')  # Currently there is a typo where it is chanel not channel
+
+        # Load configuration:
+        utils.cfg.load_config(presets="2D", config_level="global")
+    
+        # Init reader
+        xpreader = utils.xpreader()
+    
+        # Init pipeline:
+        xp = pipeline.Pipeline(xpreader)
+        
+    def test_2D_tif_xpreader_filename_noresfolder(self):
+        
+        sys.argv = [sys.argv[0]]
+  
+        # Load configuration:
+        utils.cfg.load_config(presets="2D", config_level="global")
+    
+        # Init reader
+        xpreader = utils.xpreader(Path(__file__).parent / 'data' / 'movie_2D_tif')
+    
+        # Init pipeline:
+        xp = pipeline.Pipeline(xpreader)
+        
+    def test_2D_tif_xpreader_filename_and_resfolder(self):
+        
+        sys.argv = [sys.argv[0]]
+  
+        # Load configuration:
+        utils.cfg.load_config(presets="2D", config_level="global")
+    
+        # Init reader
+        xpreader = utils.xpreader(Path(__file__).parent / 'data' / 'movie_2D_tif')
+    
+        # Init pipeline:
+        xp = pipeline.Pipeline(
+            xpreader,
+            resfolder = Path(__file__).parent / 'data' / 'movie_2D_tif' / 'results'
+            )
+    
+    def test_moma_tif_xpreader_filename_noresfolder(self):
+        
+        sys.argv = [sys.argv[0]]
+  
+        # Load configuration:
+        utils.cfg.load_config(presets="2D", config_level="global")
+    
+        # Init reader
+        xpreader = utils.xpreader(Path(__file__).parent / 'data' / 'movie_mothermachine_tif')
+    
+        # Init pipeline:
+        xp = pipeline.Pipeline(xpreader)
+        
+        

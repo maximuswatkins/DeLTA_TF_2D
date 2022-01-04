@@ -7,7 +7,6 @@ Created on Wed Oct 20 17:50:34 2021
 """
 import os
 import sys
-import glob
 
 import pytest
 
@@ -61,4 +60,3 @@ def test_pipeline_tif_stack():
 
 
 
-# test_pipeline_tif_stack()
