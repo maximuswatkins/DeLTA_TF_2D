@@ -785,6 +785,180 @@ Created dedicated conda env with python=3.8
 	wrapt                        1.13.3
 	zipp                         3.6.0
 
+Windows 10 conda yml install, TF 2.6
+------------------------------------
+
+Jan 11, 2022
+
+`conda list` output::
+
+        # packages in environment at C:\Users\jeanbaptiste\Anaconda3\envs\delta_env:
+        #
+        # Name                    Version                   Build  Channel
+        _tflow_select             2.1.0                       gpu
+        abseil-cpp                20210324.2           hd77b12b_0
+        absl-py                   0.15.0             pyhd3eb1b0_0
+        aiohttp                   3.8.1            py39h2bbff1b_0
+        aiosignal                 1.2.0              pyhd3eb1b0_0
+        astor                     0.8.1            py39haa95532_0
+        astunparse                1.6.3                      py_0
+        async-timeout             4.0.1              pyhd3eb1b0_0
+        atomicwrites              1.4.0              pyh9f0ad1d_0    conda-forge
+        attrs                     21.2.0             pyhd3eb1b0_0
+        blas                      1.0                         mkl
+        blinker                   1.4              py39haa95532_0
+        blosc                     1.21.0               h19a0ad4_0
+        brotli                    1.0.9                ha925a31_2
+        brotlipy                  0.7.0           py39h2bbff1b_1003
+        bzip2                     1.0.8                he774522_0
+        ca-certificates           2021.10.8            h5b45459_0    conda-forge
+        cachetools                4.2.2              pyhd3eb1b0_0
+        certifi                   2021.10.8        py39hcbf5309_1    conda-forge
+        cffi                      1.15.0           py39h2bbff1b_0
+        cfitsio                   3.470                he774522_6
+        charls                    2.2.0                h6c2663c_0
+        charset-normalizer        2.0.4              pyhd3eb1b0_0
+        click                     8.0.3              pyhd3eb1b0_0
+        cloudpickle               2.0.0              pyhd3eb1b0_0
+        colorama                  0.4.4              pyh9f0ad1d_0    conda-forge
+        cryptography              3.4.8            py39h71e12ea_0
+        cudatoolkit               11.3.1               h59b6b97_2
+        cudnn                     8.2.1                cuda11.3_0
+        cycler                    0.11.0             pyhd3eb1b0_0
+        cytoolz                   0.11.0           py39h2bbff1b_0
+        dask-core                 2021.10.0          pyhd3eb1b0_0
+        dataclasses               0.8                pyh6d0b6a4_7
+        ffmpeg                    4.2.2                he774522_0
+        ffmpeg-python             0.2.0                      py_0    conda-forge
+        flatbuffers               2.0.0                h6c2663c_0
+        fonttools                 4.25.0             pyhd3eb1b0_0
+        freeglut                  3.0.0                h6538335_5
+        freetype                  2.10.4               hd328e21_0
+        frozenlist                1.2.0            py39h2bbff1b_0
+        fsspec                    2021.10.1          pyhd3eb1b0_0
+        future                    0.18.2           py39haa95532_1
+        gast                      0.4.0              pyhd3eb1b0_0
+        giflib                    5.2.1                h62dcd97_0
+        google-auth               1.33.0             pyhd3eb1b0_0
+        google-auth-oauthlib      0.4.1                      py_2
+        google-pasta              0.2.0              pyhd3eb1b0_0
+        grpcio                    1.42.0           py39hc60d5dd_0
+        h5py                      3.6.0            py39h3de5c98_0
+        hdf5                      1.10.6               h7ebc959_0
+        icc_rt                    2019.0.0             h0cc432a_1
+        icu                       68.1                 h6c2663c_0
+        idna                      3.3                pyhd3eb1b0_0
+        imagecodecs               2021.8.26        py39ha1f97ea_0
+        imageio                   2.9.0              pyhd3eb1b0_0
+        importlib-metadata        4.8.2            py39haa95532_0
+        iniconfig                 1.1.1              pyh9f0ad1d_0    conda-forge
+        intel-openmp              2021.4.0          haa95532_3556
+        jasper                    2.0.14               hea7d32e_2
+        jpeg                      9d                   h2bbff1b_0
+        keras-preprocessing       1.1.2              pyhd3eb1b0_0
+        kiwisolver                1.3.1            py39hd77b12b_0
+        lcms2                     2.12                 h83e58a3_0
+        lerc                      3.0                  hd77b12b_0
+        libaec                    1.0.4                h33f27b4_1
+        libblas                   3.9.0              12_win64_mkl    conda-forge
+        libcblas                  3.9.0              12_win64_mkl    conda-forge
+        libclang                  11.1.0          default_h5c34c98_1    conda-forge
+        libcurl                   7.80.0               h86230a5_0
+        libdeflate                1.8                  h2bbff1b_5
+        liblapack                 3.9.0              12_win64_mkl    conda-forge
+        liblapacke                3.9.0              12_win64_mkl    conda-forge
+        libopencv                 4.5.1            py39h27d8466_0    conda-forge
+        libpng                    1.6.37               h2a8f88b_0
+        libprotobuf               3.17.2               h23ce68f_1
+        libssh2                   1.9.0                h7a1dbc1_1
+        libtiff                   4.2.0                hd0e1b90_0
+        libwebp                   1.2.0                h2bbff1b_0
+        libwebp-base              1.2.0                h2bbff1b_0
+        libzopfli                 1.0.3                ha925a31_0
+        locket                    0.2.1            py39haa95532_1
+        lz4-c                     1.9.3                h2bbff1b_1
+        markdown                  3.3.4            py39haa95532_0
+        matplotlib-base           3.5.0            py39h6214cd6_0
+        mkl                       2021.4.0           h0e2418a_729    conda-forge
+        mkl-service               2.4.0            py39h2bbff1b_0
+        mkl_fft                   1.3.1            py39h277e83a_0
+        mkl_random                1.2.2            py39hf11a4ad_0
+        multidict                 5.1.0            py39h2bbff1b_2
+        munkres                   1.1.4                      py_0
+        networkx                  2.6.3              pyhd3eb1b0_0
+        numpy                     1.21.2           py39hfca59bb_0
+        numpy-base                1.21.2           py39h0829f74_0
+        oauthlib                  3.1.1              pyhd3eb1b0_0
+        olefile                   0.46               pyhd3eb1b0_0
+        opencv                    4.5.1            py39hcbf5309_0    conda-forge
+        openjpeg                  2.4.0                h4fc8c34_0
+        openssl                   1.1.1l               h8ffe710_0    conda-forge
+        opt_einsum                3.3.0              pyhd3eb1b0_1
+        packaging                 21.3               pyhd3eb1b0_0
+        partd                     1.2.0              pyhd3eb1b0_0
+        pillow                    8.4.0            py39hd45dc43_0
+        pip                       21.2.4           py39haa95532_0
+        pluggy                    1.0.0            py39hcbf5309_2    conda-forge
+        protobuf                  3.17.2           py39hd77b12b_0
+        py                        1.11.0             pyh6c4a22f_0    conda-forge
+        py-opencv                 4.5.1            py39h832f523_0    conda-forge
+        pyasn1                    0.4.8              pyhd3eb1b0_0
+        pyasn1-modules            0.2.8                      py_0
+        pycparser                 2.21               pyhd3eb1b0_0
+        pyjwt                     2.1.0            py39haa95532_0
+        pyopenssl                 21.0.0             pyhd3eb1b0_1
+        pyparsing                 3.0.4              pyhd3eb1b0_0
+        pyreadline                2.1              py39haa95532_1
+        pysocks                   1.7.1            py39haa95532_0
+        pytest                    6.2.5            py39hcbf5309_2    conda-forge
+        pytest-order              1.0.1              pyhd8ed1ab_0    conda-forge
+        python                    3.9.7                h6244533_1
+        python-dateutil           2.8.2              pyhd3eb1b0_0
+        python-flatbuffers        1.12               pyhd3eb1b0_0
+        python_abi                3.9                      2_cp39    conda-forge
+        pywavelets                1.1.1            py39h080aedc_4
+        pyyaml                    6.0              py39h2bbff1b_1
+        qt                        5.12.9               h5909a2a_4    conda-forge
+        requests                  2.27.1             pyhd3eb1b0_0
+        requests-oauthlib         1.3.0                      py_0
+        rsa                       4.7.2              pyhd3eb1b0_1
+        scikit-image              0.18.3           py39hf11a4ad_0
+        scipy                     1.7.3            py39h0a974cb_0
+        setuptools                58.0.4           py39haa95532_0
+        six                       1.16.0             pyhd3eb1b0_0
+        snappy                    1.1.8                h33f27b4_0
+        sqlite                    3.37.0               h2bbff1b_0
+        tbb                       2021.4.0             h59b6b97_0
+        tensorboard               2.6.0                      py_1
+        tensorboard-data-server   0.6.0            py39haa95532_0
+        tensorboard-plugin-wit    1.6.0                      py_0
+        tensorflow                2.6.0           gpu_py39he88c5ba_0
+        tensorflow-base           2.6.0           gpu_py39hb3da07e_0
+        tensorflow-estimator      2.6.0              pyh7b7c402_0
+        tensorflow-gpu            2.6.0                h17022bd_0
+        termcolor                 1.1.0            py39haa95532_1
+        tifffile                  2021.7.2           pyhd3eb1b0_2
+        tk                        8.6.11               h2bbff1b_0
+        toml                      0.10.2             pyhd8ed1ab_0    conda-forge
+        toolz                     0.11.2             pyhd3eb1b0_0
+        typing-extensions         3.10.0.2             hd3eb1b0_0
+        typing_extensions         3.10.0.2           pyh06a4308_0
+        tzdata                    2021e                hda174b7_0
+        urllib3                   1.26.7             pyhd3eb1b0_0
+        vc                        14.2                 h21ff451_1
+        vs2015_runtime            14.27.29016          h5e58377_2
+        werkzeug                  2.0.2              pyhd3eb1b0_0
+        wheel                     0.35.1             pyhd3eb1b0_0
+        win_inet_pton             1.1.0            py39haa95532_0
+        wincertstore              0.2              py39haa95532_2
+        wrapt                     1.13.3           py39h2bbff1b_2
+        xz                        5.2.5                h62dcd97_0
+        yaml                      0.2.5                he774522_0
+        yarl                      1.6.3            py39h2bbff1b_0
+        zfp                       0.5.5                hd77b12b_6
+        zipp                      3.7.0              pyhd3eb1b0_0
+        zlib                      1.2.11               h8cc25b3_4
+        zstd                      1.4.9                h19a0ad4_0
 
 Windows 10 conda yml install, TF 2.5
 -------------------------------------
