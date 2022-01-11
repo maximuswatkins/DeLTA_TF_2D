@@ -250,7 +250,7 @@ cause problems. You can run the following to install the correct version::
 
     (delta_env)$ conda install tensorflow-estimator==2.X
 
-with replaced by the version of your base tensorflow.
+with 'X' replaced by the version of your base tensorflow.
 
 Similarly for h5py, sometimes a version that is too recent or too old gets 
 installed. Depending on which version was installed, try::
