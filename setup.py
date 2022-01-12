@@ -1,9 +1,11 @@
 import pathlib
+import os
 from setuptools import setup, find_packages
 
 HERE = pathlib.Path(__file__).parent
 
-VERSION = "2.0b3"
+VERSION = os.environ['CI_COMMIT_TAG']
+
 PACKAGE_NAME = "delta2"
 AUTHOR = "Jean-Baptiste Lugagne, Owen OConnor"
 AUTHOR_EMAIL = "jblugagne@bu.edu, ooconnor@bu.edu"
@@ -36,14 +38,13 @@ setup(
     url=URL,
     install_requires=INSTALL_REQUIRES,
     packages=find_packages(include=["delta", "delta.*"]),
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     setup_requires=["pytest-order", "pytest-runner", "flake8"],
     tests_require=["pytest"],
     package_data={
         "tests": [
-            "data/movie_tif/*.tif",
-            "data/movie_mothermachine_tif/*.tif",
-            "data/movie_tif/*.tif",
+            "data/movie_2D_tif/*.tif",
+            "data/movie_mothermachine_tif/*.tif"
         ]
     },
 )

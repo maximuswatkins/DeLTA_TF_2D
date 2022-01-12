@@ -800,7 +800,8 @@ def seg_weights(
     """
 
     # Get cell labels mask:
-    lblimg, lblnb = label(mask, connectivity=1, return_num=True)
+    # `connectivity=2` is used to be consistent with `findContours` from OpenCV
+    lblimg, lblnb = label(mask, connectivity=2, return_num=True)
 
     # Compute cell-to-cell distance masks:
     distance_array = float("inf") * np.ones(mask.shape[0:2] + (max(lblnb, 2),))
@@ -815,15 +816,15 @@ def seg_weights(
     # Compute weights map:
     weightmap = w0 * np.exp(-np.square(np.sum(distance_array, -1)) / (2 * sigma ** 2))
     weightmap = np.multiply(weightmap, mask == 0)
-    weightmap = np.add(weightmap, (mask[:, :, 0] == 0) * classweights[0])
-    weightmap = np.add(weightmap, (mask[:, :, 0] == 1) * classweights[1])
+    weightmap = np.add(weightmap, (mask == 0) * classweights[0])
+    weightmap = np.add(weightmap, (mask == 1) * classweights[1])
 
     return weightmap
 
 
 def kernel(n: int) -> utils.SegmentationMask:
     """
-
+    Get kernel for morphological operations
 
     Parameters
     ----------
@@ -844,6 +845,7 @@ def estimate_seg2D_classweights(
     mask_path: str, sample_size: int = None
 ) -> Tuple[float, float]:
     """
+    Estimate the weights to assign each class in the weight maps
 
     Parameters
     ----------
@@ -908,8 +910,8 @@ def seg_weights_2D(
     mask: utils.SegmentationMask, classweights: Tuple[int, int] = (1, 1)
 ) -> npt.NDArray[np.float32]:
     """
-
-    This function computes custom weightmaps designed for bacterial images where borders are difficult to distinguish
+    Compute custom weightmaps designed for bacterial images 
+    where borders are difficult to distinguish
 
     Parameters
     ----------

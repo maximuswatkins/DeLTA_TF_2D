@@ -1,4 +1,3 @@
-
 Installation
 =================================
 
@@ -55,9 +54,13 @@ support for Visual studio, and a recent
 (≥8) if you want to use python-bioformats.
 
 On Linux, you will need a recent JDK/OpenJDK and will need to create a 
-JAVA_HOME environment variable pointing to it, for example on Ubuntu::
+`JAVA_HOME` environment variable pointing to it, for example on Ubuntu::
 
     (base)$ export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
+You will also need libGL. On Debian/Ubuntu type systems::
+
+    (base)$ apt install libgl1
 
 .. note::
     The dollar sign and everything before it are not part of the shell commands
@@ -85,9 +88,10 @@ microscopy file formats, run the following::
     (delta_env)$ pip install python-bioformats
 
 .. note::
-    For now DeLTA is only available on conda-forge for Linux and MacOSX for now
-    because of build-issues on Windows. You can however install from the .yml 
-    file below on Windows.
+    For now DeLTA is only available on conda-forge for Linux and MacOSX 
+    because the 
+    `conda-forge version of tensorflow is not up to date <https://github.com/conda-forge/tensorflow-feedstock/pull/111>`_. 
+    You can however install from the .yml file below on Windows.
 
 .. note::
     You will need to activate the environment before you can import DeLTA in
@@ -113,10 +117,12 @@ Again, if you want to use python-bioformats, run::
     (delta_env)$ pip install python-bioformats
 
 .. note::
-    conda sometimes takes a long time to resolve the environment.
+    conda sometimes takes a long time to resolve the environment. Lately we 
+    have had better luck using 
+    `mamba <https://mamba.readthedocs.io/en/latest/>`_ instead
 
-Install with pip from requirements.txt
---------------------------------------
+Install with pip
+-----------------
 
 We have typically had more trouble installing with pip than with
 conda, so we recommend using the latter, but we have been able to
@@ -128,10 +134,16 @@ Also make sure you have installed the prerequisites above, and also
 and `cuDNN <https://developer.nvidia.com/cudnn>`_ to be able to
 run on GPU
 
-then you should be able to run the following::
+then you should be able to run either of the following:
 
-	$ pip install -r requirements.txt
-
+* Install dependencies from the requirements file::
+   
+       $ pip install -r requirements.txt
+   
+* Install from the online Python Package Index (PyPI)::
+   
+       $ pip install delta2
+  
 
 .. note::
 	You might want to create a virtual environment
@@ -141,7 +153,7 @@ Finally, on Windows, to be able to use the ffmpeg-python module and save mp4
 output files you will need to 
 `download ffmpeg.exe <https://www.ffmpeg.org/download.html>`_ and place it in
 your environment's binaries directory. Otherwise ffmpeg-python will issue a
-cryptic message about not finding the file specified.
+cryptic message about not finding the file specified when trying to save.
 
 See also 
 `Tensorflow's pip install instructions <https://www.tensorflow.org/install/pip>`_
@@ -168,6 +180,58 @@ in the python interpreter:
 
 Your GPU should appear in the list.
 
+
+Import DeLTA
+-------------
+
+If you installed from conda-forge or PyPI, you should be all set. The following
+line in a python interpreter should work from anywhere on your system
+(it will issue a warning about not finding elastic-deform if you didn't install 
+it):
+
+.. code-block:: python
+
+    >>> import delta
+
+However, if you installed the dependencies from delta_env.yml or requirements.txt
+and are running from the sources in the repo, you will need to have delta in your
+python search path. The simplest way to do it is to cd into the root of the delta 
+git repository and try to import from there. However, since you will probably 
+want to import DeLTA from other parts of your system, you will need to append the
+path to the repository to your `PYTHONPATH` environment variable:
+
+1. You can append temporarily from within python:
+    
+   .. code-block:: python
+   
+       >>> import sys
+       >>> sys.path.append('/path/to/delta')
+    
+2. You can append temporarily from the shell before starting the interpreter
+   or your IDE::
+   
+        (linux/osx)$ export PYTHONPATH="${PYTHONPATH}:/path/to/delta"
+        (windows)$ set PYTHONPATH=%PYTHONPATH%;C:\path\to\delta
+     
+3. You can append permanently:
+    
+   - On linux: add the following line to your `~/.bashrc`::
+    
+       export PYTHONPATH="${PYTHONPATH}:/path/to/delta"
+    
+   - On windows: add the following line to your `C:\\autoexec.bat`::
+    
+       set PYTHONPATH=%PYTHONPATH%;C:\path\to\delta
+    
+
+.. note::
+    There are many other ways to do this and we can't list them all here.
+
+Once this is done you can import delta from wherever on the filesystem. 
+With the PyPI and conda-forge installations, DeLTA is installed under a path
+that is already part of `PYTHONPATH`. For more information see 
+`python's official documentation <https://docs.python.org/3/using/cmdline.html#envvar-PYTHONPATH>`_
+
 Troubleshooting
 ---------------
 
@@ -186,7 +250,7 @@ cause problems. You can run the following to install the correct version::
 
     (delta_env)$ conda install tensorflow-estimator==2.X
 
-with replaced by the version of your base tensorflow.
+with 'X' replaced by the version of your base tensorflow.
 
 Similarly for h5py, sometimes a version that is too recent or too old gets 
 installed. Depending on which version was installed, try::

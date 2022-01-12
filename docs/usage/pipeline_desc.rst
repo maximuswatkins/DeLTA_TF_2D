@@ -103,7 +103,7 @@ The pipeline module uses 3 main classes of objects
       pos = delta.pipeline.Position(
           position_nb=5,
           reader=reader,
-          models=delta.utils.load_models(),
+          models=delta.utils.loadmodels(),
           drift_correction=delta.config.drift_correction,
           crop_windows=delta.config.crop_windows
           )
