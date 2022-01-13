@@ -2193,12 +2193,15 @@ def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, 
 
     """
 
-    # Get colors:
+    if num_colors == 0:
+        return []
+    
+    # Get colors:    
     colors = cv2.applyColorMap(
         np.linspace(0, 256, num_colors, endpoint=False, dtype=np.uint8),
         cv2.COLORMAP_HSV
-        )
-    colors = colors[:,0,:].astype(np.float32)/255
+        ).astype(np.float64)/255
+    colors = [tuple(x) for x in colors[:,0]]
 
     # Pseudo randomly shuffle colors:
     if seed is not None:

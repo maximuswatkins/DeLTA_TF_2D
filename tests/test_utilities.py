@@ -218,6 +218,41 @@ def test_extract_poles():
             ]
     assert np.array_equal(poles, solution)
 
+
+#%% Make sure contour coloring and cv2 colormap work
+def _base_test_color(max_dots):
+    
+    mask = rand_mask((2048, 2048), max_dots=max_dots)
+    frame = np.repeat(mask[:,:,np.newaxis].astype(np.float64), 3, axis=2)
+    
+    cells, contours = utils.getcellsinframe(
+        utils.label_seg(mask), return_contours=True
+        )
+    
+    colors = utils.getrandomcolors(len(cells), seed=random.randint(0,1024))
+    
+    for c, cell in enumerate(cells):
+        # Draw contours:
+        frame = cv2.drawContours(
+            frame,
+            contours,
+            c,
+            color=colors[cell],
+            thickness=1,
+        )
+
+@pytest.mark.order(2)
+@pytest.mark.parametrize("execution_number", range(5))  # Run it 10 times
+class Test_color_contours:
+    def test_nocell(self, execution_number):
+        _base_test_color(0)
+    def test_onecell(self, execution_number):
+        _base_test_color(1)
+    def test_twocells(self, execution_number):
+        _base_test_color(2)
+    def test_100cells(self, execution_number):
+        _base_test_color(100)
+
 #%% Test xpreader
 
 class Test_xpreader():
