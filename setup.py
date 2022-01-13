@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 HERE = pathlib.Path(__file__).parent
 
-VERSION = os.environ['CI_COMMIT_TAG']
+VERSION = "2.0.1"
 
 PACKAGE_NAME = "delta2"
 AUTHOR = "Jean-Baptiste Lugagne, Owen OConnor"
