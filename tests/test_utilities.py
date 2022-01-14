@@ -222,17 +222,20 @@ def test_extract_poles():
 #%% Make sure contour coloring and cv2 colormap work
 def _base_test_color(max_dots):
     
+    # Get random mask and RGB frame:
     mask = rand_mask((2048, 2048), max_dots=max_dots)
     frame = np.repeat(mask[:,:,np.newaxis].astype(np.float64), 3, axis=2)
     
+    # Get cells numbers and contours:
     cells, contours = utils.getcellsinframe(
         utils.label_seg(mask), return_contours=True
         )
     
+    # Get random colors:
     colors = utils.getrandomcolors(len(cells), seed=random.randint(0,1024))
     
+    # Color cells contours:
     for c, cell in enumerate(cells):
-        # Draw contours:
         frame = cv2.drawContours(
             frame,
             contours,
@@ -240,18 +243,41 @@ def _base_test_color(max_dots):
             color=colors[cell],
             thickness=1,
         )
+    
+    return mask, frame
+
+def _evaluate_color_nb(mask, frame):
+    
+    # Get cell contours:
+    contours = utils.find_contours(mask)
+    
+    # Get colors present in frame:
+    colors = np.unique(
+        np.reshape(
+            frame, 
+            (frame.shape[0]*frame.shape[1],frame.shape[2])
+            ), 
+        axis=0
+        )
+    
+    # Assert that we have the right nb of colors:
+    assert colors.shape[0] == len(contours) + np.unique(mask).shape[0]
 
 @pytest.mark.order(2)
 @pytest.mark.parametrize("execution_number", range(5))  # Run it 10 times
 class Test_color_contours:
     def test_nocell(self, execution_number):
-        _base_test_color(0)
+        mask, frame = _base_test_color(0)
+        _evaluate_color_nb(mask, frame)
     def test_onecell(self, execution_number):
-        _base_test_color(1)
+        mask, frame = _base_test_color(1)
+        _evaluate_color_nb(mask, frame)
     def test_twocells(self, execution_number):
-        _base_test_color(2)
+        mask, frame = _base_test_color(2)
+        _evaluate_color_nb(mask, frame)
     def test_100cells(self, execution_number):
-        _base_test_color(100)
+        mask, frame = _base_test_color(100)
+        _evaluate_color_nb(mask, frame)
 
 #%% Test xpreader
 
