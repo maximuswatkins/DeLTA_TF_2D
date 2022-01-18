@@ -19,7 +19,6 @@ import cv2
 import ffmpeg
 import numpy as np
 import numpy.typing as npt
-import matplotlib.cm as cm
 from skimage.morphology import skeletonize
 
 from . import config as cfg
@@ -2194,9 +2193,15 @@ def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, 
 
     """
 
-    # Get colors:
-    cmap = cm.get_cmap("hsv", lut=num_colors)
-    colors = [cmap(i)[0:3] for i in range(num_colors)]
+    if num_colors == 0:
+        return []
+    
+    # Get colors:    
+    colors = cv2.applyColorMap(
+        np.linspace(0, 256, num_colors, endpoint=False, dtype=np.uint8),
+        cv2.COLORMAP_HSV
+        ).astype(np.float64)/255
+    colors = [tuple(x) for x in colors[:,0]]
 
     # Pseudo randomly shuffle colors:
     if seed is not None:
