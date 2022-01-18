@@ -30,3 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - Matlab-related code
+
+## [2.0.1] - 2022-01-12
+### Added
+- Added matploblib to requirements.txt
+
+## [2.0.2] - 2022-01-17
+### Added
+- pytest tests for utilities.getrandomcolors
+
+### Changed 
+- Rewrote utilties.getrandomcolors to be dependent on cv2 instead of matplotlib
+
+### Removed
+- Remvoed matplotlib from requirements.txt
