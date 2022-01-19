@@ -14,9 +14,9 @@ For the latest _hotness_ check out the `dev` branch. You can also quickly test D
 for free [here](https://colab.research.google.com/drive/1UL9oXmcJFRBAm0BMQy_DMKg4VHYGgtxZ?usp=sharing)
 
 --------------------------
-See also our papers and manuscript for more details:
+See also our papers for more details:
 
-Version 2 preprint: [O’Connor, O. M., Alnahhas, R. N., Lugagne, J.-B., & Dunlop, M. J. (2021). DeLTA 2.0: A deep learning pipeline for quantifying single-cell spatial and temporal dynamics. _BioRxiv_, 2021.08.10.455795](https://www.biorxiv.org/content/10.1101/2021.08.10.455795v1)
+Version 2: [O’Connor OM, Alnahhas RN, Lugagne J-B, Dunlop MJ (2022) DeLTA 2.0: A deep learning pipeline for quantifying single-cell spatial and temporal dynamics. _PLoS Comput Biol_ 18(1): e1009797](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009797)
 
-Version 1 paper:
-[Lugagne, J.-B., Lin, H., & Dunlop, M. J. (2020). DeLTA: Automated cell segmentation, tracking, and lineage reconstruction using deep learning. _PLOS Computational Biology_, 16(4), e1007673](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007673).
+Version 1:
+[Lugagne J-B, Lin H, & Dunlop MJ (2020) DeLTA: Automated cell segmentation, tracking, and lineage reconstruction using deep learning. _PLoS Comput Biol_ 16(4): e1007673](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007673)

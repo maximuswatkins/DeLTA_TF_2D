@@ -14,11 +14,11 @@ microscopy movies.
     :alt: An illustration of DeLTA's performance on an agar pad movie of E. Coli
     :align: center
 
-Version 2 preprint: 
-`O’Connor, O. M., Alnahhas, R. N., Lugagne, J.-B., & Dunlop, M. J. (2021). DeLTA 2.0: A deep learning pipeline for quantifying single-cell spatial and temporal dynamics. BioRxiv, 2021.08.10.455795 <https://www.biorxiv.org/content/10.1101/2021.08.10.455795v1>`_
+Version 2: 
+`O’Connor OM, Alnahhas RN, Lugagne J-B, Dunlop MJ (2022) DeLTA 2.0: A deep learning pipeline for quantifying single-cell spatial and temporal dynamics. PLoS Comput Biol 18(1): e1009797 <https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009797>`_
 
-Version 1 paper:
-`Lugagne, J.-B., Lin, H., & Dunlop, M. J. (2020). DeLTA: Automated cell segmentation, tracking, and lineage reconstruction using deep learning. PLOS Computational Biology, 16(4), e1007673. <https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007673>`_
+Version 1:
+`Lugagne J-B, Lin H, & Dunlop MJ (2020) DeLTA: Automated cell segmentation, tracking, and lineage reconstruction using deep learning. PLoS Comput Biol 16(4): e1007673 <https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007673>`_
 
 Gitlab repository: 
 `https://gitlab.com/dunloplab/delta <https://gitlab.com/dunloplab/delta>`_
