@@ -1377,6 +1377,8 @@ def predictCompilefromseg_track(
         fileorder = "pt"
         crop = True
     fileordercell = fileorder + "n"
+    
+    boxes = []
     for index, item in enumerate(files_list):
         filename = os.path.basename(item)
         # Get position, chamber & frame numbers:
@@ -1425,7 +1427,6 @@ def predictCompilefromseg_track(
             lblimg, lblnb = label(prevsegall, connectivity=1, return_num=True)
 
             x = np.zeros(shape=(lblnb,) + target_size + (4,), dtype=np.float32)
-            boxes = []
 
             for lbl in range(1, lblnb + 1):
                 seg = lblimg == lbl
