@@ -1277,7 +1277,7 @@ def getfnfromprototype(
 def predictCompilefromseg_track(
     img_path: str,
     seg_path: str,
-    files_list: Union[List[str], Tuple[str, ...]] = [],
+    files_list: Union[List[str], Tuple[str, ...]],
     target_size: Tuple[int, int] = (256, 32),
     crop: bool = False,
 ) -> Tuple[
@@ -1299,8 +1299,6 @@ def predictCompilefromseg_track(
         same as in the img_path folder.
     files_list : tuple/list of strings, optional
         List of filenames to compile in the img_path and seg_path folders.
-        If empty, all files in the folder will be read.
-        The default is [].
     target_size : tuple of 2 ints, optional
         Input and output image size.
         The default is (256,32).
@@ -1325,16 +1323,14 @@ def predictCompilefromseg_track(
     """
 
     seg_name_list = []
-    if not files_list:
-        files_list = sorted(os.listdir(img_path))
 
     ind = 0
 
     numstrs = re.findall(
-        r"\d+", files_list[0]
+        r"\d+", os.path.basename(files_list[0])
     )  # Get digits sequences in first filename
     charstrs = re.findall(
-        r"\D+", files_list[0]
+        r"\D+", os.path.basename(files_list[0])
     )  # Get character sequences in first filename
 
     # Create the string prototype to be used to generate filenames on the fly:
