@@ -851,6 +851,10 @@ class Position:
                     lin[-1]["length"] = np.array(c["length"], dtype=np.float32)
                 if "perimeter" in c:
                     lin[-1]["perimeter"] = np.array(c["perimeter"], dtype=np.float32)
+                if "old_pole" in c:
+                    lin[-1]["old_pole"] = np.array(c["old_pole"], dtype=np.float32)
+                if "new_pole" in c:
+                    lin[-1]["new_pole"] = np.array(c["new_pole"], dtype=np.float32)
                 # Loop through potential fluo channels:
                 fluo = 0
                 while True:
