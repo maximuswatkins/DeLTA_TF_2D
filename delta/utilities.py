@@ -31,7 +31,7 @@ Labels = npt.NDArray[np.uint16]
 
 SegmentationMask = npt.NDArray[np.uint8]
 
-Pole = npt.NDArray[np.uint16]
+Pole = npt.NDArray[np.int16]
 
 # TODO: properly type this
 class CroppingBox(Dict):
@@ -884,8 +884,8 @@ def getpoles(
     if scaling:
         clean_poles = [
             (
-                np.round(p1 * scaling).astype(np.uint16),
-                np.round(p2 * scaling).astype(np.uint16),
+                np.round(p1 * scaling).astype(np.int16),
+                np.round(p2 * scaling).astype(np.int16),
             )
             for p1, p2 in clean_poles
         ]
@@ -950,7 +950,10 @@ def extrema_poles(
         i = np.lexsort((x, y))
     else:  # Horizontal cell
         i = np.lexsort((y, x))
-    poles = (np.array((y[i[0]], x[i[0]])), np.array((y[i[-1]], x[i[-1]])))
+    poles = (
+        np.array((y[i[0]], x[i[0]]), dtype=np.int16),
+        np.array((y[i[-1]], x[i[-1]]), dtype=np.int16)
+        )
 
     return poles
 
@@ -1017,7 +1020,7 @@ def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> List[List[P
     for p in range(len(locations[0])):
 
         cell = labels[locations[0][p], locations[1][p]] - 1
-        poles[cell] += [np.array([locations[0][p], locations[1][p]])]
+        poles[cell] += [np.array([locations[0][p], locations[1][p]],dtype=np.int16)]
 
     return poles
 
