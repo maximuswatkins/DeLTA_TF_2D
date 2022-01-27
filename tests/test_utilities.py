@@ -219,7 +219,7 @@ def test_extract_poles():
     assert np.array_equal(poles, solution)
 
 @pytest.mark.parametrize("execution_number", range(1000))  # Run it 1000 times
-def test_track_poles():
+def test_track_poles(execution_number):
     # Random previous old pole:
     prev_old = np.random.randint(low=0,high=32767,size=2,dtype=np.int16)
     # Random previous new pole is some small random distance away:
@@ -260,7 +260,7 @@ def test_track_poles():
     assert np.all(out_new == new_new)
 
 @pytest.mark.parametrize("execution_number", range(1000))  # Run it 1000 times
-def test_division_poles():
+def test_division_poles(execution_number):
     
     # Random previous old pole:
     prev_old = np.random.randint(low=0,high=32767,size=2,dtype=np.int16)
