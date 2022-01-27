@@ -584,7 +584,7 @@ class Position:
                     j = min((len(x), i + cfg.pipeline_track_batch))
                     y[i:j] = self.models["tracking"].predict(
                         x[i:j],
-                        batch_size=16,
+                        batch_size=1,
                         workers=1,
                         use_multiprocessing=False,
                         verbose=0,
