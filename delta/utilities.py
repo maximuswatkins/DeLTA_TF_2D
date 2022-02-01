@@ -1047,14 +1047,14 @@ def eucl(p1: npt.NDArray[Any], p2: npt.NDArray[Any]) -> float:
     return np.linalg.norm(p1 - p2)
 
 def track_poles(
-        poles: List[Pole], prev_old: Pole, prev_new: Pole
+        poles: Tuple[Pole, Pole], prev_old: Pole, prev_new: Pole
         ) -> Tuple[Pole ,Pole]:
     """
     Track poles of a cell to the previous old and new poles
 
     Parameters
     ----------
-    poles : List[Pole]
+    poles : Tuple[Pole, Pole]
         Coordinates for the 2 poles of a single cell
     prev_old : Pole
         Previous old pole of the cell.
@@ -1081,8 +1081,8 @@ def track_poles(
     return old_pole, new_pole
 
 def division_poles(
-        poles_cell1: List[Pole],
-        poles_cell2: List[Pole],
+        poles_cell1: Tuple[Pole, Pole],
+        poles_cell2: Tuple[Pole, Pole],
         prev_old: Pole,
         prev_new: Pole
         ) -> Tuple[Tuple[Pole, Pole], Tuple[Pole, Pole], bool]:
@@ -1091,9 +1091,9 @@ def division_poles(
 
     Parameters
     ----------
-    poles_cell1 : List[Pole]
+    poles_cell1 : Tuple[Pole, Pole]
         Poles of one of the 2 cells after division.
-    poles_cell2 : List[Pole]
+    poles_cell2 : Tuple[Pole, Pole]
         Poles of the other of the 2 cells after division.
     prev_old : Pole
         Previous old pole of the cell.
@@ -1119,30 +1119,30 @@ def division_poles(
                 c2_new = c2
 
     # Track poles closest to old and new pole from previous cell:
-    if eucl(poles_cell1[int(not c1_new)], prev_old)**2 + eucl(
-        poles_cell2[int(not c2_new)], prev_new
-    )**2 < eucl(poles_cell1[int(not c1_new)], prev_new)**2 + eucl(
+    if eucl(poles_cell1[1-c1_new], prev_old)**2 + eucl(
+        poles_cell2[1-c2_new], prev_new
+    )**2 < eucl(poles_cell1[1-c1_new], prev_new)**2 + eucl(
         poles_cell2[int(not c2_new)], prev_old
     )**2:
         # cell 1 is mother, cell 2 is daughter
         first_cell_is_mother = True
         # Attribute mother:
-        mother_old_pole = poles_cell1[int(not c1_new)]
+        mother_old_pole = poles_cell1[1-c1_new]
         mother_new_pole = poles_cell1[c1_new]
         
         # Attribute daughter:
-        daughter_old_pole = poles_cell2[int(not c2_new)]
+        daughter_old_pole = poles_cell2[1-c2_new]
         daughter_new_pole = poles_cell2[c2_new]
         
     else:
         # cell 2 is mother, cell 1 is daughter
         first_cell_is_mother = False
         # Attribute mother:
-        mother_old_pole = poles_cell2[int(not c2_new)]
+        mother_old_pole = poles_cell2[1-c2_new]
         mother_new_pole = poles_cell2[c2_new]
         
         # Attribute daughter:
-        daughter_old_pole = poles_cell1[int(not c1_new)]
+        daughter_old_pole = poles_cell1[1-c1_new]
         daughter_new_pole = poles_cell1[c1_new]
     
     return (
@@ -1376,7 +1376,6 @@ class Lineage:
             mother_poles, daughter_poles, first_cell_is_mother = division_poles(
                 poles[0], poles[1], prev_old, prev_new
                 )
-            # cell 0 is mother, cell 1 is daughter
             # Create daughter:
             daughternum = self.createcell(
                 frame,
