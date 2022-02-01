@@ -3,7 +3,7 @@ Module for model definitions and loss/metrics functions definitions
 
 @author: jblugagne
 """
-from typing import Union, List, Tuple, Callable
+from typing import Union, List, Tuple, Callable, Dict
 
 import tensorflow as tf
 import tensorflow.keras as keras
@@ -208,6 +208,7 @@ def unet(
     input_size: Tuple[int, int, int] = (256, 32, 1),
     final_activation: str = "sigmoid",
     output_classes: int = 1,
+    levels: int = 5,
 ) -> Model:
     """
     Generic U-Net declaration.
@@ -225,6 +226,9 @@ def unet(
         Number of output classes, ie dimensionality of the output space of the
         last 2D convolutional layer.
         The default is 1.
+    levels : int
+        Number of levels of the U-Net, ie number of successive contraction then
+        expansion blocks are combined together.
 
     Returns
     -------
@@ -233,61 +237,151 @@ def unet(
 
     """
 
-    inputs = Input(input_size, name="true_input")
+    # Default conv2d parameters:
     conv2d_parameters = {
         "activation": "relu",
         "padding": "same",
         "kernel_initializer": "he_normal",
     }
+    
+    # Inputs layer:
+    inputs = Input(input_size, name="true_input")
 
-    conv1 = Conv2D(64, 3, **conv2d_parameters)(inputs)
-    conv1 = Conv2D(64, 3, **conv2d_parameters)(conv1)
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+    # First level input convolutional layers:
+    filters = 64
+    conv = Conv2D(
+        filters, 3, **conv2d_parameters, name = "Level0_Conv2D_1"
+        )(inputs)
+    conv = Conv2D(
+        filters, 3, **conv2d_parameters, name = "Level0_Conv2D_2"
+        )(conv)
+    
+    # Generate contracting path:
+    contracting_outputs = [conv]
+    for level in range(1, levels):
+        filters *= 2
+        contracting_outputs.append(
+            contracting_block(
+                contracting_outputs[-1], 
+                filters, 
+                conv2d_parameters, 
+                name = "Level%d_Contracting"%level
+                )
+            )
+    
+    # Generate expanding path:
+    expanding_output = contracting_outputs.pop()
+    while level > 0:
+        level -= 1
+        filters = int(filters/2)
+        expanding_output = expanding_block(
+            expanding_output,
+            contracting_outputs.pop(),
+            filters,
+            conv2d_parameters,
+            name = "Level%d_Expanding"%level
+            )
 
-    conv2 = Conv2D(128, 3, **conv2d_parameters)(pool1)
-    conv2 = Conv2D(128, 3, **conv2d_parameters)(conv2)
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+    # Final output layer:
+    output = Conv2D(
+        output_classes, 1, activation=final_activation, name="true_output"
+        )(expanding_output)
 
-    conv3 = Conv2D(256, 3, **conv2d_parameters)(pool2)
-    conv3 = Conv2D(256, 3, **conv2d_parameters)(conv3)
-    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
-
-    conv4 = Conv2D(512, 3, **conv2d_parameters)(pool3)
-    conv4 = Conv2D(512, 3, **conv2d_parameters)(conv4)
-    drop4 = Dropout(0.5)(conv4)
-    pool4 = MaxPooling2D(pool_size=(2, 2))(drop4)
-
-    conv5 = Conv2D(1024, 3, **conv2d_parameters)(pool4)
-    conv5 = Conv2D(1024, 3, **conv2d_parameters)(conv5)
-    drop5 = Dropout(0.5)(conv5)
-
-    up6 = Conv2D(512, 2, **conv2d_parameters)(UpSampling2D(size=(2, 2))(drop5))
-    merge6 = Concatenate(axis=3)([drop4, up6])
-    conv6 = Conv2D(512, 3, **conv2d_parameters)(merge6)
-    conv6 = Conv2D(512, 3, **conv2d_parameters)(conv6)
-
-    up7 = Conv2D(256, 2, **conv2d_parameters)(UpSampling2D(size=(2, 2))(conv6))
-    merge7 = Concatenate(axis=3)([conv3, up7])
-    conv7 = Conv2D(256, 3, **conv2d_parameters)(merge7)
-    conv7 = Conv2D(256, 3, **conv2d_parameters)(conv7)
-
-    up8 = Conv2D(128, 2, **conv2d_parameters)(UpSampling2D(size=(2, 2))(conv7))
-    merge8 = Concatenate(axis=3)([conv2, up8])
-    conv8 = Conv2D(128, 3, **conv2d_parameters)(merge8)
-    conv8 = Conv2D(128, 3, **conv2d_parameters)(conv8)
-
-    up9 = Conv2D(64, 2, **conv2d_parameters)(UpSampling2D(size=(2, 2))(conv8))
-    merge9 = Concatenate(axis=3)([conv1, up9])
-    conv9 = Conv2D(64, 3, **conv2d_parameters)(merge9)
-    conv9 = Conv2D(64, 3, **conv2d_parameters)(conv9)
-
-    conv10 = Conv2D(output_classes, 1, activation=final_activation, name="true_output")(
-        conv9
-    )
-
-    model = Model(inputs=inputs, outputs=conv10)
+    model = Model(inputs=inputs, outputs=output)
 
     return model
+
+
+def contracting_block(
+        input_layer: tf.Tensor,
+        filters: int,
+        conv2d_parameters: Dict,
+        name: str = "Contracting"
+        ) -> tf.Tensor:
+    """
+    A block of layers for 1 contracting level of the U-Net
+
+    Parameters
+    ----------
+    input_layer : tf.Tensor
+        The convolutional layer that is the output of the upper level's
+        contracting block.
+    filters : int
+        filters input for the Conv2D layers of the block.
+    conv2d_parameters : dict()
+        kwargs for the Conv2D layers of the block.
+    name : str, optional
+        Name prefix for the layers in this block. The default is "Contracting".
+
+    Returns
+    -------
+    conv2 : tf.Tensor
+        Output of this level's contracting block.
+
+    """
+    
+    # Pooling layer: (sample 'images' down by factor 2)
+    pool = MaxPooling2D(
+        pool_size=(2, 2), name=name+"_MaxPooling2D"
+        )(input_layer)
+    
+    # First convolution layer:
+    conv1 = Conv2D(
+        filters, 3, **conv2d_parameters, name=name+"_Conv2D_1"
+        )(pool)
+    
+    # Second convolution layer:
+    conv2 = Conv2D(
+        filters, 3, **conv2d_parameters, name=name+"_Conv2D_2"
+        )(conv1)
+    
+    return conv2
+
+
+def expanding_block(
+        input_layer: tf.Tensor,
+        skip_layer: tf.Tensor,
+        filters: int,
+        conv2d_parameters: Dict,
+        name: str = "Expanding"
+        ) -> tf.Tensor:
+    """
+    A block of layers for 1 expanding level of the U-Net
+
+    Parameters
+    ----------
+    input_layer : tf.Tensor
+        The convolutional layer that is the output of the lower level's
+        expanding block
+    skip_layer : tf.Tensor
+        The convolutional layer that is the output of this level's
+        contracting block
+    filters : int
+        filters input for the Conv2D layers of the block.
+    conv2d_parameters : dict()
+        kwargs for the Conv2D layers of the block.
+    name : str, optional
+        Name prefix for the layers in this block. The default is "Expanding".
+
+    Returns
+    -------
+    conv3 : tf.Tensor
+        Output of this level's expanding block.
+
+    """
+    
+    # Up-sampling:
+    up = UpSampling2D(size=(2, 2), name=name+"_UpSampling2D")(input_layer)
+    conv1 = Conv2D(filters, 2, **conv2d_parameters, name=name+"_Conv2D_1")(up)
+    
+    # Merge with skip connection layer:
+    merge = Concatenate(axis=3, name=name+"_Concatenate")([skip_layer, conv1])
+    
+    # Convolution layers:
+    conv2 = Conv2D(filters, 3, **conv2d_parameters, name=name+"_Conv2D_2")(merge)
+    conv3 = Conv2D(filters, 3, **conv2d_parameters, name=name+"_Conv2D_3")(conv2)
+    
+    return conv3
 
 
 # Use the following model for segmentation:
