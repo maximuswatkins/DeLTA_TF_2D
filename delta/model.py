@@ -229,6 +229,7 @@ def unet(
     levels : int
         Number of levels of the U-Net, ie number of successive contraction then
         expansion blocks are combined together.
+        The default is 5.
 
     Returns
     -------
