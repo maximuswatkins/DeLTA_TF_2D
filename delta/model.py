@@ -208,6 +208,7 @@ def unet(
     input_size: Tuple[int, int, int] = (256, 32, 1),
     final_activation: str = "sigmoid",
     output_classes: int = 1,
+    dropout: float = 0,
     levels: int = 5,
 ) -> Model:
     """
@@ -226,6 +227,10 @@ def unet(
         Number of output classes, ie dimensionality of the output space of the
         last 2D convolutional layer.
         The default is 1.
+    dropout : float, optional
+        Dropout layer rate in the contracting & expanding blocks. Valid range
+        is [0,1). If 0, no dropout layer is added.
+        The default is 0
     levels : int
         Number of levels of the U-Net, ie number of successive contraction then
         expansion blocks are combined together.
@@ -258,14 +263,16 @@ def unet(
         )(conv)
     
     # Generate contracting path:
+    level = 0
     contracting_outputs = [conv]
     for level in range(1, levels):
         filters *= 2
         contracting_outputs.append(
             contracting_block(
                 contracting_outputs[-1], 
-                filters, 
-                conv2d_parameters, 
+                filters,
+                conv2d_parameters,
+                dropout = dropout,
                 name = "Level%d_Contracting"%level
                 )
             )
@@ -280,6 +287,7 @@ def unet(
             contracting_outputs.pop(),
             filters,
             conv2d_parameters,
+            dropout = dropout,
             name = "Level%d_Expanding"%level
             )
 
@@ -297,6 +305,7 @@ def contracting_block(
         input_layer: tf.Tensor,
         filters: int,
         conv2d_parameters: Dict,
+        dropout: float = 0,
         name: str = "Contracting"
         ) -> tf.Tensor:
     """
@@ -311,6 +320,10 @@ def contracting_block(
         filters input for the Conv2D layers of the block.
     conv2d_parameters : dict()
         kwargs for the Conv2D layers of the block.
+    dropout : float, optional
+        Dropout layer rate in the block. Valid range is [0,1). If 0, no dropout
+        layer is added.
+        The default is 0
     name : str, optional
         Name prefix for the layers in this block. The default is "Contracting".
 
@@ -336,7 +349,12 @@ def contracting_block(
         filters, 3, **conv2d_parameters, name=name+"_Conv2D_2"
         )(conv1)
     
-    return conv2
+    # Add dropout if necessary, otherwise return:
+    if dropout == 0:
+        return conv2
+    else:
+        drop = Dropout(dropout, name=name+"_Dropout")(conv2)
+        return drop
 
 
 def expanding_block(
@@ -344,6 +362,7 @@ def expanding_block(
         skip_layer: tf.Tensor,
         filters: int,
         conv2d_parameters: Dict,
+        dropout: float = 0,
         name: str = "Expanding"
         ) -> tf.Tensor:
     """
@@ -361,6 +380,10 @@ def expanding_block(
         filters input for the Conv2D layers of the block.
     conv2d_parameters : dict()
         kwargs for the Conv2D layers of the block.
+    dropout : float, optional
+        Dropout layer rate in the block. Valid range is [0,1). If 0, no dropout
+        layer is added.
+        The default is 0
     name : str, optional
         Name prefix for the layers in this block. The default is "Expanding".
 
@@ -382,7 +405,12 @@ def expanding_block(
     conv2 = Conv2D(filters, 3, **conv2d_parameters, name=name+"_Conv2D_2")(merge)
     conv3 = Conv2D(filters, 3, **conv2d_parameters, name=name+"_Conv2D_3")(conv2)
     
-    return conv3
+    # Add dropout if necessary, otherwise return:
+    if dropout == 0:
+        return conv3
+    else:
+        drop = Dropout(dropout, name=name+"_Dropout")(conv3)
+        return drop
 
 
 # Use the following model for segmentation:
