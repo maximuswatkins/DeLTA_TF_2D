@@ -218,7 +218,124 @@ def test_extract_poles():
             ]
     assert np.array_equal(poles, solution)
 
+@pytest.mark.parametrize("execution_number", range(1000))  # Run it 1000 times
+def test_track_poles(execution_number):
+    # Random previous old pole:
+    prev_old = np.random.randint(low=0,high=32767,size=2,dtype=np.int16)
+    # Random previous new pole is some small random distance away:
+    while True:
+        increment = np.random.normal(loc=0,scale=20,size=2).astype(np.int16)
+        dist = np.linalg.norm(increment)
+        if dist < 10: # At least 10 pixels between poles
+            continue
+        prev_new = prev_old + increment
+        if np.all(prev_new>=0):
+            break
+    
+    while True:
+        # Simulate whole cell shift:    
+        cell_shift = np.random.gamma(shape=2,scale=2,size=2)
+        
+        # Simulate small pole shifts:
+        increment = np.random.uniform(low=-3,high=3,size=2)
+        new_new = prev_new + cell_shift + increment
+        
+        # Simulate small pole shifts:
+        increment = np.random.uniform(low=-3,high=3,size=2)
+        new_old = prev_old + cell_shift + increment
+        
+        new_new = new_new.astype(np.int16)
+        new_old = new_old.astype(np.int16)
+        if np.all(new_new>=0) and np.all(new_old>=0):
+            break
+    
+    if random.random()>.5:
+        poles = [new_new, new_old]
+    else:
+        poles = [new_old, new_new]
+    
+    out_old, out_new = utils.track_poles(poles, prev_old, prev_new)
+    
+    assert np.all(out_old == new_old)
+    assert np.all(out_new == new_new)
 
+@pytest.mark.parametrize("execution_number", range(1000))  # Run it 1000 times
+def test_division_poles(execution_number):
+    
+    # Random previous old pole:
+    prev_old = np.random.randint(low=0,high=32767,size=2,dtype=np.int16)
+    # Random previous new pole is some small random distance away:
+    while True:
+        increment = np.random.normal(loc=0,scale=20,size=2).astype(np.int16)
+        dist = np.linalg.norm(increment)
+        if dist < 20: # At least 20 pixels between poles
+            continue
+        prev_new = prev_old + increment
+        if np.all(prev_new>=0):
+            break
+    
+    # Generate shift poles to create "current frame"
+    while True:
+        # Simulate whole cell shift:    
+        cell_shift = np.random.gamma(shape=2,scale=2,size=2)
+        
+        # Simulate small pole shifts:
+        increment = np.random.uniform(low=-3,high=3,size=2)
+        daughter_old = prev_new + cell_shift + increment
+        
+        # Simulate small pole shifts:
+        increment = np.random.uniform(low=-3,high=3,size=2)
+        mother_old = prev_old + cell_shift + increment
+        
+        daughter_old = daughter_old.astype(np.int16)
+        mother_old = mother_old.astype(np.int16)
+        if np.all(daughter_old>=0) and np.all(mother_old>=0):
+            break
+    
+    # Generate septum and new poles:
+    septum = (mother_old/2 + daughter_old/2)
+    
+    # Shift by 2 pixels towards mother to get mother's new pole
+    sep2mot = 2*(septum-mother_old)/np.linalg.norm(septum-mother_old)
+    mother_new = (mother_old + sep2mot).astype(np.int16)
+    
+    # Shift by 2 pixels towards mother to get mother's new pole
+    sep2dau = 2*(septum-daughter_old)/np.linalg.norm(septum-daughter_old)
+    daughter_new = (daughter_old + sep2dau).astype(np.int16)
+    
+    # Randomly assign poles to the input lists:
+    if random.random()>.5:
+        mother_poles = [mother_new, mother_old]
+    else:
+        mother_poles = [mother_old, mother_new]
+    
+    if random.random()>.5:
+        daughter_poles = [daughter_new, daughter_old]
+    else:
+        daughter_poles = [daughter_old, daughter_new]
+    
+    if random.random()>.5:
+        first_cell_is_mother_t = True
+        poles_cell1 = mother_poles
+        poles_cell2 = daughter_poles
+    else:
+        first_cell_is_mother_t = False
+        poles_cell2 = mother_poles
+        poles_cell1 = daughter_poles
+    
+    # Run division poles:
+    mother_poles_out, daughter_poles_out, first_cell_is_mother = utils.division_poles(
+        poles_cell1, poles_cell2, prev_old, prev_new
+        )
+    
+    # Assertions:
+    assert first_cell_is_mother == first_cell_is_mother_t
+    assert np.all(mother_old == mother_poles_out[0])
+    assert np.all(mother_new == mother_poles_out[1])
+    assert np.all(daughter_old == daughter_poles_out[0])
+    assert np.all(daughter_new == daughter_poles_out[1])
+    
+    
 #%% Make sure contour coloring and cv2 colormap work
 def _base_test_color(max_dots):
     

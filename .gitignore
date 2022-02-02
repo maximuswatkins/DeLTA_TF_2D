@@ -3,6 +3,7 @@
 
 # Ignore test results folder:
 /tests/data/*/results
+/tests/data/*/delta_results
 
 # Ignore auto-generated docs pages:
 /docs/_generated/

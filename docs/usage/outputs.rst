@@ -134,7 +134,7 @@ For each position, the data structure is as follows:
             |       single cell is uniquely labelled. Labels use 1-based indexing:
             |       In python, Label L in the stack corresponds to cell #L-1 in the
             |       lineage list (see below). The dimensions are timepoints -by-
-            |       256 -by- 32.
+            |       U-Net size y -by- U-Net size x.
             |
             |---labelsstack_resized : 3D array of uint16
             |       Same as labelstack above, except it has been resized from the
@@ -176,6 +176,16 @@ For each position, the data structure is as follows:
                     |       detected (eg first timepoint), 1-based indexing 
                     |       otherwise: In python, mother M is cell/item #M-1 in 
                     |       this lineage list.
+                    |
+                    |---new_pole : 2D array of float32
+                    |       Position of the new pole of the cell, over time. 
+                    |       Note that positions are given as (Y, X) vectors.
+                    |       Dimensions are timepoints -by- 2.
+                    |
+                    |---old_pole : 2D array of float32
+                    |       Position of the old pole of the cell, over time. 
+                    |       Note that positions are given as (Y, X) vectors.
+                    |       Dimensions are timepoints -by- 2.
                     |
                     |---perimeter : 1D array of float32
                     |       Perimeter of the cell, in number of pixels.

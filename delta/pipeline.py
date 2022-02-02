@@ -584,7 +584,7 @@ class Position:
                     j = min((len(x), i + cfg.pipeline_track_batch))
                     y[i:j] = self.models["tracking"].predict(
                         x[i:j],
-                        batch_size=16,
+                        batch_size=1,
                         workers=1,
                         use_multiprocessing=False,
                         verbose=0,
@@ -851,6 +851,10 @@ class Position:
                     lin[-1]["length"] = np.array(c["length"], dtype=np.float32)
                 if "perimeter" in c:
                     lin[-1]["perimeter"] = np.array(c["perimeter"], dtype=np.float32)
+                if "old_pole" in c:
+                    lin[-1]["old_pole"] = np.array(c["old_pole"], dtype=np.float32)
+                if "new_pole" in c:
+                    lin[-1]["new_pole"] = np.array(c["new_pole"], dtype=np.float32)
                 # Loop through potential fluo channels:
                 fluo = 0
                 while True:
