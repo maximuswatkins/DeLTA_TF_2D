@@ -230,8 +230,8 @@ def unet(
     dropout : float, optional
         Dropout layer rate in the contracting & expanding blocks. Valid range
         is [0,1). If 0, no dropout layer is added.
-        The default is 0
-    levels : int
+        The default is 0.
+    levels : int, optional
         Number of levels of the U-Net, ie number of successive contraction then
         expansion blocks are combined together.
         The default is 5.
@@ -415,7 +415,9 @@ def expanding_block(
 
 # Use the following model for segmentation:
 def unet_seg(
-    pretrained_weights: str = None, input_size: Tuple[int, int, int] = (256, 32, 1)
+    pretrained_weights: str = None,
+    input_size: Tuple[int, int, int] = (256, 32, 1),
+    levels: int = 5
 ) -> Model:
     """
     Cell segmentation U-Net definition function.
@@ -428,6 +430,10 @@ def unet_seg(
     input_size : tuple of 3 ints, optional
         Dimensions of the input tensor, without batch size.
         The default is (256,32,1).
+    levels : int, optional
+        Number of levels of the U-Net, ie number of successive contraction then
+        expansion blocks are combined together.
+        The default is 5.
 
     Returns
     -------
@@ -436,7 +442,12 @@ def unet_seg(
 
     """
 
-    model = unet(input_size=input_size, final_activation="sigmoid", output_classes=1)
+    model = unet(
+        input_size=input_size,
+        final_activation="sigmoid",
+        output_classes=1,
+        levels=levels
+        )
 
     model.compile(
         optimizer=Adam(learning_rate=1e-4),
@@ -452,7 +463,9 @@ def unet_seg(
 
 # Use the following model for tracking and lineage reconstruction:
 def unet_track(
-    pretrained_weights: str = None, input_size: Tuple[int, int, int] = (256, 32, 4)
+    pretrained_weights: str = None,
+    input_size: Tuple[int, int, int] = (256, 32, 4),
+    levels: int = 5
 ) -> Model:
     """
     Tracking U-Net definition function.
@@ -465,6 +478,10 @@ def unet_track(
     input_size : tuple of 3 ints, optional
         Dimensions of the input tensor, without batch size.
         The default is (256,32,4).
+    levels : int, optional
+        Number of levels of the U-Net, ie number of successive contraction then
+        expansion blocks are combined together.
+        The default is 5.
 
     Returns
     -------
@@ -473,7 +490,12 @@ def unet_track(
 
     """
 
-    model = unet(input_size=input_size, final_activation="sigmoid", output_classes=1)
+    model = unet(
+        input_size=input_size,
+        final_activation="sigmoid",
+        output_classes=1,
+        levels=levels
+        )
 
     model.compile(
         optimizer=Adam(learning_rate=1e-5),
@@ -488,7 +510,10 @@ def unet_track(
 
 
 # Use the following model for segmentation:
-def unet_rois(input_size: Tuple[int, int, int] = (512, 512, 1)) -> Model:
+def unet_rois(
+    input_size: Tuple[int, int, int] = (512, 512, 1),
+    levels: int = 5
+    ) -> Model:
     """
     ROIs segmentation U-Net.
 
@@ -497,6 +522,10 @@ def unet_rois(input_size: Tuple[int, int, int] = (512, 512, 1)) -> Model:
     input_size : tuple of 3 ints, optional
         Dimensions of the input tensor, without batch size.
         The default is (512,512,1).
+    levels : int, optional
+        Number of levels of the U-Net, ie number of successive contraction then
+        expansion blocks are combined together.
+        The default is 5.
 
     Returns
     -------
@@ -505,7 +534,13 @@ def unet_rois(input_size: Tuple[int, int, int] = (512, 512, 1)) -> Model:
 
     """
 
-    model = unet(input_size=input_size, final_activation="sigmoid", output_classes=1)
+    model = unet(
+        input_size=input_size,
+        final_activation="sigmoid",
+        output_classes=1,
+        levels=levels
+        )
+    
     model.compile(optimizer=Adam(learning_rate=1e-4), loss="binary_crossentropy")
 
     return model
