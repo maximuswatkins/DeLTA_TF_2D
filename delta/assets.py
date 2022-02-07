@@ -192,7 +192,7 @@ def _write_default_configs(
         config["model_file_track"] = model_files["unet_moma_track"]
     if len(sets_files) > 0:
         config["training_set_rois"] = os.path.join(
-            sets_files["mothermachine"], "training", "segmentation_set", "train"
+            sets_files["mothermachine"], "training", "chambers_seg_set", "train"
         )
         config["training_set_seg"] = os.path.join(
             sets_files["mothermachine"],
