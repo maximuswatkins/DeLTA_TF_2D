@@ -192,7 +192,7 @@ def _write_default_configs(
         config["model_file_track"] = model_files["unet_moma_track"]
     if len(sets_files) > 0:
         config["training_set_rois"] = os.path.join(
-            sets_files["mothermachine"], "training", "segmentation_set", "train"
+            sets_files["mothermachine"], "training", "chambers_seg_set", "train"
         )
         config["training_set_seg"] = os.path.join(
             sets_files["mothermachine"],
@@ -321,25 +321,17 @@ def _download_and_unzip(
 
 def _download_file_from_google_drive(id: str, destination: str) -> None:
     # https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
+    # Note from JB: the above answer is outdated, google changed the API such 
+    # that you only need to pass a "t" to confirm, not a token. See merge
+    # request 58 for more information
+    
     URL = "https://docs.google.com/uc?export=download"
 
     session = requests.Session()
 
-    response = session.get(URL, params={"id": id}, stream=True)
-    token = _get_confirm_token(response)
-
-    if token:
-        params = {"id": id, "confirm": token}
-        response = session.get(URL, params=params, stream=True)
+    response = session.get(URL, params={"id": id, "confirm": "t"}, stream=True)
 
     _save_response_content(response, destination)
-
-
-def _get_confirm_token(response: requests.Response) -> Optional[str]:
-    for key, value in response.cookies.items():
-        if key.startswith("download_warning"):
-            return value
-    return None
 
 
 def _save_response_content(response: requests.Response, destination: str) -> None:

@@ -2135,6 +2135,9 @@ class xpreader:
                             .pages[fra * self.channels + cha]
                             .asarray()
                         )
+                        
+                    frame = frame.astype(np.uint16)
+                        
                     # Optionally resize and rescale:
                     if rotate is not None:
                         frame = imrotate(frame, rotate)
