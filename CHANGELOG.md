@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.4] - 2022-02-25
 ### Changed
 - Updated assets module to new google drive download API
+- Adjusted the executable bit of source files
 
 ## [2.0.3] - 2022-02-02
 ### Changed
