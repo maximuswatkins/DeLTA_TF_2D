@@ -99,7 +99,7 @@ def _train_seg(presets):
     )
 
     # Training parameters:
-    batch_size = 2
+    batch_size = 1
     epochs = 3
     steps_per_epoch = 30
     patience = 50
