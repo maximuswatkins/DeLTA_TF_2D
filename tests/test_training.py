@@ -79,7 +79,7 @@ def test_train_moma_rois():
 
 @pytest.mark.order(2)
 def test_train_seg_moma():
-    _train_seg("mothermachine")
+    _train_seg("mothermachine", batch_size=3)
 
 
 @pytest.mark.order(2)
@@ -87,7 +87,7 @@ def test_train_seg_2D():
     _train_seg("2D")
 
 
-def _train_seg(presets):
+def _train_seg(presets, batch_size = 1):
 
     # Load config:
     cfg.load_config(presets=presets, config_level='global')
@@ -99,7 +99,7 @@ def _train_seg(presets):
     )
 
     # Training parameters:
-    batch_size = 1
+    # batch_size = 2
     epochs = 3
     steps_per_epoch = 30
     patience = 50
