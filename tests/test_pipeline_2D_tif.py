@@ -38,11 +38,13 @@ def test_pipeline_tif_stack():
 
     # Testing position pickle save
     import tempfile
+
     with tempfile.TemporaryDirectory() as tempdirname:
         assert len(xp.positions) > 0
         pos = xp.positions[0]
         pos.save(filename=tempdirname + "position0", save_format=("pickle",))
         import copy
+
         old_pos = copy.deepcopy(pos)
 
         # Testing Position.clear
@@ -56,7 +58,3 @@ def test_pipeline_tif_stack():
         for k in old_pos.__dict__.keys():
             if k not in pos._pickle_skip:
                 assert getattr(old_pos, k) == getattr(pos, k)
-
-
-
-

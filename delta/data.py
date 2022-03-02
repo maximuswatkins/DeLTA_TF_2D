@@ -910,7 +910,7 @@ def seg_weights_2D(
     mask: utils.SegmentationMask, classweights: Tuple[int, int] = (1, 1)
 ) -> npt.NDArray[np.float32]:
     """
-    Compute custom weightmaps designed for bacterial images 
+    Compute custom weightmaps designed for bacterial images
     where borders are difficult to distinguish
 
     Parameters
@@ -1346,23 +1346,23 @@ def predictCompilefromseg_track(
     elif len(numstrs) == 3 and len(charstrs) == 4:
         # Order is position, chamber, frame/timepoint
         protoype = (
-                f'{charstrs[0]}%0{len(numstrs[1])}d'
-                f'{charstrs[1]}%0{len(numstrs[2])}d'
-                f'{charstrs[2]}%0{len(numstrs[3])}d'
-                f'{charstrs[3]}'
-                )
+            f"{charstrs[0]}%0{len(numstrs[1])}d"
+            f"{charstrs[1]}%0{len(numstrs[2])}d"
+            f"{charstrs[2]}%0{len(numstrs[3])}d"
+            f"{charstrs[3]}"
+        )
         fileorder = "pct"
     elif len(numstrs) == 2 and len(charstrs) == 3:
         # Order is position, frame/timepoint
         protoype = (
-                f'{charstrs[0]}%0{len(numstrs[1])}d'
-                f'{charstrs[1]}%0{len(numstrs[2])}d'
-                f'{charstrs[3]}'
-                )
+            f"{charstrs[0]}%0{len(numstrs[1])}d"
+            f"{charstrs[1]}%0{len(numstrs[2])}d"
+            f"{charstrs[3]}"
+        )
         fileorder = "pt"
         crop = True
     fileordercell = fileorder + "n"
-    
+
     boxes = []
     for index, item in enumerate(files_list):
         filename = os.path.basename(item)

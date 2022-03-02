@@ -60,12 +60,12 @@ class Pipeline:
         """
 
         super().__init__()
-        
+
         if cfg._LOADED is None:
             warnings.warn(
                 """You do not seem to have loaded a configuration file yet.
                 This will most likely cause errors."""
-                )
+            )
 
         self.reader: utils.xpreader = xpreader
         "Experiment reader object"
@@ -86,10 +86,10 @@ class Pipeline:
         self.models = utils.loadmodels()
         "Dictionary of Tensorflow models"
 
-        for arg_index,arg in enumerate(sys.argv):
-            if sys.argv[arg_index] == '--resfolder':
-                resfolder = sys.argv[arg_index+1]
-                
+        for arg_index, arg in enumerate(sys.argv):
+            if sys.argv[arg_index] == "--resfolder":
+                resfolder = sys.argv[arg_index + 1]
+
         # Create result files folders
         if resfolder is not None:
             self.resfolder = Path(resfolder)
@@ -99,7 +99,7 @@ class Pipeline:
                 self.resfolder = xpfile / "delta_results"
             else:
                 self.resfolder = xpfile.with_name(xpfile.stem + "_delta_results")
-        
+
         self.resfolder.mkdir(exist_ok=True)
 
         # Initialize position processors:
@@ -117,7 +117,7 @@ class Pipeline:
         # If reload flag, reload positions from pickle files:
         if reload:
             for p in range(self.reader.positions):
-                self.positions[p].load(self.resfolder / f'Position{p:06d}')
+                self.positions[p].load(self.resfolder / f"Position{p:06d}")
 
     def preprocess(
         self,
@@ -225,7 +225,7 @@ class Pipeline:
 
             # Save to disk and clear memory:
             self.positions[p].save(
-                filename= self.resfolder / f"Position{p:06d}",
+                filename=self.resfolder / f"Position{p:06d}",
                 frames=frames,
                 save_format=self.save_format,
             )
@@ -555,7 +555,7 @@ class Position:
 
         for f in frames:
 
-            self._msg(f'Tracking - frame {f}/{len(frames)} ')
+            self._msg(f"Tracking - frame {f}/{len(frames)} ")
 
             # Compile inputs and references:
             x = []
@@ -642,7 +642,7 @@ class Position:
 
         # Run through frames:
         for f in frames:
-            self._msg(f'Feature extraction - frame {f}/{len(frames)}')
+            self._msg(f"Feature extraction - frame {f}/{len(frames)}")
             # Run through ROIs and extract features:
             for roi in self.rois:
                 roi.extract_features(
@@ -683,7 +683,7 @@ class Position:
         if filename is None:
             filename = f"./Position{self.position_nb:06d}"
         filename = Path(filename)
-            
+
         if "legacy" in save_format:
             self._msg("Saving to legacy format\n" + str(filename.with_suffix(".mat")))
             self.legacysave(filename.with_suffix(".mat"))

@@ -249,19 +249,15 @@ def unet(
         "padding": "same",
         "kernel_initializer": "he_normal",
     }
-    
+
     # Inputs layer:
     inputs = Input(input_size, name="true_input")
 
     # First level input convolutional layers:
     filters = 64
-    conv = Conv2D(
-        filters, 3, **conv2d_parameters, name = "Level0_Conv2D_1"
-        )(inputs)
-    conv = Conv2D(
-        filters, 3, **conv2d_parameters, name = "Level0_Conv2D_2"
-        )(conv)
-    
+    conv = Conv2D(filters, 3, **conv2d_parameters, name="Level0_Conv2D_1")(inputs)
+    conv = Conv2D(filters, 3, **conv2d_parameters, name="Level0_Conv2D_2")(conv)
+
     # Generate contracting path:
     level = 0
     contracting_outputs = [conv]
@@ -269,32 +265,32 @@ def unet(
         filters *= 2
         contracting_outputs.append(
             contracting_block(
-                contracting_outputs[-1], 
+                contracting_outputs[-1],
                 filters,
                 conv2d_parameters,
-                dropout = dropout,
-                name = f"Level{level}_Contracting"
-                )
+                dropout=dropout,
+                name=f"Level{level}_Contracting",
             )
-    
+        )
+
     # Generate expanding path:
     expanding_output = contracting_outputs.pop()
     while level > 0:
         level -= 1
-        filters = int(filters/2)
+        filters = int(filters / 2)
         expanding_output = expanding_block(
             expanding_output,
             contracting_outputs.pop(),
             filters,
             conv2d_parameters,
-            dropout = dropout,
-            name = f"Level{level}_Expanding"
-            )
+            dropout=dropout,
+            name=f"Level{level}_Expanding",
+        )
 
     # Final output layer:
-    output = Conv2D(
-        output_classes, 1, activation=final_activation, name="true_output"
-        )(expanding_output)
+    output = Conv2D(output_classes, 1, activation=final_activation, name="true_output")(
+        expanding_output
+    )
 
     model = Model(inputs=inputs, outputs=output)
 
@@ -302,12 +298,12 @@ def unet(
 
 
 def contracting_block(
-        input_layer: tf.Tensor,
-        filters: int,
-        conv2d_parameters: Dict,
-        dropout: float = 0,
-        name: str = "Contracting"
-        ) -> tf.Tensor:
+    input_layer: tf.Tensor,
+    filters: int,
+    conv2d_parameters: Dict,
+    dropout: float = 0,
+    name: str = "Contracting",
+) -> tf.Tensor:
     """
     A block of layers for 1 contracting level of the U-Net
 
@@ -333,38 +329,32 @@ def contracting_block(
         Output of this level's contracting block.
 
     """
-    
+
     # Pooling layer: (sample 'images' down by factor 2)
-    pool = MaxPooling2D(
-        pool_size=(2, 2), name=name+"_MaxPooling2D"
-        )(input_layer)
-    
+    pool = MaxPooling2D(pool_size=(2, 2), name=name + "_MaxPooling2D")(input_layer)
+
     # First convolution layer:
-    conv1 = Conv2D(
-        filters, 3, **conv2d_parameters, name=name+"_Conv2D_1"
-        )(pool)
-    
+    conv1 = Conv2D(filters, 3, **conv2d_parameters, name=name + "_Conv2D_1")(pool)
+
     # Second convolution layer:
-    conv2 = Conv2D(
-        filters, 3, **conv2d_parameters, name=name+"_Conv2D_2"
-        )(conv1)
-    
+    conv2 = Conv2D(filters, 3, **conv2d_parameters, name=name + "_Conv2D_2")(conv1)
+
     # Add dropout if necessary, otherwise return:
     if dropout == 0:
         return conv2
     else:
-        drop = Dropout(dropout, name=name+"_Dropout")(conv2)
+        drop = Dropout(dropout, name=name + "_Dropout")(conv2)
         return drop
 
 
 def expanding_block(
-        input_layer: tf.Tensor,
-        skip_layer: tf.Tensor,
-        filters: int,
-        conv2d_parameters: Dict,
-        dropout: float = 0,
-        name: str = "Expanding"
-        ) -> tf.Tensor:
+    input_layer: tf.Tensor,
+    skip_layer: tf.Tensor,
+    filters: int,
+    conv2d_parameters: Dict,
+    dropout: float = 0,
+    name: str = "Expanding",
+) -> tf.Tensor:
     """
     A block of layers for 1 expanding level of the U-Net
 
@@ -393,23 +383,23 @@ def expanding_block(
         Output of this level's expanding block.
 
     """
-    
+
     # Up-sampling:
-    up = UpSampling2D(size=(2, 2), name=name+"_UpSampling2D")(input_layer)
-    conv1 = Conv2D(filters, 2, **conv2d_parameters, name=name+"_Conv2D_1")(up)
-    
+    up = UpSampling2D(size=(2, 2), name=name + "_UpSampling2D")(input_layer)
+    conv1 = Conv2D(filters, 2, **conv2d_parameters, name=name + "_Conv2D_1")(up)
+
     # Merge with skip connection layer:
-    merge = Concatenate(axis=3, name=name+"_Concatenate")([skip_layer, conv1])
-    
+    merge = Concatenate(axis=3, name=name + "_Concatenate")([skip_layer, conv1])
+
     # Convolution layers:
-    conv2 = Conv2D(filters, 3, **conv2d_parameters, name=name+"_Conv2D_2")(merge)
-    conv3 = Conv2D(filters, 3, **conv2d_parameters, name=name+"_Conv2D_3")(conv2)
-    
+    conv2 = Conv2D(filters, 3, **conv2d_parameters, name=name + "_Conv2D_2")(merge)
+    conv3 = Conv2D(filters, 3, **conv2d_parameters, name=name + "_Conv2D_3")(conv2)
+
     # Add dropout if necessary, otherwise return:
     if dropout == 0:
         return conv3
     else:
-        drop = Dropout(dropout, name=name+"_Dropout")(conv3)
+        drop = Dropout(dropout, name=name + "_Dropout")(conv3)
         return drop
 
 
@@ -417,7 +407,7 @@ def expanding_block(
 def unet_seg(
     pretrained_weights: str = None,
     input_size: Tuple[int, int, int] = (256, 32, 1),
-    levels: int = 5
+    levels: int = 5,
 ) -> Model:
     """
     Cell segmentation U-Net definition function.
@@ -446,8 +436,8 @@ def unet_seg(
         input_size=input_size,
         final_activation="sigmoid",
         output_classes=1,
-        levels=levels
-        )
+        levels=levels,
+    )
 
     model.compile(
         optimizer=Adam(learning_rate=1e-4),
@@ -465,7 +455,7 @@ def unet_seg(
 def unet_track(
     pretrained_weights: str = None,
     input_size: Tuple[int, int, int] = (256, 32, 4),
-    levels: int = 5
+    levels: int = 5,
 ) -> Model:
     """
     Tracking U-Net definition function.
@@ -494,8 +484,8 @@ def unet_track(
         input_size=input_size,
         final_activation="sigmoid",
         output_classes=1,
-        levels=levels
-        )
+        levels=levels,
+    )
 
     model.compile(
         optimizer=Adam(learning_rate=1e-5),
@@ -511,9 +501,8 @@ def unet_track(
 
 # Use the following model for segmentation:
 def unet_rois(
-    input_size: Tuple[int, int, int] = (512, 512, 1),
-    levels: int = 5
-    ) -> Model:
+    input_size: Tuple[int, int, int] = (512, 512, 1), levels: int = 5
+) -> Model:
     """
     ROIs segmentation U-Net.
 
@@ -538,9 +527,9 @@ def unet_rois(
         input_size=input_size,
         final_activation="sigmoid",
         output_classes=1,
-        levels=levels
-        )
-    
+        levels=levels,
+    )
+
     model.compile(optimizer=Adam(learning_rate=1e-4), loss="binary_crossentropy")
 
     return model

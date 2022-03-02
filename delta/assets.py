@@ -320,10 +320,10 @@ def _download_and_unzip(
 
 def _download_file_from_google_drive(id: str, destination: str) -> None:
     # https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
-    # Note from JB: the above answer is outdated, google changed the API such 
+    # Note from JB: the above answer is outdated, google changed the API such
     # that you only need to pass a "t" to confirm, not a token. See merge
     # request 58 for more information
-    
+
     URL = "https://docs.google.com/uc?export=download"
 
     session = requests.Session()
