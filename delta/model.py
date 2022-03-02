@@ -273,7 +273,7 @@ def unet(
                 filters,
                 conv2d_parameters,
                 dropout = dropout,
-                name = "Level%d_Contracting"%level
+                name = f"Level{level}_Contracting"
                 )
             )
     
@@ -288,7 +288,7 @@ def unet(
             filters,
             conv2d_parameters,
             dropout = dropout,
-            name = "Level%d_Expanding"%level
+            name = f"Level{level}_Expanding"
             )
 
     # Final output layer:

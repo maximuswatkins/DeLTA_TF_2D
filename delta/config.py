@@ -168,7 +168,7 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
 
         # Is there a local/user config file for this preset?
         _json_file = _os.path.expanduser(
-            _os.path.join("~/.delta", "config_%s.json" % presets)
+            _os.path.join("~/.delta", f"config_{presets}.json")
         )
         if _os.path.exists(_json_file) and (
             config_level is None or config_level == "local"
@@ -178,7 +178,7 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
         # Is there a global config file for this preset?
         _os.path.join(_DELTA_DIR, "assets", "config")
         _json_file = _os.path.join(
-            _DELTA_DIR, "assets", "config", "config_%s.json" % presets
+            _DELTA_DIR, "assets", "config", f"config_{presets}.json"
         )
         if (
             json_file is None
@@ -190,10 +190,9 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
         # If no file was found, raise error:
         if json_file is None:
             raise ValueError(
-                """Could not find a local or global config file for presets '%s'.
+                f"""Could not find a local or global config file for presets '{presets}'.
                 Either use delta.assets.download_assets() or provide a json_file path
                 """
-                % presets
             )
 
     variables = _read_json(json_file)
@@ -247,7 +246,7 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
 def _read_json(json_file: str):
 
     # Load file:
-    print("Loading configuration from: %s" % json_file)
+    print(f"Loading configuration from: {json_file}")
     with open(json_file, "r") as f:
         variables = _json.loads(f.read())
 

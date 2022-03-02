@@ -1509,7 +1509,7 @@ class Lineage:
         try:
             i = self.cells[cell]["frames"].index(frame)
         except ValueError:
-            raise ValueError("Cell %d is not present in frame %f" % (cell, frame))
+            raise ValueError(f"Cell {cell} is not present in frame {frame}")
 
         # Get cell dict
         cell_dict = self.cells[cell]
@@ -1549,7 +1549,7 @@ class Lineage:
         try:
             i = self.cells[cell]["frames"].index(frame)
         except ValueError:
-            raise ValueError("Cell %d is not present in frame %d" % (cell, frame))
+            raise ValueError(f"Cell {cell} is not present in frame {frame}")
 
         return self.cells[cell][feature][i]
 
@@ -1757,20 +1757,11 @@ class xpreader:
                 # Create the string prototype to be used to generate filenames on the fly:
                 # Order is position, channel, frame/timepoint
                 self.prototype = (
-                    charstrs[0]
-                    + "%0"
-                    + str(len(numstrs[0]))
-                    + "d"
-                    + charstrs[1]
-                    + "%0"
-                    + str(len(numstrs[1]))
-                    + "d"
-                    + charstrs[2]
-                    + "%0"
-                    + str(len(numstrs[2]))
-                    + "d"
-                    + charstrs[3]
-                )
+                        f'{charstrs[0]}%0{len(numstrs[0])}d'
+                        f'{charstrs[1]}%0{len(numstrs[1])}d'
+                        f'{charstrs[2]}%0{len(numstrs[2])}d'
+                        f'{charstrs[3]}'
+                        )
             # Get experiment settings by testing if relevant files exist:
             # Get number of positions:
             if "p" in self.fileorder:
@@ -2483,12 +2474,9 @@ def singlecell_features(
             raise ValueError("You did not provide fluo frames")
         if len(fluo_features) != fluo_frames.shape[0]:
             raise ValueError(
-                (
-                    "You should provide exactly as many fluo frames as you want "
-                    "fluo features to extract. Here fluo_frames.shape[0]=%d but "
-                    "you ask for %d fluo features: %s"
-                )
-                % (fluo_frames.shape[0], len(fluo_features), str(fluo_features))
+                "You should provide exactly as many fluo frames as you want "
+                f"fluo features to extract. Here fluo_frames.shape[0]={fluo_frames.shape[0]} "
+                f"but you ask for {len(fluo_features)} fluo features: {fluo_features}"
             )
         fluo_values = cell_fluo(fluo_frames, mask, roi_box)
         for fluo_feat, fluo_val in zip(fluo_features, fluo_values):

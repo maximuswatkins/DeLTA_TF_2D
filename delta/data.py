@@ -1345,35 +1345,20 @@ def predictCompilefromseg_track(
         )
     elif len(numstrs) == 3 and len(charstrs) == 4:
         # Order is position, chamber, frame/timepoint
-        prototype = (
-            charstrs[0]
-            + "%0"
-            + str(len(numstrs[0]))
-            + "d"
-            + charstrs[1]
-            + "%0"
-            + str(len(numstrs[1]))
-            + "d"
-            + charstrs[2]
-            + "%0"
-            + str(len(numstrs[2]))
-            + "d"
-            + charstrs[3]
-        )
+        protoype = (
+                f'{charstrs[0]}%0{len(numstrs[1])}d'
+                f'{charstrs[1]}%0{len(numstrs[2])}d'
+                f'{charstrs[2]}%0{len(numstrs[3])}d'
+                f'{charstrs[3]}'
+                )
         fileorder = "pct"
     elif len(numstrs) == 2 and len(charstrs) == 3:
         # Order is position, frame/timepoint
-        prototype = (
-            charstrs[0]
-            + "%0"
-            + str(len(numstrs[0]))
-            + "d"
-            + charstrs[1]
-            + "%0"
-            + str(len(numstrs[1]))
-            + "d"
-            + charstrs[2]
-        )
+        protoype = (
+                f'{charstrs[0]}%0{len(numstrs[1])}d'
+                f'{charstrs[1]}%0{len(numstrs[2])}d'
+                f'{charstrs[3]}'
+                )
         fileorder = "pt"
         crop = True
     fileordercell = fileorder + "n"
@@ -1564,7 +1549,7 @@ def saveResult_track(
         if files_list:
             filenameMo = os.path.join(save_path, os.path.basename(files_list[i]))
         else:
-            filenameMo = os.path.join(save_path, "tracking_%09d.png" % i)
+            filenameMo = os.path.join(save_path, f"tracking_{i:09d}.png")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             io.imsave(filenameMo, (mother * 255).astype(np.uint8))

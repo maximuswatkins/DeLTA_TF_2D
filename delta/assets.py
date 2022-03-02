@@ -140,7 +140,7 @@ def _ask(prompt: str, options: Dict[str, Any] = {"y": True, "n": False}) -> Any:
                 return v
 
         answer = None
-        print("invalid answer: '%s'" % answer)
+        print(f"invalid answer: '{answer}'")
 
 
 def _write_default_configs(
@@ -158,10 +158,9 @@ def _write_default_configs(
         config_dir = config_level
     else:
         raise ValueError(
-            """Invalid configs level/path: %s
+            f"""Invalid configs level/path: {config_level}
             If providing a folder path, the folder must exist
             """
-            % config_level
         )
 
     if not os.path.exists(config_dir):
@@ -208,7 +207,7 @@ def _write_default_configs(
     with open(os.path.join(config_dir, "config_mothermachine.json"), "w") as f:
         json.dump(config, f, indent=4)
 
-    print("Config files written to %s" % config_dir)
+    print(f"Config files written to {config_dir}")
 
 
 def _download_models(
@@ -238,11 +237,11 @@ def _download_models(
         models_dir = os.path.join(_DELTA_DIR, "assets", "models")
     if not os.path.exists(models_dir):
         os.makedirs(models_dir)
-    print("Models will be downloaded to %s" % models_dir)
+    print(f"Models will be downloaded to {models_dir}")
 
     model_files = dict()
     for filename, google_id in model_ids.items():
-        print("Downloading model: %s..." % filename, end="")
+        print(f"Downloading model: {filename}...", end="")
         model_files[filename] = os.path.join(models_dir, filename + ".hdf5")
         _download_file_from_google_drive(google_id, model_files[filename])
         print(" Done")
@@ -258,7 +257,7 @@ def _download_training_sets(
         sets_dir = os.path.join(_DELTA_DIR, "assets", "trainingsets")
     if not os.path.exists(sets_dir):
         os.makedirs(sets_dir)
-    print("Training sets will be downloaded and unzipped to %s" % sets_dir)
+    print(f"Training sets will be downloaded and unzipped to {sets_dir}")
 
     sets_files = dict()
     for filename, google_id in sets_ids.items():
@@ -281,7 +280,7 @@ def _download_eval_movies(
         movies_dir = os.path.join(_DELTA_DIR, "assets", "eval_movies")
     if not os.path.exists(movies_dir):
         os.makedirs(movies_dir)
-    print("Evaluation movies will be downloaded and unzipped to %s" % movies_dir)
+    print(f"Evaluation movies will be downloaded and unzipped to {movies_dir}")
 
     movie_files = dict()
     for filename, google_id in movie_ids.items():
@@ -299,7 +298,7 @@ def _download_and_unzip(
     id: str, zip_file: str, folder: str, remove_previous: bool = False
 ) -> None:
 
-    print("Downloading zip: %s" % zip_file)
+    print(f"Downloading zip: {zip_file}")
     _download_file_from_google_drive(id, zip_file)
     print(" Done")
 
@@ -308,7 +307,7 @@ def _download_and_unzip(
         shutil.rmtree(folder)
         print(" Done")
 
-    print("Extracting to %s..." % (folder), end="")
+    print(f"Extracting to {folder}...", end="")
     if not os.path.exists(folder):
         os.makedirs(folder)
     shutil.unpack_archive(zip_file, folder)
