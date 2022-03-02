@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Changed
 - Adjusted the executable bit of source files
+- Removed tifffile from dependency list
+- Fixed GPU memory crash when training by using cv2.imread in data module
 
 ## [2.0.4] - 2022-02-25
 ### Changed

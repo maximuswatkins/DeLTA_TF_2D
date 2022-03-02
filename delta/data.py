@@ -18,7 +18,6 @@ import cv2
 import numpy as np
 import numpy.typing as npt
 import skimage.io as io
-import tifffile
 import skimage.transform as trans
 from skimage.measure import label
 import skimage.morphology as morph
@@ -99,10 +98,8 @@ def readreshape(
 
     """
     fext = os.path.splitext(filename)[1].lower()
-    if fext in (".png", ".jpg", ".jpeg"):
-        i = io.imread(filename, as_gray=True)
-    elif fext in (".tif", ".tiff"):
-        i = tifffile.imread(filename)
+    if fext in (".png", ".jpg", ".jpeg", ".tif", ".tiff"):
+        i = cv2.imread(filename, cv2.IMREAD_ANYDEPTH)
     else:
         raise ValueError("Only PNG, JPG or single-page TIF files accepted")
     if i.ndim == 3:
