@@ -18,7 +18,6 @@ import cv2
 import numpy as np
 import numpy.typing as npt
 import skimage.io as io
-import tifffile
 import skimage.transform as trans
 from skimage.measure import label
 import skimage.morphology as morph
@@ -602,7 +601,6 @@ def trainGenerator_seg(
         for b in range(batch_size):
             # Pick random image index:
             index = random.randrange(0, len(image_name_arr))
-            print(image_name_arr[index])
 
             if preload:
                 # Get from preloaded arrays:
