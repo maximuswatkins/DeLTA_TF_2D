@@ -402,6 +402,7 @@ class Position:
         if isinstance(rotation_correction, bool):
             if rotation_correction:
                 self.rotate = utils.deskew(reference)  # Estimate rotation angle
+                self._msg(f"Rotation correction: {self.rotate} degrees")
                 reference = utils.imrotate(reference, self.rotate)
             else:
                 self.rotate = 0

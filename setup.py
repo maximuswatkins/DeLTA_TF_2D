@@ -47,6 +47,10 @@ setup(
     setup_requires=["pytest-order", "pytest-runner", "flake8"],
     tests_require=["pytest"],
     package_data={
-        "tests": ["data/movie_2D_tif/*.tif", "data/movie_mothermachine_tif/*.tif"]
+        "tests": [
+            "data/movie_2D_tif/*.tif",
+            "data/movie_mothermachine_tif/*.tif",
+            "data/images/*.tif",
+        ]
     },
 )

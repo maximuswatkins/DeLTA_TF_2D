@@ -80,10 +80,8 @@ def rangescale(frame: Image, rescale: Tuple[float, float]) -> Image:
 
 def deskew(image: Image) -> float:
     """
-    Compute rotation angle of chambers in image for rotation correction.
-    From: https://gist.github.com/panzerama/beebb12a1f9f61e1a7aa8233791bc253
-    Not extensively tested. You can skip rotation correction if your chambers
-    are about +/- 1 degrees of horizontal
+    Compute the rotation angle to apply to the image to remove its rotation.
+    You can skip rotation correction if your chambers are about +/- 1 degrees of horizontal.
 
     Parameters
     ----------
@@ -92,45 +90,26 @@ def deskew(image: Image) -> float:
 
     Returns
     -------
-    rotation_number : float
-        Rotation angle of the chambers for correction.
+    angle : float
+        Rotation angle of the chambers for correction, in degrees.
 
     """
     from skimage.feature import canny
-    from skimage.transform import probabilistic_hough_line
+    from skimage.transform import hough_line, hough_line_peaks
 
-    # canny edges in scikit-image
-    edges = canny(image)
+    # enhance edges
+    edges = canny(image, sigma=10, use_quantiles=True)
 
-    # hough lines
-    hough_lines = probabilistic_hough_line(edges)
+    # hough transform
+    N = 360  # precision in degree = 90 / N (here 0.25 degree)
+    theta = np.linspace(-np.pi / 4, 3 * np.pi / 4, 2 * N + 1)
+    hspace, angles, distances = hough_line(edges, theta=theta)
 
-    # hough lines returns a list of points, in the form ((x1, y1), (x2, y2))
-    # representing line segments. the first step is to calculate the slopes of
-    # these lines from their paired point values
-    slopes = [
-        (y2 - y1) / (x2 - x1) if (x2 - x1) else 0 for (x1, y1), (x2, y2) in hough_lines
-    ]
+    _, corrections, _ = hough_line_peaks(hspace, angles, distances, num_peaks=1)
 
-    # it just so happens that this slope is also y where y = tan(theta), the angle
-    # in a circle by which the line is offset
-    rad_angles = [np.arctan(x) for x in slopes]
-
-    # and we change to degrees for the rotation
-    deg_angles = [np.degrees(x) for x in rad_angles]
-
-    # which of these degree values is most common?
-    histo = np.histogram(deg_angles, bins=180)
-
-    # correcting for 'sideways' alignments
-    rotation_number = histo[1][np.argmax(histo[0])]
-
-    if rotation_number > 45:
-        rotation_number = -(90 - rotation_number)
-    elif rotation_number < -45:
-        rotation_number = 90 - abs(rotation_number)
-
-    return rotation_number
+    if corrections[0] > np.pi / 4:
+        return np.degrees(corrections[0] - np.pi / 2)
+    return np.degrees(corrections[0])
 
 
 def imrotate(frame: npt.NDArray[Any], rotate: float) -> npt.NDArray[Any]:
