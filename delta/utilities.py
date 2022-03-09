@@ -1502,6 +1502,64 @@ class Lineage:
         # Add value:
         cell_dict[feature][i] = value
 
+    def getpastvalue(self, cell: int, frame: int, feature: str, df: int = 1) -> float:
+        """
+        Get feature value for a frame in the past, ignoring cell divisions.
+
+        Parameters
+        ----------
+        cell : int
+            Cell number in lineage.
+        frame : int
+            Current frame number.
+        feature : str
+            Feature to get value for.
+        df : int
+            Number of frames in the past where we want to get the value.
+        """
+        value_then = None
+        mother = cell
+        while value_then is None:
+            try:
+                value_then = self.getvalue(mother, frame=frame - df, feature=feature)
+            except ValueError:
+                mother = self.cells[mother]["mother"]
+                if mother is None:
+                    return None
+        value_now = self.getfuturevalue(mother, frame - df, feature, df=df)
+        return self.getvalue(cell, frame, feature) * value_then / value_now
+
+    def getfuturevalue(self, cell: int, frame: int, feature: str, df: int = 1) -> float:
+        """
+        Get feature value for a frame in the future, ignoring cell divisions.
+
+        Parameters
+        ----------
+        cell : int
+            Cell number in lineage.
+        frame : int
+            Current frame number.
+        feature : str
+            Feature to get value for.
+        df : int
+            Number of frames in the future where we want to get the value.
+        """
+        if df == 0:
+            return self.getvalue(cell, frame, feature)
+        # This cell has to exist in the future, if it doesn't we cannot compute the value.
+        try:
+            value = self.getfuturevalue(
+                cell, frame=frame + 1, feature=feature, df=df - 1
+            )
+        except ValueError:
+            return None
+        idaughter = self.getvalue(cell, frame + 1, "daughters")
+        if idaughter is not None:
+            value += self.getfuturevalue(
+                idaughter, frame=frame + 1, feature=feature, df=df - 1
+            )
+        return value
+
     def getvalue(self, cell: int, frame: int, feature: str) -> Union[int, float, str]:
         """
         Get feature value for specific timepoint/frame
