@@ -25,6 +25,21 @@ def rand_img(image_size):
     return img
 
 
+def test_deskew_0():
+    _test_deskew("angle_+0.53.tif", 0.53)
+
+def test_deskew_1():
+    _test_deskew("angle_-0.32.tif", -0.32)
+
+def _test_deskew(filename, angle0):
+    file = Path(__file__).parent / "data/images" / filename
+    image0 = cv2.imread(str(file), cv2.IMREAD_ANYDEPTH)
+    image = utils.imrotate(image0, -angle0)
+    assert np.abs(utils.deskew(image)) <= 0.25
+    for angle in np.linspace(-3, 3, 30):
+        image = utils.imrotate(image0, angle - angle0)
+        assert np.abs(utils.deskew(image) + angle) <= 0.25
+
 @pytest.mark.order(2)
 class Test_create_windows:
     def test_create_windows_base(self):
