@@ -12,6 +12,7 @@ import pytest
 
 import delta
 
+
 @pytest.mark.order(2)
 def test_pipeline_tif_stack():
 
@@ -50,14 +51,14 @@ def test_pipeline_tif_stack():
 
         # Testing Position.load
         pos.load(tempdirname + "position0.pkl")
-    
+
     # Testing load from pipeline save:
     # Init new xpreader:
     new_xpreader = delta.utils.xpreader(xpfolder)
 
     # Load up processor:
     new_xp = delta.pipeline.Pipeline(
-        new_xpreader , reload=True, resfolder=xpfolder/"delta_results"
-        )
-    
+        new_xpreader, reload=True, resfolder=xpfolder / "delta_results"
+    )
+
     assert len(xp.positions) == len(new_xp.positions)

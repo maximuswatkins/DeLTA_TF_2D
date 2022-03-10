@@ -189,7 +189,7 @@ class Pipeline:
             The default is None.
         clear : bool, optional
             Clear variables of each Position object after it has been processed
-            and saved to disk, to prevent memory issues. 
+            and saved to disk, to prevent memory issues.
             The default is True.
 
         Returns
@@ -234,7 +234,7 @@ class Pipeline:
                 frames=frames,
                 save_format=self.save_format,
             )
-            
+
             if clear:
                 self.positions[p].clear()
 

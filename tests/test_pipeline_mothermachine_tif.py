@@ -35,7 +35,7 @@ def test_pipeline_mothermachine():
 
     # Load up processor:
     new_xp = delta.pipeline.Pipeline(
-        new_xpreader , reload=True, resfolder=xpfolder/"delta_results"
-        )
-    
+        new_xpreader, reload=True, resfolder=xpfolder / "delta_results"
+    )
+
     assert len(xp.positions) == len(new_xp.positions)

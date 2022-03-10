@@ -87,7 +87,7 @@ def test_train_seg_2D():
     _train_seg("2D")
 
 
-def _train_seg(presets, batch_size = 1):
+def _train_seg(presets, batch_size=1):
 
     # Load config:
     cfg.load_config(presets=presets, config_level="global")
