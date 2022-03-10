@@ -117,7 +117,7 @@ class Pipeline:
         # If reload flag, reload positions from pickle files:
         if reload:
             for p in range(self.reader.positions):
-                self.positions[p].load(self.resfolder / f"Position{p:06d}")
+                self.positions[p].load(self.resfolder / f"Position{p:06d}.pkl")
 
     def preprocess(
         self,
@@ -171,6 +171,7 @@ class Pipeline:
         positions: List[int] = None,
         frames: List[int] = None,
         features: Tuple[str, ...] = None,
+        clear: bool = True,
     ):
         """
         Run pipeline.
@@ -186,6 +187,10 @@ class Pipeline:
         features : list of str or None, optional
             List of features to extract. If None, all features are extracted.
             The default is None.
+        clear : bool, optional
+            Clear variables of each Position object after it has been processed
+            and saved to disk, to prevent memory issues.
+            The default is True.
 
         Returns
         -------
@@ -229,7 +234,9 @@ class Pipeline:
                 frames=frames,
                 save_format=self.save_format,
             )
-            self.positions[p].clear()
+
+            if clear:
+                self.positions[p].clear()
 
     def run(self):
         """
@@ -706,7 +713,7 @@ class Position:
 
         Parameters
         ----------
-        filename : str or Path, optional
+        filename : str or Path
             File name for save file.
 
         Returns
