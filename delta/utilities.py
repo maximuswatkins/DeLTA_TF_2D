@@ -80,10 +80,8 @@ def rangescale(frame: Image, rescale: Tuple[float, float]) -> Image:
 
 def deskew(image: Image) -> float:
     """
-    Compute rotation angle of chambers in image for rotation correction.
-    From: https://gist.github.com/panzerama/beebb12a1f9f61e1a7aa8233791bc253
-    Not extensively tested. You can skip rotation correction if your chambers
-    are about +/- 1 degrees of horizontal
+    Compute the rotation angle to apply to the image to remove its rotation.
+    You can skip rotation correction if your chambers are about +/- 1 degrees of horizontal.
 
     Parameters
     ----------
@@ -92,45 +90,26 @@ def deskew(image: Image) -> float:
 
     Returns
     -------
-    rotation_number : float
-        Rotation angle of the chambers for correction.
+    angle : float
+        Rotation angle of the chambers for correction, in degrees.
 
     """
     from skimage.feature import canny
-    from skimage.transform import probabilistic_hough_line
+    from skimage.transform import hough_line, hough_line_peaks
 
-    # canny edges in scikit-image
-    edges = canny(image)
+    # enhance edges
+    edges = canny(image, sigma=10, use_quantiles=True)
 
-    # hough lines
-    hough_lines = probabilistic_hough_line(edges)
+    # hough transform
+    N = 360  # precision in degree = 90 / N (here 0.25 degree)
+    theta = np.linspace(-np.pi / 4, 3 * np.pi / 4, 2 * N + 1)
+    hspace, angles, distances = hough_line(edges, theta=theta)
 
-    # hough lines returns a list of points, in the form ((x1, y1), (x2, y2))
-    # representing line segments. the first step is to calculate the slopes of
-    # these lines from their paired point values
-    slopes = [
-        (y2 - y1) / (x2 - x1) if (x2 - x1) else 0 for (x1, y1), (x2, y2) in hough_lines
-    ]
+    _, corrections, _ = hough_line_peaks(hspace, angles, distances, num_peaks=1)
 
-    # it just so happens that this slope is also y where y = tan(theta), the angle
-    # in a circle by which the line is offset
-    rad_angles = [np.arctan(x) for x in slopes]
-
-    # and we change to degrees for the rotation
-    deg_angles = [np.degrees(x) for x in rad_angles]
-
-    # which of these degree values is most common?
-    histo = np.histogram(deg_angles, bins=180)
-
-    # correcting for 'sideways' alignments
-    rotation_number = histo[1][np.argmax(histo[0])]
-
-    if rotation_number > 45:
-        rotation_number = -(90 - rotation_number)
-    elif rotation_number < -45:
-        rotation_number = 90 - abs(rotation_number)
-
-    return rotation_number
+    if corrections[0] > np.pi / 4:
+        return np.degrees(corrections[0] - np.pi / 2)
+    return np.degrees(corrections[0])
 
 
 def imrotate(frame: npt.NDArray[Any], rotate: float) -> npt.NDArray[Any]:
@@ -952,7 +931,7 @@ def extrema_poles(
         i = np.lexsort((y, x))
     poles = (
         np.array((y[i[0]], x[i[0]]), dtype=np.int16),
-        np.array((y[i[-1]], x[i[-1]]), dtype=np.int16)
+        np.array((y[i[-1]], x[i[-1]]), dtype=np.int16),
     )
 
     return poles
@@ -1020,9 +999,7 @@ def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> List[List[P
     for p in range(len(locations[0])):
 
         cell = labels[locations[0][p], locations[1][p]] - 1
-        poles[cell] += [
-            np.array([locations[0][p], locations[1][p]], dtype=np.int16)
-            ]
+        poles[cell] += [np.array([locations[0][p], locations[1][p]], dtype=np.int16)]
 
     return poles
 
@@ -1046,9 +1023,10 @@ def eucl(p1: npt.NDArray[Any], p2: npt.NDArray[Any]) -> float:
     """
     return np.linalg.norm(p1 - p2)
 
+
 def track_poles(
-        poles: Tuple[Pole, Pole], prev_old: Pole, prev_new: Pole
-        ) -> Tuple[Pole ,Pole]:
+    poles: Tuple[Pole, Pole], prev_old: Pole, prev_new: Pole
+) -> Tuple[Pole, Pole]:
     """
     Track poles of a cell to the previous old and new poles
 
@@ -1069,23 +1047,26 @@ def track_poles(
         Which of the two poles tracked to the previous new pole.
 
     """
-    
-    if eucl(poles[0], prev_old)**2 + eucl(poles[1], prev_new)**2 < eucl(
-        poles[0], prev_new)**2 + eucl(poles[1], prev_old)**2:
-        old_pole=poles[0]
-        new_pole=poles[1]
+
+    if (
+        eucl(poles[0], prev_old) ** 2 + eucl(poles[1], prev_new) ** 2
+        < eucl(poles[0], prev_new) ** 2 + eucl(poles[1], prev_old) ** 2
+    ):
+        old_pole = poles[0]
+        new_pole = poles[1]
     else:
-        old_pole=poles[1]
-        new_pole=poles[0]
-    
+        old_pole = poles[1]
+        new_pole = poles[0]
+
     return old_pole, new_pole
 
+
 def division_poles(
-        poles_cell1: Tuple[Pole, Pole],
-        poles_cell2: Tuple[Pole, Pole],
-        prev_old: Pole,
-        prev_new: Pole
-        ) -> Tuple[Tuple[Pole, Pole], Tuple[Pole, Pole], bool]:
+    poles_cell1: Tuple[Pole, Pole],
+    poles_cell2: Tuple[Pole, Pole],
+    prev_old: Pole,
+    prev_new: Pole,
+) -> Tuple[Tuple[Pole, Pole], Tuple[Pole, Pole], bool]:
     """
     Identify which poles belong to the mother and which to the daughter
 
@@ -1107,7 +1088,7 @@ def division_poles(
         flag that is True if cell1 is the mother, False if cell2 is the mother
 
     """
-    
+
     # Find new new poles (2 closest of the poles of the new cells):
     min_dist = np.inf
     for c1 in range(2):
@@ -1119,38 +1100,40 @@ def division_poles(
                 c2_new = c2
 
     # Track poles closest to old and new pole from previous cell:
-    if eucl(poles_cell1[1-c1_new], prev_old)**2 + eucl(
-        poles_cell2[1-c2_new], prev_new
-    )**2 < eucl(poles_cell1[1-c1_new], prev_new)**2 + eucl(
-        poles_cell2[int(not c2_new)], prev_old
-    )**2:
+    if (
+        eucl(poles_cell1[1 - c1_new], prev_old) ** 2
+        + eucl(poles_cell2[1 - c2_new], prev_new) ** 2
+        < eucl(poles_cell1[1 - c1_new], prev_new) ** 2
+        + eucl(poles_cell2[int(not c2_new)], prev_old) ** 2
+    ):
         # cell 1 is mother, cell 2 is daughter
         first_cell_is_mother = True
         # Attribute mother:
-        mother_old_pole = poles_cell1[1-c1_new]
+        mother_old_pole = poles_cell1[1 - c1_new]
         mother_new_pole = poles_cell1[c1_new]
-        
+
         # Attribute daughter:
-        daughter_old_pole = poles_cell2[1-c2_new]
+        daughter_old_pole = poles_cell2[1 - c2_new]
         daughter_new_pole = poles_cell2[c2_new]
-        
+
     else:
         # cell 2 is mother, cell 1 is daughter
         first_cell_is_mother = False
         # Attribute mother:
-        mother_old_pole = poles_cell2[1-c2_new]
+        mother_old_pole = poles_cell2[1 - c2_new]
         mother_new_pole = poles_cell2[c2_new]
-        
+
         # Attribute daughter:
-        daughter_old_pole = poles_cell1[1-c1_new]
+        daughter_old_pole = poles_cell1[1 - c1_new]
         daughter_new_pole = poles_cell1[c1_new]
-    
+
     return (
         (mother_old_pole, mother_new_pole),
         (daughter_old_pole, daughter_new_pole),
-        first_cell_is_mother
-        )
-        
+        first_cell_is_mother,
+    )
+
+
 #%% Lineage
 
 
@@ -1360,9 +1343,7 @@ class Lineage:
             # Find which pole is new vs old:
             old_pole, new_pole = track_poles(poles[0], prev_old, prev_new)
             # Update:
-            self.updatecell(
-                cellnum, frame, old_pole=old_pole, new_pole=new_pole
-            )
+            self.updatecell(cellnum, frame, old_pole=old_pole, new_pole=new_pole)
 
         # Division event:
         elif len(attrib) == 2:
@@ -1375,7 +1356,7 @@ class Lineage:
             # Identify mother and daughter poles:
             mother_poles, daughter_poles, first_cell_is_mother = division_poles(
                 poles[0], poles[1], prev_old, prev_new
-                )
+            )
             # Create daughter:
             daughternum = self.createcell(
                 frame,
@@ -1391,7 +1372,7 @@ class Lineage:
                 new_pole=mother_poles[1],
                 daughter=daughternum,
             )
-            #Update cellnumbers list:
+            # Update cellnumbers list:
             if first_cell_is_mother:
                 self.cellnumbers[frame][attrib[0]] = mothernum
                 self.cellnumbers[frame][attrib[1]] = daughternum
@@ -1509,7 +1490,7 @@ class Lineage:
         try:
             i = self.cells[cell]["frames"].index(frame)
         except ValueError:
-            raise ValueError("Cell %d is not present in frame %f" % (cell, frame))
+            raise ValueError(f"Cell {cell} is not present in frame {frame}")
 
         # Get cell dict
         cell_dict = self.cells[cell]
@@ -1549,7 +1530,7 @@ class Lineage:
         try:
             i = self.cells[cell]["frames"].index(frame)
         except ValueError:
-            raise ValueError("Cell %d is not present in frame %d" % (cell, frame))
+            raise ValueError(f"Cell {cell} is not present in frame {frame}")
 
         return self.cells[cell][feature][i]
 
@@ -1705,11 +1686,11 @@ class xpreader:
             else:
                 # Interactive selection and pop up window:
                 self._interactive_init()
-                
+
         self.filename = Path(self.filename)
-        
+
         self.channelnames = channelnames
-        
+
         "Names of the imaging channels (optional)"
         self.watchfiles = watchfiles
 
@@ -1722,7 +1703,9 @@ class xpreader:
             javabridge.start_vm(class_path=bioformats.JARS)
             self.filetype = file_extension.lower()[1:]
             self.filehandle = bioformats.ImageReader(str(self.filename))
-            md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=str(self.filename)))
+            md = bioformats.OMEXML(
+                bioformats.get_omexml_metadata(path=str(self.filename))
+            )
             self.positions = md.get_image_count()
             self.timepoints = md.image(
                 0
@@ -1733,7 +1716,9 @@ class xpreader:
             # Get first image to get datatype (there's probably a better way to do this...)
             self.dtype = self.filehandle.read(rescale=False, c=0).dtype
 
-        elif self.filename.is_dir():  # Experiment is stored as individual image TIFF files in a folder
+        elif (
+            self.filename.is_dir()
+        ):  # Experiment is stored as individual image TIFF files in a folder
             self.filetype = "dir"
             self.filehandle = self.filename
             # If filename prototype is not provided, guess it from the first file:
@@ -1757,19 +1742,10 @@ class xpreader:
                 # Create the string prototype to be used to generate filenames on the fly:
                 # Order is position, channel, frame/timepoint
                 self.prototype = (
-                    charstrs[0]
-                    + "%0"
-                    + str(len(numstrs[0]))
-                    + "d"
-                    + charstrs[1]
-                    + "%0"
-                    + str(len(numstrs[1]))
-                    + "d"
-                    + charstrs[2]
-                    + "%0"
-                    + str(len(numstrs[2]))
-                    + "d"
-                    + charstrs[3]
+                    f"{charstrs[0]}%0{len(numstrs[0])}d"
+                    f"{charstrs[1]}%0{len(numstrs[1])}d"
+                    f"{charstrs[2]}%0{len(numstrs[2])}d"
+                    f"{charstrs[3]}"
                 )
             # Get experiment settings by testing if relevant files exist:
             # Get number of positions:
@@ -1801,8 +1777,7 @@ class xpreader:
             else:
                 # Load first image, get image data from it
                 I = cv2.imread(
-                    str(self.getfilenamefromprototype(0, 0, 0)),
-                    cv2.IMREAD_ANYDEPTH
+                    str(self.getfilenamefromprototype(0, 0, 0)), cv2.IMREAD_ANYDEPTH
                 )
                 self.x = I.shape[1]
                 self.y = I.shape[0]
@@ -1814,7 +1789,7 @@ class xpreader:
             from skimage.external.tifffile import TiffFile
 
             self.filetype = "tif"
-        
+
             self.filehandle = TiffFile(str(self.filename))
             self.positions = len(self.filehandle.series)
             s = self.filehandle.series[
@@ -1848,11 +1823,10 @@ class xpreader:
 
             self.use_bioformats = (
                 True
-                if self.filename.suffix[1:]
-                in bioformats.READABLE_FORMATS
+                if self.filename.suffix[1:] in bioformats.READABLE_FORMATS
                 else False
             )
-        i=2
+        i = 2
         while i < len(cmdln_arguments):
             if cmdln_arguments[i] == "--bio-formats":
                 self.use_bioformats = bool(int(cmdln_arguments[i + 1]))
@@ -1866,10 +1840,12 @@ class xpreader:
             elif cmdln_arguments[i] == "--proto":
                 self.prototype = cmdln_arguments[i + 1]
                 i += 2
-            elif cmdln_arguments[i] == "--resfolder": # Resfolder will be read in pipeline
+            elif (
+                cmdln_arguments[i] == "--resfolder"
+            ):  # Resfolder will be read in pipeline
                 i += 2
             else:
-                print(f'Not valid argument {cmdln_arguments[i]}')
+                print(f"Not valid argument {cmdln_arguments[i]}")
                 i += 2
 
     def _interactive_init(self) -> None:
@@ -2135,9 +2111,9 @@ class xpreader:
                             .pages[fra * self.channels + cha]
                             .asarray()
                         )
-                        
+
                     frame = frame.astype(np.uint16)
-                        
+
                     # Optionally resize and rescale:
                     if rotate is not None:
                         frame = imrotate(frame, rotate)
@@ -2191,7 +2167,9 @@ class files_watcher(Thread):
 
                     # Check if new files have been written:
                     i = self.new[p][channel]
-                    while self.reader.getfilenamefromprototype(p, channel, i + 1).exists():
+                    while self.reader.getfilenamefromprototype(
+                        p, channel, i + 1
+                    ).exists():
                         i += 1
 
                     # Store new timepoint number:
@@ -2245,13 +2223,17 @@ def loadmodels(toload: Tuple[str, ...] = None) -> Dict[str, Any]:
     models = dict()
 
     if "rois" in toload:
-        models["rois"] = tf.keras.models.load_model(cfg.model_file_rois,compile=False)
+        models["rois"] = tf.keras.models.load_model(cfg.model_file_rois, compile=False)
 
     if "segmentation" in toload:
-        models["segmentation"] = tf.keras.models.load_model(cfg.model_file_seg,compile=False)
+        models["segmentation"] = tf.keras.models.load_model(
+            cfg.model_file_seg, compile=False
+        )
 
     if "tracking" in toload:
-        models["tracking"] = tf.keras.models.load_model(cfg.model_file_track,compile=False)
+        models["tracking"] = tf.keras.models.load_model(
+            cfg.model_file_track, compile=False
+        )
 
     return models
 
@@ -2277,13 +2259,16 @@ def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, 
 
     if num_colors == 0:
         return []
-    
-    # Get colors:    
-    colors = cv2.applyColorMap(
-        np.linspace(0, 256, num_colors, endpoint=False, dtype=np.uint8),
-        cv2.COLORMAP_HSV
-        ).astype(np.float64)/255
-    colors = [tuple(x) for x in colors[:,0]]
+
+    # Get colors:
+    colors = (
+        cv2.applyColorMap(
+            np.linspace(0, 256, num_colors, endpoint=False, dtype=np.uint8),
+            cv2.COLORMAP_HSV,
+        ).astype(np.float64)
+        / 255
+    )
+    colors = [tuple(x) for x in colors[:, 0]]
 
     # Pseudo randomly shuffle colors:
     if seed is not None:
@@ -2335,7 +2320,11 @@ def vidwrite(
             r=7,
         )
         .output(
-            str(filename), pix_fmt="yuv420p", vcodec="libx264", crf=crf, preset="veryslow"
+            str(filename),
+            pix_fmt="yuv420p",
+            vcodec="libx264",
+            crf=crf,
+            preset="veryslow",
         )
         .global_args(*quiet)
         .overwrite_output()
@@ -2483,12 +2472,9 @@ def singlecell_features(
             raise ValueError("You did not provide fluo frames")
         if len(fluo_features) != fluo_frames.shape[0]:
             raise ValueError(
-                (
-                    "You should provide exactly as many fluo frames as you want "
-                    "fluo features to extract. Here fluo_frames.shape[0]=%d but "
-                    "you ask for %d fluo features: %s"
-                )
-                % (fluo_frames.shape[0], len(fluo_features), str(fluo_features))
+                "You should provide exactly as many fluo frames as you want "
+                f"fluo features to extract. Here fluo_frames.shape[0]={fluo_frames.shape[0]} "
+                f"but you ask for {len(fluo_features)} fluo features: {fluo_features}"
             )
         fluo_values = cell_fluo(fluo_frames, mask, roi_box)
         for fluo_feat, fluo_val in zip(fluo_features, fluo_values):

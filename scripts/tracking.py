@@ -42,7 +42,7 @@ unprocessed = sorted(
 )
 
 # Get original image size:
-imsize = cv2.imread(unprocessed[0],cv2.IMREAD_GRAYSCALE).shape
+imsize = cv2.imread(unprocessed[0], cv2.IMREAD_GRAYSCALE).shape
 
 # Load up model:
 model = unet_track(input_size=cfg.target_size_track + (4,))
@@ -54,7 +54,7 @@ while unprocessed:
     ps = min(5, len(unprocessed))
     to_process = unprocessed[0:ps]
     del unprocessed[0:ps]
-    
+
     print("\n###### Now processing: ")
     for file in to_process:
         print(file)
@@ -67,25 +67,23 @@ while unprocessed:
         target_size=cfg.target_size_track,
         crop=cfg.crop_windows,
     )
-    
-    print("Cells to track: %d"%len(inputs))
+
+    print("Cells to track: %d" % len(inputs))
 
     # Predict (have to do it in batches otherwise run into memry issues):
-    results = np.empty_like(inputs, shape=inputs.shape[:3]+(1,))
+    results = np.empty_like(inputs, shape=inputs.shape[:3] + (1,))
     for i in range(0, len(inputs), 32):
         j = min((len(inputs), i + 32))
-        results[i:j] = model.predict(
-            inputs[i:j], verbose=1, batch_size=1
-            )
-    
+        results[i:j] = model.predict(inputs[i:j], verbose=1, batch_size=1)
+
     # Paste results into masks of original imsize:
     if cfg.crop_windows:
-        _results = np.zeros_like(results, shape= (len(results),)+imsize+(1,))
+        _results = np.zeros_like(results, shape=(len(results),) + imsize + (1,))
         for r, mask in enumerate(results):
             cb, fb = boxes[r]
-            _results[r, cb['ytl']:cb['ybr'], cb['xtl']:cb['xbr']] = results[
-                r, fb['ytl']:fb['ybr'], fb['xtl']:fb['xbr']
-                ]
+            _results[r, cb["ytl"] : cb["ybr"], cb["xtl"] : cb["xbr"]] = results[
+                r, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"]
+            ]
         results = _results
 
     # Save (use the filenames list from the data compiler)

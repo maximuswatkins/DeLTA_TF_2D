@@ -5,9 +5,11 @@ from setuptools import setup, find_packages
 
 HERE = pathlib.Path(__file__).parent
 
-VERSION = subprocess.run(
-    ["git", "describe"], capture_output=True
-    ).stdout.decode("utf-8").strip()
+VERSION = (
+    subprocess.run(["git", "describe"], capture_output=True)
+    .stdout.decode("utf-8")
+    .strip()
+)
 
 PACKAGE_NAME = "delta2"
 AUTHOR = "Jean-Baptiste Lugagne, Owen OConnor"
@@ -47,7 +49,8 @@ setup(
     package_data={
         "tests": [
             "data/movie_2D_tif/*.tif",
-            "data/movie_mothermachine_tif/*.tif"
+            "data/movie_mothermachine_tif/*.tif",
+            "data/images/*.tif",
         ]
     },
 )

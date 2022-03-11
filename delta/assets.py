@@ -124,23 +124,12 @@ def download_assets(
 
 
 def _ask(prompt: str, options: Dict[str, Any] = {"y": True, "n": False}) -> Any:
-
-    answer = None
-    prompt += " ["
-    for k in options:
-        prompt += k + "/"
-    prompt = "".join(list(prompt)[:-1]) + "]: "
-
-    while answer is None:
-
-        answer = input(prompt)
-
-        for k, v in options.items():
-            if answer.lower() == k:
-                return v
-
-        answer = None
-        print("invalid answer: '%s'" % answer)
+    question = f"{prompt} [{'/'.join(options)}]: "
+    answer = input(question)
+    while answer not in options:
+        print(f"invalid answer: '{answer}'")
+        answer = input(question)
+    return options[answer]
 
 
 def _write_default_configs(
@@ -158,10 +147,9 @@ def _write_default_configs(
         config_dir = config_level
     else:
         raise ValueError(
-            """Invalid configs level/path: %s
+            f"""Invalid configs level/path: {config_level}
             If providing a folder path, the folder must exist
             """
-            % config_level
         )
 
     if not os.path.exists(config_dir):
@@ -208,7 +196,7 @@ def _write_default_configs(
     with open(os.path.join(config_dir, "config_mothermachine.json"), "w") as f:
         json.dump(config, f, indent=4)
 
-    print("Config files written to %s" % config_dir)
+    print(f"Config files written to {config_dir}")
 
 
 def _download_models(
@@ -238,11 +226,11 @@ def _download_models(
         models_dir = os.path.join(_DELTA_DIR, "assets", "models")
     if not os.path.exists(models_dir):
         os.makedirs(models_dir)
-    print("Models will be downloaded to %s" % models_dir)
+    print(f"Models will be downloaded to {models_dir}")
 
     model_files = dict()
     for filename, google_id in model_ids.items():
-        print("Downloading model: %s..." % filename, end="")
+        print(f"Downloading model: {filename}...", end="", flush=True)
         model_files[filename] = os.path.join(models_dir, filename + ".hdf5")
         _download_file_from_google_drive(google_id, model_files[filename])
         print(" Done")
@@ -258,7 +246,7 @@ def _download_training_sets(
         sets_dir = os.path.join(_DELTA_DIR, "assets", "trainingsets")
     if not os.path.exists(sets_dir):
         os.makedirs(sets_dir)
-    print("Training sets will be downloaded and unzipped to %s" % sets_dir)
+    print(f"Training sets will be downloaded and unzipped to {sets_dir}")
 
     sets_files = dict()
     for filename, google_id in sets_ids.items():
@@ -281,7 +269,7 @@ def _download_eval_movies(
         movies_dir = os.path.join(_DELTA_DIR, "assets", "eval_movies")
     if not os.path.exists(movies_dir):
         os.makedirs(movies_dir)
-    print("Evaluation movies will be downloaded and unzipped to %s" % movies_dir)
+    print(f"Evaluation movies will be downloaded and unzipped to {movies_dir}")
 
     movie_files = dict()
     for filename, google_id in movie_ids.items():
@@ -299,32 +287,32 @@ def _download_and_unzip(
     id: str, zip_file: str, folder: str, remove_previous: bool = False
 ) -> None:
 
-    print("Downloading zip: %s" % zip_file)
+    print(f"Downloading zip: {zip_file}...", end="", flush=True)
     _download_file_from_google_drive(id, zip_file)
     print(" Done")
 
     if remove_previous and os.path.exists(folder):
-        print("Removing previous extraction...", end="")
+        print("Removing previous extraction...", end="", flush=True)
         shutil.rmtree(folder)
         print(" Done")
 
-    print("Extracting to %s..." % (folder), end="")
+    print(f"Extracting to {folder}...", end="", flush=True)
     if not os.path.exists(folder):
         os.makedirs(folder)
     shutil.unpack_archive(zip_file, folder)
     print(" Done")
 
-    print("Deleting archive...", end="")
+    print("Deleting archive...", end="", flush=True)
     os.remove(zip_file)
     print(" Done")
 
 
 def _download_file_from_google_drive(id: str, destination: str) -> None:
     # https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
-    # Note from JB: the above answer is outdated, google changed the API such 
+    # Note from JB: the above answer is outdated, google changed the API such
     # that you only need to pass a "t" to confirm, not a token. See merge
     # request 58 for more information
-    
+
     URL = "https://docs.google.com/uc?export=download"
 
     session = requests.Session()

@@ -60,12 +60,12 @@ class Pipeline:
         """
 
         super().__init__()
-        
+
         if cfg._LOADED is None:
             warnings.warn(
                 """You do not seem to have loaded a configuration file yet.
                 This will most likely cause errors."""
-                )
+            )
 
         self.reader: utils.xpreader = xpreader
         "Experiment reader object"
@@ -86,10 +86,10 @@ class Pipeline:
         self.models = utils.loadmodels()
         "Dictionary of Tensorflow models"
 
-        for arg_index,arg in enumerate(sys.argv):
-            if sys.argv[arg_index] == '--resfolder':
-                resfolder = sys.argv[arg_index+1]
-                
+        for arg_index, arg in enumerate(sys.argv):
+            if sys.argv[arg_index] == "--resfolder":
+                resfolder = sys.argv[arg_index + 1]
+
         # Create result files folders
         if resfolder is not None:
             self.resfolder = Path(resfolder)
@@ -99,7 +99,7 @@ class Pipeline:
                 self.resfolder = xpfile / "delta_results"
             else:
                 self.resfolder = xpfile.with_name(xpfile.stem + "_delta_results")
-        
+
         self.resfolder.mkdir(exist_ok=True)
 
         # Initialize position processors:
@@ -117,9 +117,7 @@ class Pipeline:
         # If reload flag, reload positions from pickle files:
         if reload:
             for p in range(self.reader.positions):
-                self.positions[p].load(
-                    self.resfolder / ("Position%06d" % (p))
-                )
+                self.positions[p].load(self.resfolder / f"Position{p:06d}.pkl")
 
     def preprocess(
         self,
@@ -173,6 +171,7 @@ class Pipeline:
         positions: List[int] = None,
         frames: List[int] = None,
         features: Tuple[str, ...] = None,
+        clear: bool = True,
     ):
         """
         Run pipeline.
@@ -188,6 +187,10 @@ class Pipeline:
         features : list of str or None, optional
             List of features to extract. If None, all features are extracted.
             The default is None.
+        clear : bool, optional
+            Clear variables of each Position object after it has been processed
+            and saved to disk, to prevent memory issues.
+            The default is True.
 
         Returns
         -------
@@ -204,7 +207,7 @@ class Pipeline:
         if features is None:
             features_list = ["length", "width", "area", "perimeter", "edges"]
             for c in range(1, self.reader.channels):
-                features_list += ["fluo%d" % (c,)]
+                features_list += [f"fluo{c}"]
             features = tuple(features_list)
 
         # Run through positions:
@@ -227,11 +230,13 @@ class Pipeline:
 
             # Save to disk and clear memory:
             self.positions[p].save(
-                filename= self.resfolder / ("Position%06d" % (p)),
+                filename=self.resfolder / f"Position{p:06d}",
                 frames=frames,
                 save_format=self.save_format,
             )
-            self.positions[p].clear()
+
+            if clear:
+                self.positions[p].clear()
 
     def run(self):
         """
@@ -275,7 +280,7 @@ class Pipeline:
                 # Features extraction for fluorescence images:
                 else:
                     self.positions[pos].features(
-                        frames=[frame], features=["fluo%d" % (chan,)]
+                        frames=[frame], features=[f"fluo{chan}"]
                     )
 
 
@@ -361,7 +366,7 @@ class Position:
         """
 
         if self.verbose:
-            print("%s, Position %d - " % (time.ctime(), self.position_nb) + string)
+            print(f"{time.ctime()}, Position {self.position_nb} - {string}")
 
     def preprocess(
         self,
@@ -404,6 +409,7 @@ class Position:
         if isinstance(rotation_correction, bool):
             if rotation_correction:
                 self.rotate = utils.deskew(reference)  # Estimate rotation angle
+                self._msg(f"Rotation correction: {self.rotate} degrees")
                 reference = utils.imrotate(reference, self.rotate)
             else:
                 self.rotate = 0
@@ -492,7 +498,7 @@ class Position:
 
         """
 
-        self._msg("Starting segmentation (%d frames)" % (len(frames),))
+        self._msg(f"Starting segmentation ({len(frames)} frames)")
 
         # Load trans frames:
         trans_frames = self.reader.getframes(
@@ -553,19 +559,11 @@ class Position:
 
         """
 
-        self._msg("Starting tracking (%d frames)" % (len(frames),))
+        self._msg(f"Starting tracking ({len(frames)} frames)")
 
         for f in frames:
 
-            self._msg(
-                "Tracking - frame %d/%d "
-                % (
-                    f,
-                    len(
-                        frames,
-                    ),
-                )
-            )
+            self._msg(f"Tracking - frame {f}/{len(frames)} ")
 
             # Compile inputs and references:
             x = []
@@ -626,7 +624,7 @@ class Position:
 
         """
 
-        self._msg("Starting feature extraction (%d frames)" % (len(frames),))
+        self._msg(f"Starting feature extraction ({len(frames)} frames)")
 
         # Check if fluo channels are requested in features (fluo1, fluo2, etc):
         fluo_channels = [int(x[4:]) for x in features if x[0:4] == "fluo"]
@@ -652,15 +650,7 @@ class Position:
 
         # Run through frames:
         for f in frames:
-            self._msg(
-                "Feature extraction - frame %d/%d "
-                % (
-                    f,
-                    len(
-                        frames,
-                    ),
-                )
-            )
+            self._msg(f"Feature extraction - frame {f}/{len(frames)}")
             # Run through ROIs and extract features:
             for roi in self.rois:
                 roi.extract_features(
@@ -699,23 +689,22 @@ class Position:
         """
 
         if filename is None:
-            filename = "./Position%06d" % (self.position_nb,)
-            
+            filename = f"./Position{self.position_nb:06d}"
         filename = Path(filename)
-            
+
         if "legacy" in save_format:
-            self._msg("Saving to legacy format\n%s" % filename.with_suffix(".mat"))
+            self._msg("Saving to legacy format\n" + str(filename.with_suffix(".mat")))
             self.legacysave(filename.with_suffix(".mat"))
 
         if "pickle" in save_format:
-            self._msg("Saving to pickle format\n%s" % filename.with_suffix(".pkl"))
+            self._msg("Saving to pickle format\n" + str(filename.with_suffix(".pkl")))
             import pickle
 
             with open(filename.with_suffix(".pkl"), "wb") as file:
                 pickle.dump(self, file)
 
         if "movie" in save_format:
-            self._msg("Saving results movie\n%s" % filename.with_suffix(".mp4"))
+            self._msg("Saving results movie\n" + str(filename.with_suffix(".mp4")))
             movie = self.results_movie(frames=frames)
             utils.vidwrite(movie, filename.with_suffix(".mp4"), verbose=False)
 
@@ -725,7 +714,7 @@ class Position:
 
         Parameters
         ----------
-        filename : str or Path, optional
+        filename : str or Path
             File name for save file.
 
         Returns
@@ -859,7 +848,7 @@ class Position:
                 fluo = 0
                 while True:
                     fluo += 1
-                    fluostr = "fluo%d" % fluo
+                    fluostr = f"fluo{fluo}"
                     if fluostr in c:
                         lin[-1][fluostr] = np.array(c[fluostr], dtype=np.float32)
                     else:
@@ -916,7 +905,7 @@ class Position:
             # Add frame number text:
             frame = cv2.putText(
                 frame,
-                text="frame %06d" % (fnb,),
+                text=f"frame {fnb:06d}",
                 org=(int(frame.shape[0] * 0.05), int(frame.shape[0] * 0.97)),
                 fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                 fontScale=1,
@@ -1198,7 +1187,7 @@ class ROI:
 
         # Check if segmentation data is ready:
         if len(self.seg_stack) <= frame:
-            raise RuntimeError("Segmentation incomplete - frame %d" % (frame,))
+            raise RuntimeError(f"Segmentation incomplete - frame {frame}")
 
         # If no previous cells to track from, directly update lineage:
         if (

@@ -17,15 +17,15 @@ _LOADED = None
 "Which config file was loaded"
 
 # Parameters:
-presets: str = ''
+presets: str = ""
 "Type of analysis: can be '2D', 'mothermachine', or your own custom name for presets"
 models: Tuple[str, ...] = ()
 "Which models will be run"
-model_file_rois: str = ''
+model_file_rois: str = ""
 "Model file for ROIs segmentation"
-model_file_seg: str = ''
+model_file_seg: str = ""
 "Model file for cell segmentation"
-model_file_track: str = ''
+model_file_track: str = ""
 "Model file for cell tracking"
 target_size_rois: Tuple[int, int] = (0, 0)
 "ROI U-Net target/input image size"
@@ -33,13 +33,13 @@ target_size_seg: Tuple[int, int] = (0, 0)
 "segmentation U-Net target/input image size"
 target_size_track: Tuple[int, int] = (0, 0)
 "tracking U-Net target/input image size"
-training_set_rois: str = ''
+training_set_rois: str = ""
 "Path to ROIs U-Net training set"
-training_set_seg: str = ''
+training_set_seg: str = ""
 "Path to segmentation training set"
-training_set_track: str = ''
+training_set_track: str = ""
 "Path to tracking training set"
-eval_movie: str = ''
+eval_movie: str = ""
 "Path to evaluation movie / image sequence"
 rotation_correction: bool = False
 "Flag to try to automatically correct image rotation (for microfluidic devices)"
@@ -55,7 +55,7 @@ min_cell_area: float = 0.0
 "Minimum area of detected cells, in pixels. Can be set to 0"
 save_format: Tuple[str, ...] = ()
 "Format to save output data to"
-TF_CPP_MIN_LOG_LEVEL: str = ''
+TF_CPP_MIN_LOG_LEVEL: str = ""
 "Debugging messages level from Tensorflow ('0' = most verbose to '3' = not verbose)"
 memory_growth_limit: Optional[float] = None
 """If running into OOM issues or having trouble with cuDNN loading, try setting 
@@ -168,7 +168,7 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
 
         # Is there a local/user config file for this preset?
         _json_file = _os.path.expanduser(
-            _os.path.join("~/.delta", "config_%s.json" % presets)
+            _os.path.join("~/.delta", f"config_{presets}.json")
         )
         if _os.path.exists(_json_file) and (
             config_level is None or config_level == "local"
@@ -178,7 +178,7 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
         # Is there a global config file for this preset?
         _os.path.join(_DELTA_DIR, "assets", "config")
         _json_file = _os.path.join(
-            _DELTA_DIR, "assets", "config", "config_%s.json" % presets
+            _DELTA_DIR, "assets", "config", f"config_{presets}.json"
         )
         if (
             json_file is None
@@ -190,10 +190,9 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
         # If no file was found, raise error:
         if json_file is None:
             raise ValueError(
-                """Could not find a local or global config file for presets '%s'.
+                f"""Could not find a local or global config file for presets '{presets}'.
                 Either use delta.assets.download_assets() or provide a json_file path
                 """
-                % presets
             )
 
     variables = _read_json(json_file)
@@ -247,7 +246,7 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
 def _read_json(json_file: str):
 
     # Load file:
-    print("Loading configuration from: %s" % json_file)
+    print(f"Loading configuration from: {json_file}")
     with open(json_file, "r") as f:
         variables = _json.loads(f.read())
 

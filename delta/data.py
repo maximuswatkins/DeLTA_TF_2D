@@ -18,7 +18,6 @@ import cv2
 import numpy as np
 import numpy.typing as npt
 import skimage.io as io
-import tifffile
 import skimage.transform as trans
 from skimage.measure import label
 import skimage.morphology as morph
@@ -99,10 +98,8 @@ def readreshape(
 
     """
     fext = os.path.splitext(filename)[1].lower()
-    if fext in (".png", ".jpg", ".jpeg"):
-        i = io.imread(filename, as_gray=True)
-    elif fext in (".tif", ".tiff"):
-        i = tifffile.imread(filename)
+    if fext in (".png", ".jpg", ".jpeg", ".tif", ".tiff"):
+        i = cv2.imread(filename, cv2.IMREAD_ANYDEPTH)
     else:
         raise ValueError("Only PNG, JPG or single-page TIF files accepted")
     if i.ndim == 3:
@@ -910,7 +907,7 @@ def seg_weights_2D(
     mask: utils.SegmentationMask, classweights: Tuple[int, int] = (1, 1)
 ) -> npt.NDArray[np.float32]:
     """
-    Compute custom weightmaps designed for bacterial images 
+    Compute custom weightmaps designed for bacterial images
     where borders are difficult to distinguish
 
     Parameters
@@ -1345,39 +1342,24 @@ def predictCompilefromseg_track(
         )
     elif len(numstrs) == 3 and len(charstrs) == 4:
         # Order is position, chamber, frame/timepoint
-        prototype = (
-            charstrs[0]
-            + "%0"
-            + str(len(numstrs[0]))
-            + "d"
-            + charstrs[1]
-            + "%0"
-            + str(len(numstrs[1]))
-            + "d"
-            + charstrs[2]
-            + "%0"
-            + str(len(numstrs[2]))
-            + "d"
-            + charstrs[3]
+        protoype = (
+            f"{charstrs[0]}%0{len(numstrs[1])}d"
+            f"{charstrs[1]}%0{len(numstrs[2])}d"
+            f"{charstrs[2]}%0{len(numstrs[3])}d"
+            f"{charstrs[3]}"
         )
         fileorder = "pct"
     elif len(numstrs) == 2 and len(charstrs) == 3:
         # Order is position, frame/timepoint
-        prototype = (
-            charstrs[0]
-            + "%0"
-            + str(len(numstrs[0]))
-            + "d"
-            + charstrs[1]
-            + "%0"
-            + str(len(numstrs[1]))
-            + "d"
-            + charstrs[2]
+        protoype = (
+            f"{charstrs[0]}%0{len(numstrs[1])}d"
+            f"{charstrs[1]}%0{len(numstrs[2])}d"
+            f"{charstrs[3]}"
         )
         fileorder = "pt"
         crop = True
     fileordercell = fileorder + "n"
-    
+
     boxes = []
     for index, item in enumerate(files_list):
         filename = os.path.basename(item)
@@ -1564,7 +1546,7 @@ def saveResult_track(
         if files_list:
             filenameMo = os.path.join(save_path, os.path.basename(files_list[i]))
         else:
-            filenameMo = os.path.join(save_path, "tracking_%09d.png" % i)
+            filenameMo = os.path.join(save_path, f"tracking_{i:09d}.png")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             io.imsave(filenameMo, (mother * 255).astype(np.uint8))

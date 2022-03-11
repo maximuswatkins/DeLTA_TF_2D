@@ -5,16 +5,12 @@ Created on Wed Oct 20 17:50:34 2021
 
 @author: ooconnor
 """
-import os
 import sys
+from pathlib import Path
 
 import pytest
 
 import delta
-
-
-def _root_dir():
-    return os.path.dirname(os.path.abspath(__file__))
 
 
 @pytest.mark.order(2)
@@ -22,8 +18,8 @@ def test_pipeline_tif_stack():
 
     # 'Pretend' arguments were passed to the cmd line:
     sys.argv = [sys.argv[0]]
-    sys.argv.append(os.path.join(_root_dir(), "data/movie_2D_tif"))
-    sys.argv.append(os.path.join(_root_dir(), "data/movie_2D_tif/results"))
+    xpfolder = Path(__file__).parent / "data/movie_2D_tif"
+    sys.argv.append(str(xpfolder))
 
     # Load configuration:
     delta.utils.cfg.load_config(presets="2D", config_level="global")
@@ -34,15 +30,17 @@ def test_pipeline_tif_stack():
     # Init pipeline:
     xp = delta.pipeline.Pipeline(xpreader)
 
-    xp.process(frames=[0, 1, 2, 3])
+    xp.process(frames=[0, 1, 2, 3], clear=False)
 
     # Testing position pickle save
     import tempfile
+
     with tempfile.TemporaryDirectory() as tempdirname:
         assert len(xp.positions) > 0
         pos = xp.positions[0]
         pos.save(filename=tempdirname + "position0", save_format=("pickle",))
         import copy
+
         old_pos = copy.deepcopy(pos)
 
         # Testing Position.clear
@@ -53,10 +51,14 @@ def test_pipeline_tif_stack():
 
         # Testing Position.load
         pos.load(tempdirname + "position0.pkl")
-        for k in old_pos.__dict__.keys():
-            if k not in pos._pickle_skip:
-                assert getattr(old_pos, k) == getattr(pos, k)
 
+    # Testing load from pipeline save:
+    # Init new xpreader:
+    new_xpreader = delta.utils.xpreader(xpfolder)
 
+    # Load up processor:
+    new_xp = delta.pipeline.Pipeline(
+        new_xpreader, reload=True, resfolder=xpfolder / "delta_results"
+    )
 
-
+    assert len(xp.positions) == len(new_xp.positions)
