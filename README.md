@@ -28,7 +28,7 @@ A big thank you to the following people who shared their data and training
 sets with us, they help us make DeLTA more generalizable:
 
 - [Simon van Vliet](https://vanvlietlab.ch/) at University of Basel
-- [Zoran Marinković](https://scholar.google.com/citations?user=FKKQ64oAAAAJ&hl=en) at ESPCI Paris
+- [Zoran Marinković](https://scholar.google.com/citations?user=FKKQ64oAAAAJ&hl=en) and [Marianne Grognot](https://scholar.google.com/citations?user=vT4Tr-kAAAAJ&hl=en) in [Philippe Nghe's group](https://scholar.google.com/citations?user=MF7e9eAAAAAJ&hl=en) at ESPCI Paris
 - [Noah Olsman](http://nolsman.com/) and [Daniel Eaton](https://paulsson.med.harvard.edu/people/daniel-eaton) in [Johan Paulsson's group](https://paulsson.med.harvard.edu/) at Harvard
 - [Shuai Yang](http://jin.isynbio.siat.ac.cn/wordpress/?p=476) in [Fan Jin's group](http://jin.isynbio.siat.ac.cn/wordpress/) at Shenzhen Institutes of Advanced Technology
 - [Jordi van Gestel](https://scholar.google.ch/citations?user=73pVatUAAAAJ&hl=en) and [Noam Golan](https://www.eldarmicrolab.com/team) in [Avigdor Eldar's group](https://www.eldarmicrolab.com/) at Tel-Aviv University
