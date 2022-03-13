@@ -1282,6 +1282,16 @@ class Lineage:
         self.cellnumbers = []
         "List of cells present in FOV at each timepoint"
 
+    def __str__(self):
+        return "\n".join(
+            f"cell #{icell:04}: "
+            + "".join(
+                " +"[iframe in cell["frames"]]
+                for iframe in range(max(cell["frames"]) + 1)
+            )
+            for icell, cell in enumerate(self.cells)
+        )
+
     def update(
         self,
         cell: Optional[int],
