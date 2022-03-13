@@ -1527,6 +1527,8 @@ class Lineage:
                 if mother is None:
                     return None
         value_now = self.getfuturevalue(mother, frame - df, feature, df=df)
+        if value_now is None or value_now == 0.0:
+            return None
         return self.getvalue(cell, frame, feature) * value_then / value_now
 
     def getfuturevalue(self, cell: int, frame: int, feature: str, df: int = 1) -> float:
@@ -1591,6 +1593,38 @@ class Lineage:
             raise ValueError(f"Cell {cell} is not present in frame {frame}")
 
         return self.cells[cell][feature][i]
+
+    def growthrate(self, cell: int, frame: int, feature: str) -> float:
+        """
+        Compute exponential growth rate of a given feature for the given cell at the given frame.
+
+        Compute the central derivative with the previous and the next frame if
+        possible, otherwise a one-sided derivative.
+
+        Parameters
+        ----------
+        cell : int
+            Cell number in lineage.
+        frame : int
+            Frame / timepoint number.
+        feature : str
+            Feature to get value for.
+
+        Returns
+        -------
+        float
+            Growth rate of the feature at frame.
+        """
+        value_fm1 = self.getpastvalue(cell, frame, feature)
+        value_f = self.getvalue(cell, frame, feature)
+        value_fp1 = self.getfuturevalue(cell, frame, feature)
+        if value_fm1 is not None and value_fp1 is not None and value_fm1 > 0.0 and value_fp1 > 0.0:
+            return np.log(value_fp1 / value_fm1) / 2.0
+        if value_fm1 is not None and value_fm1 > 0.0 and value_f > 0.0:
+            return np.log(value_f / value_fm1)
+        if value_fp1 is not None and value_f > 0.0 and value_fp1 > 0.0:
+            return np.log(value_fp1 / value_f)
+        return None
 
 
 #%% Image files

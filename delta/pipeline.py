@@ -659,6 +659,15 @@ class Position:
                     features=features,
                 )
 
+        # Now extracting multi-frame features
+        for iroi, roi in enumerate(self.rois):
+            for icell in range(len(roi.lineage.cells)):
+                for iframe in roi.lineage.cells[icell]["frames"]:
+                    grl = roi.lineage.growthrate(icell, iframe, "length")
+                    roi.lineage.setvalue(icell, iframe, "growthrate_length", grl)
+                    gra = roi.lineage.growthrate(icell, iframe, "area")
+                    roi.lineage.setvalue(icell, iframe, 'growthrate_area', gra)
+
     def save(
         self,
         filename: Union[str, Path] = None,

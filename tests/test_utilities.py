@@ -17,19 +17,121 @@ import sys
 
 from delta import utils, pipeline
 
-#%% Eval create_windows
+#%% Test growth rate
 
 
-def rand_img(image_size):
-    img = np.random.random(image_size)
-    return img
+def test_growthrate_onecell():
+    # Cell 0 is on frames 0, 1, 2
+    pole = np.zeros(2, dtype=np.int16)
+    lineage = utils.Lineage()
+    lineage.update(cell=None, frame=0, attrib=[0], poles=[[pole, pole]])
+    lineage.update(cell=0, frame=1, attrib=[0], poles=[[pole, pole]])
+    lineage.update(cell=0, frame=2, attrib=[0], poles=[[pole, pole]])
+    lineage.setvalue(0, frame=0, feature="length", value=1.0)
+    lineage.setvalue(0, frame=1, feature="length", value=1.1)
+    lineage.setvalue(0, frame=2, feature="length", value=1.2)
+    assert lineage.growthrate(0, frame=0, feature="length") == np.log(1.1 / 1.0)
+    assert lineage.growthrate(0, frame=1, feature="length") == np.log(1.2 / 1.0) / 2.0
+    assert lineage.growthrate(0, frame=2, feature="length") == np.log(1.2 / 1.1)
+
+
+def test_growthrate_division():
+    # Cell 0 is on frames 0, 1, 2
+    # Cell 1, born from cell 0 on frame 1, is on frames 1 and 2
+    pole = np.zeros(2, dtype=np.int16)
+    lineage = utils.Lineage()
+    lineage.update(cell=None, frame=0, attrib=[0], poles=[[pole, pole]])
+    lineage.update(cell=0, frame=1, attrib=[1, 0], poles=[[pole, pole], [pole, pole]])
+    lineage.update(cell=0, frame=2, attrib=[0], poles=[[pole, pole]])
+    lineage.update(cell=1, frame=2, attrib=[1], poles=[[pole, pole]])
+    lineage.setvalue(0, frame=0, feature="length", value=2.0)
+    lineage.setvalue(0, frame=1, feature="length", value=1.2)
+    lineage.setvalue(0, frame=2, feature="length", value=1.3)
+    lineage.setvalue(1, frame=1, feature="length", value=1.0)
+    lineage.setvalue(1, frame=2, feature="length", value=1.1)
+    assert lineage.growthrate(0, frame=0, feature="length") == np.log((1.2 + 1.0) / 2.0)
+    assert (
+        lineage.growthrate(0, frame=1, feature="length")
+        == np.log(1.3 / (2.0 * 1.2 / (1.2 + 1.0))) / 2.0
+    )
+    assert lineage.growthrate(0, frame=2, feature="length") == np.log(1.3 / 1.2)
+    assert (
+        lineage.growthrate(1, frame=1, feature="length")
+        == np.log(1.1 / (2.0 * 1.0 / (1.2 + 1.0))) / 2.0
+    )
+    assert lineage.growthrate(1, frame=2, feature="length") == np.log(1.1 / 1.0)
+
+
+def test_growthrate_division_last():
+    # Cell 0 is on frames 0 and 1
+    # Cell 1, born from cell 0 on frame 1, is on frame 1
+    pole = np.zeros(2, dtype=np.int16)
+    lineage = utils.Lineage()
+    lineage.update(cell=None, frame=0, attrib=[0], poles=[[pole, pole]])
+    lineage.update(cell=0, frame=1, attrib=[1, 0], poles=[[pole, pole], [pole, pole]])
+    lineage.setvalue(0, frame=0, feature="length", value=2.0)
+    lineage.setvalue(0, frame=1, feature="length", value=1.2)
+    lineage.setvalue(1, frame=1, feature="length", value=1.0)
+    assert lineage.growthrate(0, frame=0, feature="length") == np.log((1.2 + 1.0) / 2.0)
+    assert lineage.growthrate(0, frame=1, feature="length") == np.log(
+        1.2 / (2.0 * 1.2 / (1.2 + 1.0))
+    )
+    assert lineage.growthrate(1, frame=1, feature="length") == np.log(
+        1.0 / (2.0 * 1.0 / (1.2 + 1.0))
+    )
+
+
+def test_growthrate_double_division():
+    # Cell 0 is on frames 0, 1, 2
+    # Cell 1, born from cell 0 on frame 1, is on frames 1 and 2
+    # Cell 2, born from cell 1 on frame 2, is on frame 2
+    # Cell 3, born from cell 0 on frame 2, is on frame 2
+    pole = np.zeros(2, dtype=np.uint16)
+    lineage = utils.Lineage()
+    lineage.update(cell=None, frame=0, attrib=[0], poles=[[pole, pole]])
+    lineage.update(cell=0, frame=1, attrib=[1, 0], poles=[[pole, pole], [pole, pole]])
+    lineage.update(cell=1, frame=2, attrib=[1, 0], poles=[[pole, pole], [pole, pole]])
+    lineage.update(cell=0, frame=2, attrib=[2, 3], poles=[[pole, pole], [pole, pole]])
+    lineage.setvalue(0, frame=0, feature="length", value=2.0)
+    lineage.setvalue(0, frame=1, feature="length", value=1.2)
+    lineage.setvalue(0, frame=2, feature="length", value=0.8)
+    lineage.setvalue(1, frame=1, feature="length", value=1.0)
+    lineage.setvalue(1, frame=2, feature="length", value=0.7)
+    lineage.setvalue(2, frame=2, feature="length", value=0.4)
+    lineage.setvalue(3, frame=2, feature="length", value=0.5)
+    assert lineage.growthrate(0, frame=0, feature="length") == np.log((1.2 + 1.0) / 2.0)
+    assert (
+        lineage.growthrate(0, frame=1, feature="length")
+        == np.log((0.8 + 0.5) / (2.0 * 1.2 / (1.2 + 1.0))) / 2.0
+    )
+    assert lineage.growthrate(0, frame=2, feature="length") == np.log(
+        0.8 / (1.2 * 0.8 / (0.8 + 0.5))
+    )
+    assert (
+        lineage.growthrate(1, frame=1, feature="length")
+        == np.log((0.7 + 0.4) / (2.0 * 1.0 / (1.2 + 1.0))) / 2.0
+    )
+    assert lineage.growthrate(1, frame=2, feature="length") == np.log(
+        0.7 / (1.0 * 0.7 / (0.7 + 0.4))
+    )
+    assert lineage.growthrate(2, frame=2, feature="length") == np.log(
+        0.4 / (1.0 * 0.4 / (0.7 + 0.4))
+    )
+    assert lineage.growthrate(3, frame=2, feature="length") == np.log(
+        0.5 / (1.2 * 0.5 / (0.8 + 0.5))
+    )
+
+
+#%% Test deskew
 
 
 def test_deskew_0():
     _test_deskew("angle_+0.53.tif", 0.53)
 
+
 def test_deskew_1():
     _test_deskew("angle_-0.32.tif", -0.32)
+
 
 def _test_deskew(filename, angle0):
     file = Path(__file__).parent / "data/images" / filename
@@ -39,6 +141,15 @@ def _test_deskew(filename, angle0):
     for angle in np.linspace(-3, 3, 30):
         image = utils.imrotate(image0, angle - angle0)
         assert np.abs(utils.deskew(image) + angle) <= 0.25
+
+
+#%% Eval create_windows
+
+
+def rand_img(image_size):
+    img = np.random.random(image_size)
+    return img
+
 
 @pytest.mark.order(2)
 class Test_create_windows:
