@@ -533,6 +533,7 @@ class Position:
         # Run segmentation model:
         y = np.empty_like(x)
         for i in range(0, len(x), cfg.pipeline_seg_batch):
+            self._msg(f"Segmentation - ROI ({i}/{len(x)})")
             j = min((len(x), i + cfg.pipeline_seg_batch))
             y[i:j] = self.models["segmentation"].predict(x[i:j], batch_size=1)
 
