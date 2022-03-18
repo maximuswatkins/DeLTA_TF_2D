@@ -1513,22 +1513,37 @@ class Lineage:
         frame : int
             Current frame number.
         feature : str
-            Feature to get value for.
+            Feature to get value for. Only works for numerical scalar features.
         df : int
             Number of frames in the past where we want to get the value.
+
+        Returns
+        -------
+        float
+            The value in the past, normalized by ratio of the value at current
+            timepoint for initial cell by sum of value all progeny of the past
+            cell (if any sister/cousin cells)
+
         """
         value_then = None
         mother = cell
         while value_then is None:
             try:
+                # Retrieve value for cell at timepoint frame - df:
                 value_then = self.getvalue(mother, frame=frame - df, feature=feature)
             except ValueError:
+                # If ValueError raised, switch to cell's mother.
+                # loop until success (or reach orphan).
                 mother = self.cells[mother]["mother"]
                 if mother is None:
                     return None
+
+        # Get the value for all progeny of mother at current frame
         value_now = self.getfuturevalue(mother, frame - df, feature, df=df)
         if value_now is None or value_now == 0.0:
             return None
+
+        # Normalize past value by present cell divided sisters:
         return self.getvalue(cell, frame, feature) * value_then / value_now
 
     def getfuturevalue(self, cell: int, frame: int, feature: str, df: int = 1) -> float:
@@ -1542,12 +1557,20 @@ class Lineage:
         frame : int
             Current frame number.
         feature : str
-            Feature to get value for.
+            Feature to get value for. Only works for numerical scalar features.
         df : int
             Number of frames in the future where we want to get the value.
+
+        Returns
+        -------
+        value: float
+            Sum of value for all progeny of initial cell in the future.
         """
+        # End case:
         if df == 0:
             return self.getvalue(cell, frame, feature)
+
+        # Go down the lineage tree recursively:
         # This cell has to exist in the future, if it doesn't we cannot compute the value.
         try:
             value = self.getfuturevalue(
@@ -1555,6 +1578,7 @@ class Lineage:
             )
         except ValueError:
             return None
+        # Go down potential daughter's tree as well:
         idaughter = self.getvalue(cell, frame + 1, "daughters")
         if idaughter is not None:
             value += self.getfuturevalue(
