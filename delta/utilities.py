@@ -1525,26 +1525,38 @@ class Lineage:
             cell (if any sister/cousin cells)
 
         """
-        value_then = None
-        mother = cell
-        while value_then is None:
+        # This function works in two steps. First, it determines the ancestor
+        # cell of cell `cell` at frame `frame - df`. Then, it determines what
+        # percentage of the current progeny of the ancestor, the cell `cell`
+        # represents.
+
+        # This loop computes the ancestor cell of cell `cell` and puts its
+        # number into `ancestor`.
+        value_ancestor = None
+        ancestor = cell
+        while value_ancestor is None:
             try:
-                # Retrieve value for cell at timepoint frame - df:
-                value_then = self.getvalue(mother, frame=frame - df, feature=feature)
+                # Did the current cell exist at the specified frame? If so, the search is over.
+                value_ancestor = self.getvalue(ancestor, frame=frame - df, feature=feature)
             except ValueError:
-                # If ValueError raised, switch to cell's mother.
-                # loop until success (or reach orphan).
-                mother = self.cells[mother]["mother"]
-                if mother is None:
+                # The cell did not exist at the specified frame, so we try with its mother.
+                ancestor = self.cells[ancestor]["mother"]
+                # If the cell has no mother, we cannot continue.
+                if ancestor is None:
                     return None
 
-        # Get the value for all progeny of mother at current frame
-        value_now = self.getfuturevalue(mother, frame - df, feature, df=df)
+        # At this point, `ancestor` and `value_ancestor` are correctly filled.
+        # Now we will collect the value of all the progeny of this cell, at the
+        # current frame.
+        value_now = self.getfuturevalue(ancestor, frame - df, feature, df=df)
+        # If we cannot do that, it means that we lost track of a children. We exit.
         if value_now is None or value_now == 0.0:
             return None
 
-        # Normalize past value by present cell divided sisters:
-        return self.getvalue(cell, frame, feature) * value_then / value_now
+        # At this point, we have everything needed. We can return the value of
+        # the ancestor, weighted by the ratio of the current cell compared to
+        # its sisters/cousins/etc.
+        return self.getvalue(cell, frame, feature) * value_ancestor / value_now
 
     def getfuturevalue(self, cell: int, frame: int, feature: str, df: int = 1) -> float:
         """
@@ -1566,19 +1578,26 @@ class Lineage:
         value: float
             Sum of value for all progeny of initial cell in the future.
         """
-        # End case:
+        # This function makes progress recursively.
+        # Here we handle the base case where the frame requested is the current one.
         if df == 0:
             return self.getvalue(cell, frame, feature)
 
-        # Go down the lineage tree recursively:
-        # This cell has to exist in the future, if it doesn't we cannot compute the value.
+        # Here we have df > 0, so we make progress to the next frame,
+        # considering the current branch, and the potential branch of a
+        # daughter cell if one exists at next frame.
+
         try:
+            # Given our cell numbering, the mother cell has to exist at next
+            # frame, unless it gets out of frame or there is a tracking error.
+            # In any of these cases, we have to exit.
             value = self.getfuturevalue(
                 cell, frame=frame + 1, feature=feature, df=df - 1
             )
         except ValueError:
             return None
-        # Go down potential daughter's tree as well:
+
+        # If the cell has a daughter at next frame, we consider this branch as well.
         idaughter = self.getvalue(cell, frame + 1, "daughters")
         if idaughter is not None:
             value += self.getfuturevalue(
