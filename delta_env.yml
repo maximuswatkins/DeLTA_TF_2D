@@ -9,3 +9,4 @@ dependencies:
   - tensorflow-gpu>=2.0
   - ffmpeg-python
   - requests
+  - numpy>=1.21
