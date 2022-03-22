@@ -168,6 +168,14 @@ For each position, the data structure is as follows:
                     |       number F here corresponds to frame/timepoint #F-1 in
                     |       labelsstack for example.
                     |
+                    |---growthrate_area : 1D array of float32
+                    |       Growth rate over time, based on cell area, in 
+                    |       pixels per timepoints.
+                    |
+                    |---growthrate_length : 1D array of float32
+                    |       Growth rate over time, based on cell length, in 
+                    |       pixels per timepoints.
+                    |
                     |---length : 1D array of float32
                     |       Cell length over time, in pixels.
                     |
@@ -193,6 +201,9 @@ For each position, the data structure is as follows:
                     |---width : 1D array of float32
                             Cell width over time, in pixels.
 
+
+
+See also: :ref:`Feature extraction <feat_extr>`
 MP4 movie file
 ------------------
 
