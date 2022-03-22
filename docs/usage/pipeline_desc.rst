@@ -142,8 +142,6 @@ These include morphological features:
 * | Cell edges: The edges of the image that cell is currently touching. Left, 
     right, bottom, and top edges are labelled as '-x', '+x', '+y', and '-y',
     respectively.
-* | Growth rate (area-based): 
-* | Growth rate (length-based): 
 * | Cell length: The cell length, computed by fitting a rotated bounding box 
     to the segmented cell. While this technique is fast, it is not as
 	accurate for bent or filamented cells.
@@ -157,6 +155,24 @@ These include morphological features:
 * | Cell width: The cell width, computed by fitting a rotated bounding box 
     to the segmented cell. While this technique is fast, it is not as
 	accurate for bent or filamented cells.
+
+And dynamical features, such as growth rates:
+
+* | Growth rate (area-based): The instantaneous exponential rate of increase
+    of the cell area is extracted, with centered differences when the cell
+    exists at both previous and next time points, and one-sided differences
+    otherwise.
+* | Growth rate (length-based): The instantaneous exponential rate of increase
+    of the cell length is extracted, with centered differences when the cell
+    exists at both previous and next time points, and one-sided differences
+    otherwise.
+
+Using central differences allows the error to decrease quadratically with the
+time interval between frames.  In both cases, the growth rate computation
+should behave well even during cell divisions, but tracking mistakes can affect
+it negatively. Besides, imaging and segmentation noise can produce a non-smooth
+growth rate which one might find suitable to smooth with an appropriate function
+(such as, for example, centered moving averages).
 
 If fluorescence channels are also provided, the pipeline will also extract
 the average fluorescence for each channel. The mean intensity over all pixels

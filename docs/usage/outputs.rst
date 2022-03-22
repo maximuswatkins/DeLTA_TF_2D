@@ -169,12 +169,16 @@ For each position, the data structure is as follows:
                     |       labelsstack for example.
                     |
                     |---growthrate_area : 1D array of float32
-                    |       Growth rate over time, based on cell area, in 
-                    |       pixels per timepoints.
+                    |       Growth rate over time, based on cell area,
+                    |       unit: 1 / frame interval. To convert to
+                    |       1 / h (for example), divide these values by
+                    |       the time interval between frames in hours.
                     |
                     |---growthrate_length : 1D array of float32
-                    |       Growth rate over time, based on cell length, in 
-                    |       pixels per timepoints.
+                    |       Growth rate over time, based on cell length,
+                    |       unit: 1 / frame interval. To convert to
+                    |       1 / h (for example), divide these values by
+                    |       the time interval between frames in hours.
                     |
                     |---length : 1D array of float32
                     |       Cell length over time, in pixels.
