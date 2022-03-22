@@ -660,6 +660,15 @@ class Position:
                     features=features,
                 )
 
+        # Now extracting multi-frame features
+        for iroi, roi in enumerate(self.rois):
+            for icell in range(len(roi.lineage.cells)):
+                for iframe in roi.lineage.cells[icell]["frames"]:
+                    grl = roi.lineage.growthrate(icell, iframe, "length")
+                    roi.lineage.setvalue(icell, iframe, "growthrate_length", grl)
+                    gra = roi.lineage.growthrate(icell, iframe, "area")
+                    roi.lineage.setvalue(icell, iframe, 'growthrate_area', gra)
+
     def save(
         self,
         filename: Union[str, Path] = None,
@@ -832,19 +841,16 @@ class Position:
                 lin[-1]["daughters"][np.isnan(lin[-1]["daughters"])] = 0
                 if "edges" in c:
                     lin[-1]["edges"] = c["edges"]
+                
                 # Morphological features:
-                if "area" in c:
-                    lin[-1]["area"] = np.array(c["area"], dtype=np.float32)
-                if "width" in c:
-                    lin[-1]["width"] = np.array(c["width"], dtype=np.float32)
-                if "length" in c:
-                    lin[-1]["length"] = np.array(c["length"], dtype=np.float32)
-                if "perimeter" in c:
-                    lin[-1]["perimeter"] = np.array(c["perimeter"], dtype=np.float32)
-                if "old_pole" in c:
-                    lin[-1]["old_pole"] = np.array(c["old_pole"], dtype=np.float32)
-                if "new_pole" in c:
-                    lin[-1]["new_pole"] = np.array(c["new_pole"], dtype=np.float32)
+                morpho_features = (
+                        "area","width","length","perimeter","old_pole",
+                        "new_pole","growthrate_length","growthrate_area",
+                        )
+                for feat in morpho_features:
+                    if feat in c:
+                        lin[-1][feat] = np.array(c[feat], dtype=np.float32)
+                
                 # Loop through potential fluo channels:
                 fluo = 0
                 while True:

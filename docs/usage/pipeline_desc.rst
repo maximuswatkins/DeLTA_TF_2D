@@ -129,6 +129,57 @@ The pipeline module uses 3 main classes of objects
   | The `ROI` objects can not process an ROI on their own, they need to be under
     a `Position` object that will run the actual `model.predict()` calls.
 
+.. _feat_extr:
+	
+Feature extraction
+-------------------
+At the end of the pipeline run, single-cell features over time are extracted. 
+These include morphological features:
+
+* | Cell area: The area of the cell, in pixels, as returned by opencv's 
+    contourArea(). This means that corner pixels are counted as 1/4 and 
+    straight edge pixels are coutned as 1/2.
+* | Cell edges: The edges of the image that cell is currently touching. Left, 
+    right, bottom, and top edges are labelled as '-x', '+x', '+y', and '-y',
+    respectively.
+* | Cell length: The cell length, computed by fitting a rotated bounding box 
+    to the segmented cell. While this technique is fast, it is not as
+	accurate for bent or filamented cells.
+* | Position of the old pole: The position of the old pole of the cell in the
+    image. The position is given as (Y,X) coordinates, with (0,0) in the 
+    top left corner	of the image (ie row-major ordering).
+* | Position of the new pole: The position of the new pole of the cell in the
+    image. The position is given as (Y,X) coordinates, with (0,0) in the 
+    top left corner	of the image (ie row-major ordering).
+* | Cell perimeter: The number of pixels of the cell's contour.
+* | Cell width: The cell width, computed by fitting a rotated bounding box 
+    to the segmented cell. While this technique is fast, it is not as
+	accurate for bent or filamented cells.
+
+And dynamical features, such as growth rates:
+
+* | Growth rate (area-based): The instantaneous exponential rate of increase
+    of the cell area is extracted, with centered differences when the cell
+    exists at both previous and next time points, and one-sided differences
+    otherwise.
+* | Growth rate (length-based): The instantaneous exponential rate of increase
+    of the cell length is extracted, with centered differences when the cell
+    exists at both previous and next time points, and one-sided differences
+    otherwise.
+
+Using central differences allows the error to decrease quadratically with the
+time interval between frames.  In both cases, the growth rate computation
+should behave well even during cell divisions, but tracking mistakes can affect
+it negatively. Besides, imaging and segmentation noise can produce a non-smooth
+growth rate which one might find suitable to smooth with an appropriate function
+(such as, for example, centered moving averages).
+
+If fluorescence channels are also provided, the pipeline will also extract
+the average fluorescence for each channel. The mean intensity over all pixels
+of the segmented cell's surface is computed.
+
+See also :doc:`outputs` and :doc:`analysis`
+
 Reloading objects
 ---------------------
 

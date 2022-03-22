@@ -1512,6 +1512,109 @@ class Lineage:
         # Add value:
         cell_dict[feature][i] = value
 
+    def getpastvalue(self, cell: int, frame: int, feature: str, df: int = 1) -> float:
+        """
+        Get feature value for a frame in the past, ignoring cell divisions.
+
+        Parameters
+        ----------
+        cell : int
+            Cell number in lineage.
+        frame : int
+            Current frame number.
+        feature : str
+            Feature to get value for. Only works for numerical scalar features.
+        df : int
+            Number of frames in the past where we want to get the value.
+
+        Returns
+        -------
+        float
+            The value in the past, normalized by ratio of the value at current
+            timepoint for initial cell by sum of value all progeny of the past
+            cell (if any sister/cousin cells)
+
+        """
+        # This function works in two steps. First, it determines the ancestor
+        # cell of cell `cell` at frame `frame - df`. Then, it determines what
+        # percentage of the current progeny of the ancestor, the cell `cell`
+        # represents.
+
+        # This loop computes the ancestor cell of cell `cell` and puts its
+        # number into `ancestor`.
+        value_ancestor = None
+        ancestor = cell
+        while value_ancestor is None:
+            try:
+                # Did the current cell exist at the specified frame? If so, the search is over.
+                value_ancestor = self.getvalue(ancestor, frame=frame - df, feature=feature)
+            except ValueError:
+                # The cell did not exist at the specified frame, so we try with its mother.
+                ancestor = self.cells[ancestor]["mother"]
+                # If the cell has no mother, we cannot continue.
+                if ancestor is None:
+                    return None
+
+        # At this point, `ancestor` and `value_ancestor` are correctly filled.
+        # Now we will collect the value of all the progeny of this cell, at the
+        # current frame.
+        value_now = self.getfuturevalue(ancestor, frame - df, feature, df=df)
+        # If we cannot do that, it means that we lost track of a children. We exit.
+        if value_now is None or value_now == 0.0:
+            return None
+
+        # At this point, we have everything needed. We can return the value of
+        # the ancestor, weighted by the ratio of the current cell compared to
+        # its sisters/cousins/etc.
+        return self.getvalue(cell, frame, feature) * value_ancestor / value_now
+
+    def getfuturevalue(self, cell: int, frame: int, feature: str, df: int = 1) -> float:
+        """
+        Get feature value for a frame in the future, ignoring cell divisions.
+
+        Parameters
+        ----------
+        cell : int
+            Cell number in lineage.
+        frame : int
+            Current frame number.
+        feature : str
+            Feature to get value for. Only works for numerical scalar features.
+        df : int
+            Number of frames in the future where we want to get the value.
+
+        Returns
+        -------
+        value: float
+            Sum of value for all progeny of initial cell in the future.
+        """
+        # This function makes progress recursively.
+        # Here we handle the base case where the frame requested is the current one.
+        if df == 0:
+            return self.getvalue(cell, frame, feature)
+
+        # Here we have df > 0, so we make progress to the next frame,
+        # considering the current branch, and the potential branch of a
+        # daughter cell if one exists at next frame.
+
+        try:
+            # Given our cell numbering, the mother cell has to exist at next
+            # frame, unless it gets out of frame or there is a tracking error.
+            # In any of these cases, we have to exit.
+            value = self.getfuturevalue(
+                cell, frame=frame + 1, feature=feature, df=df - 1
+            )
+        except ValueError:
+            return None
+
+        # If the cell has a daughter at next frame, we consider this branch as well.
+        idaughter = self.getvalue(cell, frame + 1, "daughters")
+        if idaughter is not None:
+            value += self.getfuturevalue(
+                idaughter, frame=frame + 1, feature=feature, df=df - 1
+            )
+        return value
+
     def getvalue(self, cell: int, frame: int, feature: str) -> Union[int, float, str]:
         """
         Get feature value for specific timepoint/frame
@@ -1543,6 +1646,38 @@ class Lineage:
             raise ValueError(f"Cell {cell} is not present in frame {frame}")
 
         return self.cells[cell][feature][i]
+
+    def growthrate(self, cell: int, frame: int, feature: str) -> float:
+        """
+        Compute exponential growth rate of a given feature for the given cell at the given frame.
+
+        Compute the central derivative with the previous and the next frame if
+        possible, otherwise a one-sided derivative.
+
+        Parameters
+        ----------
+        cell : int
+            Cell number in lineage.
+        frame : int
+            Frame / timepoint number.
+        feature : str
+            Feature to get value for.
+
+        Returns
+        -------
+        float
+            Growth rate of the feature at frame.
+        """
+        value_fm1 = self.getpastvalue(cell, frame, feature)
+        value_f = self.getvalue(cell, frame, feature)
+        value_fp1 = self.getfuturevalue(cell, frame, feature)
+        if value_fm1 is not None and value_fp1 is not None and value_fm1 > 0.0 and value_fp1 > 0.0:
+            return np.log(value_fp1 / value_fm1) / 2.0
+        if value_fm1 is not None and value_fm1 > 0.0 and value_f > 0.0:
+            return np.log(value_f / value_fm1)
+        if value_fp1 is not None and value_f > 0.0 and value_fp1 > 0.0:
+            return np.log(value_fp1 / value_f)
+        return None
 
 
 #%% Image files
