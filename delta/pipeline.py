@@ -366,7 +366,7 @@ class Position:
         """
 
         if self.verbose:
-            print(f"{time.ctime()}, Position {self.position_nb} - {string}")
+            print(f"{time.ctime()}, Position {self.position_nb} - {string}", flush=True)
 
     def preprocess(
         self,
