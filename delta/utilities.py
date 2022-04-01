@@ -1098,34 +1098,26 @@ def division_poles(
         eucl(poles_cell1[1 - c1_new], prev_old) ** 2
         + eucl(poles_cell2[1 - c2_new], prev_new) ** 2
         < eucl(poles_cell1[1 - c1_new], prev_new) ** 2
-        + eucl(poles_cell2[int(not c2_new)], prev_old) ** 2
+        + eucl(poles_cell2[1 - c2_new], prev_old) ** 2
     ):
         # cell 1 is mother, cell 2 is daughter
         first_cell_is_mother = True
         # Attribute mother:
-        mother_old_pole = poles_cell1[1 - c1_new]
-        mother_new_pole = poles_cell1[c1_new]
+        mother_old_new = (poles_cell1[1 - c1_new], poles_cell1[c1_new])
 
         # Attribute daughter:
-        daughter_old_pole = poles_cell2[1 - c2_new]
-        daughter_new_pole = poles_cell2[c2_new]
+        daughter_old_new = (poles_cell2[1 - c2_new], poles_cell2[c2_new])
 
     else:
         # cell 2 is mother, cell 1 is daughter
         first_cell_is_mother = False
         # Attribute mother:
-        mother_old_pole = poles_cell2[1 - c2_new]
-        mother_new_pole = poles_cell2[c2_new]
+        mother_old_new = (poles_cell2[1 - c2_new], poles_cell2[c2_new])
 
         # Attribute daughter:
-        daughter_old_pole = poles_cell1[1 - c1_new]
-        daughter_new_pole = poles_cell1[c1_new]
+        daughter_old_new = (poles_cell1[1 - c1_new], poles_cell1[c1_new])
 
-    return (
-        (mother_old_pole, mother_new_pole),
-        (daughter_old_pole, daughter_new_pole),
-        first_cell_is_mother,
-    )
+    return (mother_old_new, daughter_old_new, first_cell_is_mother)
 
 
 #%% Lineage
