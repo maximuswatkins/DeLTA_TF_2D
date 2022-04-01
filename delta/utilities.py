@@ -613,28 +613,25 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
 
     """
     chamberboxes = []
-    if chambersmask.dtype == bool:
-        chambersmask = chambersmask.astype(np.uint8)
-    else:
-        chambersmask = cv2.threshold(chambersmask, 0.5, 1, cv2.THRESH_BINARY)[1].astype(
-            np.uint8
-        )
+    chambersmask = (chambersmask > 0.5).astype(np.uint8)
+
     contours = find_contours(chambersmask)
     for chamber in contours:
         xtl, ytl, boxwidth, boxheight = cv2.boundingRect(chamber)
         chamberboxes.append(
+            # tl = top left, br = bottom right
             CroppingBox(
                 xtl=xtl,
-                ytl=int(
-                    ytl - (boxheight * 0.1)
-                ),  # -10% of height to make sure the top isn't cropped
+                # -10% of height to make sure the top is not cropped
+                ytl=ytl - int(0.1 * boxheight),
                 xbr=xtl + boxwidth,
                 ybr=ytl + boxheight,
             )
-        )  # tl = top left, br = bottom right.
-    chamberboxes.sort(
-        key=lambda elem: elem["xtl"]
-    )  # Sorting by top-left X (normally sorted by Y top left)
+        )
+
+    # Sorting by top-left X (normally sorted by Y top left)
+    chamberboxes.sort(key=lambda box: box["xtl"])
+
     return chamberboxes
 
     #### These prototypes help mypy understand the return type of the function
@@ -701,10 +698,7 @@ def label_seg(
         List of cv2 contours for each cell. Returned if return_contours==True.
 
     """
-    if seg.dtype == bool:
-        seg = seg.astype(np.uint8)
-    else:
-        seg = cv2.threshold(seg, 0.5, 1, cv2.THRESH_BINARY)[1].astype(np.uint8)
+    seg = (seg > 0.5).astype(np.uint)
     contours = find_contours(seg)
     contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))  # Sorting along Y
     label = np.full(seg.shape, background, dtype=np.uint16)
