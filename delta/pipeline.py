@@ -1383,5 +1383,9 @@ class ROI:
 
         # Add feature values to lineage for each cell:
         for cell, cell_features in zip(cells, extracted_features):
-            for feature_name, feature_val in cell_features.items():
-                self.lineage.setvalue(cell, frame, feature_name, feature_val)
+            for feature_name, feature_val in cell_features.__dict__.items():
+                if feature_name == "fluo":
+                    for ifluo, fluo in enumerate(feature_val, start=1):
+                        self.lineage.setvalue(cell, frame, f"fluo{ifluo}", fluo)
+                elif feature_name not in ["new_pole", "old_pole"]:
+                    self.lineage.setvalue(cell, frame, feature_name, feature_val)
