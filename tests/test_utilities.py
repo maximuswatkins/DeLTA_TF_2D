@@ -566,9 +566,8 @@ class Test_xpreader:
         sys.argv.append("1")
 
         sys.argv.append("--prototype")
-        sys.argv.append(
-            "Position%02dChanel%02dFrame%06d.tif"
-        )  # Currently there is a typo where it is chanel not channel
+        # Currently there is a typo where it is chanel not channel
+        sys.argv.append("Position%02dChanel%02dFrame%06d.tif")
 
         # Load configuration:
         utils.cfg.load_config(presets="2D", config_level="global")
