@@ -2652,10 +2652,10 @@ def cell_width_length(contour: Contour) -> Tuple[float, float]:
     """
 
     # Get rotated bounding box:
-    rotrect = cv2.minAreaRect(contour)
+    _, size, _ = cv2.minAreaRect(contour)
 
-    width = min(rotrect[1])
-    length = max(rotrect[1])
+    width = min(size)
+    length = max(size)
 
     return width, length
 
