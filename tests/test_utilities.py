@@ -210,6 +210,20 @@ class Test_create_windows:
         )
 
 
+def test_cell_perimeter():
+    mask = np.array(
+        [
+            [0, 1, 1],
+            [1, 1, 0],
+            [0, 1, 0]
+        ],
+        dtype=np.uint8,
+    )
+    perimeter = 2 + 3 * np.sqrt(2)
+    contours = utils.find_contours(mask)
+    np.testing.assert_allclose(utils.cell_perimeter(contours[0]), perimeter)
+
+
 #%% Eval find_contours
 
 

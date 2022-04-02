@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Added
 - DeLTA now computes the growth rate of the cells
+### Changed
+- Fixed bug in the computation of cell perimeters
 
 ## [2.0.5] - 2022-03-11
 ### Changed

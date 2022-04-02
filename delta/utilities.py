@@ -2724,7 +2724,7 @@ def cell_perimeter(contour: Contour) -> float:
 
     """
 
-    perimeter = contour.shape[0]
+    perimeter = cv2.arcLength(contour, closed=True)
 
     return perimeter
 
