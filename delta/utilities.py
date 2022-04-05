@@ -175,13 +175,10 @@ def driftcorr(img, template=None, box=None, drift=None):
         twoDflag = False
 
     if drift is None:
-        if (
-            template is None
-        ):  # If we have a position with 0 chambers (see getDriftTemplate)
+        if template is None:
+            # If we have a position with 0 chambers (see getDriftTemplate)
             return img, (0, 0)
-        template = rangescale(template, (0, 255)).astype(
-            np.uint8
-        )  # Making sure its the right format
+        template = rangescale(template, (0, 255)).astype(np.uint8)
         xcorr = np.empty([img.shape[0]])
         ycorr = np.empty([img.shape[0]])
     elif twoDflag:
@@ -191,9 +188,7 @@ def driftcorr(img, template=None, box=None, drift=None):
 
     for i in range(img.shape[0]):
         if drift is None:
-            frame = rangescale(img[i], (0, 255)).astype(
-                np.uint8
-            )  # Making sure its the right format
+            frame = rangescale(img[i], (0, 255)).astype(np.uint8)
             driftcorrimg = cropbox(frame, box)
             res = cv2.matchTemplate(driftcorrimg, template, cv2.TM_CCOEFF_NORMED)
             _, _, _, max_loc = cv2.minMaxLoc(res)
@@ -616,28 +611,25 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
 
     """
     chamberboxes = []
-    if chambersmask.dtype == bool:
-        chambersmask = chambersmask.astype(np.uint8)
-    else:
-        chambersmask = cv2.threshold(chambersmask, 0.5, 1, cv2.THRESH_BINARY)[1].astype(
-            np.uint8
-        )
+    chambersmask = (chambersmask > 0.5).astype(np.uint8)
+
     contours = find_contours(chambersmask)
     for chamber in contours:
         xtl, ytl, boxwidth, boxheight = cv2.boundingRect(chamber)
         chamberboxes.append(
+            # tl = top left, br = bottom right
             CroppingBox(
                 xtl=xtl,
-                ytl=int(
-                    ytl - (boxheight * 0.1)
-                ),  # -10% of height to make sure the top isn't cropped
+                # -10% of height to make sure the top is not cropped
+                ytl=ytl - int(0.1 * boxheight),
                 xbr=xtl + boxwidth,
                 ybr=ytl + boxheight,
             )
-        )  # tl = top left, br = bottom right.
-    chamberboxes.sort(
-        key=lambda elem: elem["xtl"]
-    )  # Sorting by top-left X (normally sorted by Y top left)
+        )
+
+    # Sorting by top-left X (normally sorted by Y top left)
+    chamberboxes.sort(key=lambda box: box["xtl"])
+
     return chamberboxes
 
     #### These prototypes help mypy understand the return type of the function
@@ -704,10 +696,7 @@ def label_seg(
         List of cv2 contours for each cell. Returned if return_contours==True.
 
     """
-    if seg.dtype == bool:
-        seg = seg.astype(np.uint8)
-    else:
-        seg = cv2.threshold(seg, 0.5, 1, cv2.THRESH_BINARY)[1].astype(np.uint8)
+    seg = (seg > 0.5).astype(np.uint8)
     contours = find_contours(seg)
     contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))  # Sorting along Y
     label = np.full(seg.shape, background, dtype=np.uint16)
@@ -1107,34 +1096,26 @@ def division_poles(
         eucl(poles_cell1[1 - c1_new], prev_old) ** 2
         + eucl(poles_cell2[1 - c2_new], prev_new) ** 2
         < eucl(poles_cell1[1 - c1_new], prev_new) ** 2
-        + eucl(poles_cell2[int(not c2_new)], prev_old) ** 2
+        + eucl(poles_cell2[1 - c2_new], prev_old) ** 2
     ):
         # cell 1 is mother, cell 2 is daughter
         first_cell_is_mother = True
         # Attribute mother:
-        mother_old_pole = poles_cell1[1 - c1_new]
-        mother_new_pole = poles_cell1[c1_new]
+        mother_old_new = (poles_cell1[1 - c1_new], poles_cell1[c1_new])
 
         # Attribute daughter:
-        daughter_old_pole = poles_cell2[1 - c2_new]
-        daughter_new_pole = poles_cell2[c2_new]
+        daughter_old_new = (poles_cell2[1 - c2_new], poles_cell2[c2_new])
 
     else:
         # cell 2 is mother, cell 1 is daughter
         first_cell_is_mother = False
         # Attribute mother:
-        mother_old_pole = poles_cell2[1 - c2_new]
-        mother_new_pole = poles_cell2[c2_new]
+        mother_old_new = (poles_cell2[1 - c2_new], poles_cell2[c2_new])
 
         # Attribute daughter:
-        daughter_old_pole = poles_cell1[1 - c1_new]
-        daughter_new_pole = poles_cell1[c1_new]
+        daughter_old_new = (poles_cell1[1 - c1_new], poles_cell1[c1_new])
 
-    return (
-        (mother_old_pole, mother_new_pole),
-        (daughter_old_pole, daughter_new_pole),
-        first_cell_is_mother,
-    )
+    return (mother_old_new, daughter_old_new, first_cell_is_mother)
 
 
 #%% Lineage
@@ -1242,9 +1223,8 @@ def getAttributions(scores: npt.NDArray[np.float32]) -> npt.NDArray[np.bool_]:
     attrib = np.zeros(scores.shape, dtype=int)
 
     for n in range(scores.shape[1]):
-        worst_old = np.argsort(
-            scores[:, n]
-        )  # Worst-to-best score of old cells for n-th new cell
+        # Worst-to-best score of old cells for n-th new cell
+        worst_old = np.argsort(scores[:, n])
         # Run through old cells from best to worst:
         for o in range(-1, -scores.shape[0] - 1, -1):
             o_best = worst_old[o]  # o-th best old cell
@@ -1253,9 +1233,8 @@ def getAttributions(scores: npt.NDArray[np.float32]) -> npt.NDArray[np.bool_]:
             if s < 0.2:
                 break
             # Check if new cell is at least 2nd best for this old cell:
-            worst_new = np.argsort(
-                scores[o_best, :]
-            )  # Worst-to-best score of new cells for o_best old cell
+            # Worst-to-best score of new cells for o_best old cell
+            worst_new = np.argsort(scores[o_best, :])
             if n in worst_new[-2:]:
                 attrib[o_best, n] = 1
                 break
@@ -1864,9 +1843,8 @@ class xpreader:
             # Get first image to get datatype (there's probably a better way to do this...)
             self.dtype = self.filehandle.read(rescale=False, c=0).dtype
 
-        elif (
-            self.filename.is_dir()
-        ):  # Experiment is stored as individual image TIFF files in a folder
+        elif self.filename.is_dir():
+            # Experiment is stored as individual image TIFF files in a folder
             self.filetype = "dir"
             self.filehandle = self.filename
             # If filename prototype is not provided, guess it from the first file:
@@ -1877,12 +1855,10 @@ class xpreader:
                     if x.suffix.lower() in (".tif", ".tiff")
                 ]
                 # Here we assume all images in the folder follow the same naming convention:
-                numstrs = re.findall(
-                    r"\d+", imgfiles[0].name
-                )  # Get digits sequences in first filename
-                charstrs = re.findall(
-                    r"\D+", imgfiles[0].name
-                )  # Get character sequences in first filename
+                # Get digits sequences in first filename
+                numstrs = re.findall(r"\d+", imgfiles[0].name)
+                # Get character sequences in first filename
+                charstrs = re.findall(r"\D+", imgfiles[0].name)
                 if len(numstrs) != 3 or len(charstrs) != 4:
                     raise ValueError(
                         "Filename formatting error. See documentation for image sequence formatting"
@@ -1931,9 +1907,8 @@ class xpreader:
                 self.y = I.shape[0]
                 self.dtype = I.dtype
 
-        elif (
-            file_extension.lower() == ".tif" or file_extension.lower() == ".tiff"
-        ):  # Works with single-series tif & mutli-series ome.tif
+        elif file_extension.lower() == ".tif" or file_extension.lower() == ".tiff":
+            # Works with single-series tif & mutli-series ome.tif
             from skimage.external.tifffile import TiffFile
 
             self.filetype = "tif"
@@ -1988,9 +1963,8 @@ class xpreader:
             elif cmdln_arguments[i] == "--proto":
                 self.prototype = cmdln_arguments[i + 1]
                 i += 2
-            elif (
-                cmdln_arguments[i] == "--resfolder"
-            ):  # Resfolder will be read in pipeline
+            elif cmdln_arguments[i] == "--resfolder":
+                # Resfolder will be read in pipeline
                 i += 2
             else:
                 print(f"Not valid argument {cmdln_arguments[i]}")
@@ -2188,9 +2162,8 @@ class xpreader:
                 raise ValueError(channels + " is not a valid channel name.")
         elif isinstance(channels, list) or isinstance(channels, tuple):
             # If list of ints, nothing to do
-            if all(
-                [isinstance(c, str) for c in channels]
-            ):  # refer to channels by list/tuple of names:
+            if all(isinstance(c, str) for c in channels):
+                # refer to channels by list/tuple of names:
                 if self.channelnames is None:
                     raise ValueError("Set channel names first")
                 channels_list = []
@@ -2682,10 +2655,10 @@ def cell_width_length(contour: Contour) -> Tuple[float, float]:
     """
 
     # Get rotated bounding box:
-    rotrect = cv2.minAreaRect(contour)
+    _, size, _ = cv2.minAreaRect(contour)
 
-    width = min(rotrect[1])
-    length = max(rotrect[1])
+    width = min(size)
+    length = max(size)
 
     return width, length
 

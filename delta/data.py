@@ -277,12 +277,10 @@ def data_augmentation(
             for index, item in enumerate(output):
                 # Not super elegant, but tells me if binary or grayscale image
                 if orderlist[index] > 0:
-                    item = item + np.random.normal(
-                        0, sigma, item.shape
-                    )  # Add Gaussian noise
-                    output[index] = (item - np.min(item)) / np.ptp(
-                        item
-                    )  # Rescale to 0-1
+                    # Add Gaussian noise
+                    item = item + np.random.normal(0, sigma, item.shape)
+                    # Rescale to 0-1
+                    output[index] = (item - np.min(item)) / np.ptp(item)
 
     if "gaussian_blur" in aug_par:
         if aug_par["gaussian_blur"]:
@@ -811,7 +809,7 @@ def seg_weights(
     distance_array = np.sort(distance_array, axis=-1)[:, :, 0:2]
 
     # Compute weights map:
-    weightmap = w0 * np.exp(-np.square(np.sum(distance_array, -1)) / (2 * sigma ** 2))
+    weightmap = w0 * np.exp(-np.square(np.sum(distance_array, -1)) / (2 * sigma**2))
     weightmap = np.multiply(weightmap, mask == 0)
     weightmap = np.add(weightmap, (mask == 0) * classweights[0])
     weightmap = np.add(weightmap, (mask == 1) * classweights[1])
@@ -1323,12 +1321,10 @@ def predictCompilefromseg_track(
 
     ind = 0
 
-    numstrs = re.findall(
-        r"\d+", os.path.basename(files_list[0])
-    )  # Get digits sequences in first filename
-    charstrs = re.findall(
-        r"\D+", os.path.basename(files_list[0])
-    )  # Get character sequences in first filename
+    # Get digits sequences in first filename
+    numstrs = re.findall(r"\d+", os.path.basename(files_list[0]))
+    # Get digits sequences in first filename
+    charstrs = re.findall(r"\D+", os.path.basename(files_list[0]))
 
     # Create the string prototype to be used to generate filenames on the fly:
     if not (
