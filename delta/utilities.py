@@ -94,13 +94,16 @@ def deskew(image: Image) -> float:
         Rotation angle of the chambers for correction, in degrees.
 
     """
-    from skimage.feature import canny
     from skimage.transform import hough_line, hough_line_peaks
 
-    # enhance edges
-    edges = canny(image, sigma=10, use_quantiles=True)
+    image8 = (256 * (image.astype(float) - image.min()) / (image.max() - image.min())).astype(np.uint8)
 
-    # hough transform
+    # enhance edges
+    low_threshold = np.quantile(image8, 0.1)
+    high_threshold = np.quantile(image8, 0.2)
+    edges = cv2.Canny(image8, low_threshold, high_threshold, L2gradient=True)
+
+    # Hough transform
     N = 360  # precision in degree = 90 / N (here 0.25 degree)
     theta = np.linspace(-np.pi / 4, 3 * np.pi / 4, 2 * N + 1)
     hspace, angles, distances = hough_line(edges, theta=theta)
