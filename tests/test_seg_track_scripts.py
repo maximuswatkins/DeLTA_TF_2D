@@ -18,83 +18,7 @@ from delta.data import saveResult_seg, predictGenerator_seg, postprocess, readre
 from delta.model import unet_seg, unet_track
 import delta.utilities as utils
 from delta.utilities import cfg
-    
-@pytest.mark.run(after = 'test_segmentation_script_2D')
-def test_tracking_script_2D():
-    _tracking_script('2D')
-    
-@pytest.mark.run(after = 'test_segmentation_script_moma')
-def test_tracking_script_moma():
-    _tracking_script('mothermachine')
-    
-def _tracking_script(presets,batch_size=1):
-
-    # Load config:
-    cfg.load_config(presets=presets)
-
-    # Input image sequences (change to whatever images sequence you want to evaluate):
-    inputs_folder = cfg.eval_movie + '/cropped_rois' if presets == 'mothermachine' else cfg.eval_movie
-    segmentation_folder = os.path.join(inputs_folder, "segmentation")
-
-    # Output folder:
-    outputs_folder = os.path.join(inputs_folder, "tracking")
-    if not os.path.exists(outputs_folder):
-        os.makedirs(outputs_folder)
-
-    # List files to read
-    unprocessed = sorted(
-        glob.glob(inputs_folder + "/*.tif") + glob.glob(inputs_folder + "/*.png")
-    )
-
-    # Get original image size:
-    imsize = cv2.imread(unprocessed[0], cv2.IMREAD_GRAYSCALE).shape
-
-    # Load up model:
-    model = unet_track(input_size=cfg.target_size_track + (4,))
-    model.load_weights(cfg.model_file_track)
-
-    # Process
-    while unprocessed:
-        # Pop out filenames
-        ps = min(5, len(unprocessed))
-        to_process = unprocessed[0:ps]
-        del unprocessed[0:ps]
-
-        print("\n###### Now processing: ")
-        for file in to_process:
-            print(file)
-
-        # Get data:
-        inputs, seg_filenames, boxes = predictCompilefromseg_track(
-            inputs_folder,
-            segmentation_folder,
-            files_list=to_process,
-            target_size=cfg.target_size_track,
-            crop=cfg.crop_windows,
-        )
-
-        print("Cells to track: %d" % len(inputs))
-
-        # Predict (have to do it in batches otherwise run into memry issues):
-        results = np.empty_like(inputs, shape=inputs.shape[:3] + (1,))
-        for i in range(0, len(inputs), 32):
-            j = min((len(inputs), i + 32))
-            results[i:j] = model.predict(inputs[i:j], verbose=1, batch_size=1)
-
-        # Paste results into masks of original imsize:
-        if cfg.crop_windows:
-            _results = np.zeros_like(results, shape=(len(results),) + imsize + (1,))
-            for r, mask in enumerate(results):
-                cb, fb = boxes[r]
-                _results[r, cb["ytl"] : cb["ybr"], cb["xtl"] : cb["xbr"]] = results[
-                    r, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"]
-                ]
-            results = _results
-
-        # Save (use the filenames list from the data compiler)
-        saveResult_track(outputs_folder, results, files_list=seg_filenames)
-
-
+   
 @pytest.mark.run(after = 'test_download_assets')
 def test_segmentation_script_2D():
     _segmentation_script('2D')
@@ -176,3 +100,80 @@ def _segmentation_script(presets):
     
         # Save to disk:
         saveResult_seg(outputs_folder, results, files_list=to_process)
+    
+@pytest.mark.run(after = 'test_segmentation_script_2D')
+def test_tracking_script_2D():
+    _tracking_script('2D')
+    
+@pytest.mark.run(after = 'test_segmentation_script_moma')
+def test_tracking_script_moma():
+    _tracking_script('mothermachine')
+    
+def _tracking_script(presets,batch_size=1):
+
+    # Load config:
+    cfg.load_config(presets=presets)
+
+    # Input image sequences (change to whatever images sequence you want to evaluate):
+    inputs_folder = cfg.eval_movie + '/cropped_rois' if presets == 'mothermachine' else cfg.eval_movie
+    segmentation_folder = os.path.join(inputs_folder, "segmentation")
+
+    # Output folder:
+    outputs_folder = os.path.join(inputs_folder, "tracking")
+    if not os.path.exists(outputs_folder):
+        os.makedirs(outputs_folder)
+
+    # List files to read
+    unprocessed = sorted(
+        glob.glob(inputs_folder + "/*.tif") + glob.glob(inputs_folder + "/*.png")
+    )
+
+    # Get original image size:
+    imsize = cv2.imread(unprocessed[0], cv2.IMREAD_GRAYSCALE).shape
+
+    # Load up model:
+    model = unet_track(input_size=cfg.target_size_track + (4,))
+    model.load_weights(cfg.model_file_track)
+
+    # Process
+    while unprocessed:
+        # Pop out filenames
+        ps = min(5, len(unprocessed))
+        to_process = unprocessed[0:ps]
+        del unprocessed[0:ps]
+
+        print("\n###### Now processing: ")
+        for file in to_process:
+            print(file)
+
+        # Get data:
+        inputs, seg_filenames, boxes = predictCompilefromseg_track(
+            inputs_folder,
+            segmentation_folder,
+            files_list=to_process,
+            target_size=cfg.target_size_track,
+            crop=cfg.crop_windows,
+        )
+
+        print("Cells to track: %d" % len(inputs))
+
+        # Predict (have to do it in batches otherwise run into memry issues):
+        results = np.empty_like(inputs, shape=inputs.shape[:3] + (1,))
+        for i in range(0, len(inputs), 32):
+            j = min((len(inputs), i + 32))
+            results[i:j] = model.predict(inputs[i:j], verbose=1, batch_size=1)
+
+        # Paste results into masks of original imsize:
+        if cfg.crop_windows:
+            _results = np.zeros_like(results, shape=(len(results),) + imsize + (1,))
+            for r, mask in enumerate(results):
+                cb, fb = boxes[r]
+                _results[r, cb["ytl"] : cb["ybr"], cb["xtl"] : cb["xbr"]] = results[
+                    r, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"]
+                ]
+            results = _results
+
+        # Save (use the filenames list from the data compiler)
+        saveResult_track(outputs_folder, results, files_list=seg_filenames)
+
+
