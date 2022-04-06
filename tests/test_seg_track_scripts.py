@@ -32,7 +32,7 @@ def _tracking_script(presets,batch_size=1):
     cfg.load_config(presets=presets)
 
     # Input image sequences (change to whatever images sequence you want to evaluate):
-    inputs_folder = cfg.eval_movie
+    inputs_folder = cfg.eval_movie + '/cropped_rois' if presets == 'mothermachine' else cfg.eval_movie
     segmentation_folder = os.path.join(inputs_folder, "segmentation")
 
     # Output folder:
@@ -94,7 +94,6 @@ def _tracking_script(presets,batch_size=1):
         saveResult_track(outputs_folder, results, files_list=seg_filenames)
 
 
-
 @pytest.mark.order(2)
 def test_segmentation_script_2D():
     _segmentation_script('2D')
@@ -108,7 +107,7 @@ def _segmentation_script(presets):
     cfg.load_config(presets=presets)
     
     # Input image sequence (change to whatever images sequence you want to evaluate):
-    inputs_folder = cfg.eval_movie
+    inputs_folder = cfg.eval_movie + '/cropped_rois' if presets == 'mothermachine' else cfg.eval_movie
     
     # Outputs folder:
     outputs_folder = os.path.join(inputs_folder, "segmentation")
