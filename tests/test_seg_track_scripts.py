@@ -19,10 +19,11 @@ from delta.model import unet_seg, unet_track
 import delta.utilities as utils
 from delta.utilities import cfg
     
-@pytest.mark.order(3)
+@pytest.mark.run(after = 'test_segmentation_script_2D')
 def test_tracking_script_2D():
     _tracking_script('2D')
     
+@pytest.mark.run(after = 'test_segmentation_script_moma')
 def test_tracking_script_moma():
     _tracking_script('mothermachine')
     
@@ -94,10 +95,11 @@ def _tracking_script(presets,batch_size=1):
         saveResult_track(outputs_folder, results, files_list=seg_filenames)
 
 
-@pytest.mark.order(2)
+@pytest.mark.run(after = 'test_download_assets')
 def test_segmentation_script_2D():
     _segmentation_script('2D')
     
+@pytest.mark.run(after = 'test_download_assets')
 def test_segmentation_script_moma():
     _segmentation_script('mothermachine')
 
