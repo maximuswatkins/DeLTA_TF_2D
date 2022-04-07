@@ -1350,7 +1350,7 @@ def predictCompilefromseg_track(
         prototype = (
             f"{charstrs[0]}%0{len(numstrs[0])}d"
             f"{charstrs[1]}%0{len(numstrs[1])}d"
-            f"{charstrs[3]}"
+            f"{charstrs[2]}"
         )
         fileorder = "pt"
         crop = True
