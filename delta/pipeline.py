@@ -1223,20 +1223,18 @@ class ROI:
             self.seg_stack[frame] = y
 
     def get_tracking_inputs(
-        self, frame: Optional[int] = None
+        self, frame: int
     ) -> Union[
         Tuple[np.ndarray, List[Tuple[utils.CroppingBox, utils.CroppingBox]]],
         Tuple[None, None],
     ]:
         """
-        Compile tracking inputs for ROI.
+        Compile tracking inputs for ROI from `seg_stack`.
 
         Parameters
         ----------
-        frame : int, optional
-            The frame to compile for. If None, the earliest frame not yet
-            tracked is run.
-            The default is None.
+        frame : int
+            The frame to compile for.
 
         Raises
         ------
@@ -1254,9 +1252,6 @@ class ROI:
             Crop and fill boxes to re-place outputs in the ROI
 
         """
-        # If no frame number passed, run latest:
-        if frame is None:
-            frame = len(self.lineage.cellnumbers)
 
         # Check if segmentation data is ready:
         if len(self.seg_stack) <= frame:
@@ -1341,21 +1336,21 @@ class ROI:
     def process_tracking_outputs(
         self,
         y: np.ndarray,
-        frame: Optional[int] = None,
+        frame: int,
         boxes: Optional[List[Tuple[utils.CroppingBox, utils.CroppingBox]]] = None,
     ) -> None:
         """
         Process output from tracking U-Net.
+
+        Get poles and update lineage.
 
         Parameters
         ----------
         y : 4D array
             Tracking output array. Dimensions are (previous_cells,
             cfg.target_size_track[1], cfg.target_size_track[0], 1).
-        frame : int, optional
-            The frame to process for. If None, the earliest frame not yet
-            tracked is run.
-            The default is None.
+        frame : int
+            The frame to process for.
         boxes : List of tuples of 2 dicts or None
             Crop and fill boxes to re-place outputs in the ROI
 
@@ -1364,8 +1359,6 @@ class ROI:
         None.
 
         """
-        if frame is None:
-            frame = len(self.lineage.cellnumbers)
 
         # Get scores and attributions:
         labels = utils.label_seg(self.seg_stack[frame])
