@@ -1366,7 +1366,7 @@ class ROI:
         scores = utils.getTrackingScores(
             labels, y[:, :, :, 0], boxes=boxes if self.crop_windows else None
         )
-        if scores is None:
+        if scores.shape[1] == 0:
             self.lineage.update(None, frame)
             return
         attributions = utils.getAttributions(scores)

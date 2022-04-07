@@ -12,6 +12,7 @@ import numpy as np
 import numpy.random as npr
 import pytest
 from scipy.ndimage import binary_fill_holes
+from scipy.special import logit
 
 from delta import pipeline, utils
 
@@ -740,3 +741,59 @@ class Test_xpreader:
 
         # Init pipeline:
         pipeline.Pipeline(xpreader)
+
+
+UNTRACKED_LABELS = np.array(
+    [
+        [ 0, 0, 1, 0, ],
+        [ 0, 2, 1, 0, ],
+        [ 0, 2, 1, 0, ],
+        [ 0, 2, 3, 3, ],
+    ],
+    dtype=np.uint16,
+)
+
+TRACKING_OUTPUTS = logit(np.array(
+    [
+        [   # Cell tracked to label 2
+            [ 0.00, 0.06, 0.00, 0.00],
+            [ 0.02, 0.72, 0.10, 0.01],
+            [ 0.03, 0.68, 0.06, 0.02],
+            [ 0.12, 0.89, 0.04, 0.00],
+        ],
+        [   # Cell tracked to label 1
+            [ 0.00, 0.07, 0.43, 0.00],
+            [ 0.00, 0.02, 0.78, 0.13],
+            [ 0.01, 0.10, 0.82, 0.07],
+            [ 0.00, 0.25, 0.92, 0.04],
+        ]
+    ]
+))
+
+def test_getTrackingScores_no_old_cells():
+    labels = UNTRACKED_LABELS
+    outputs = np.zeros((0, labels.shape[0], labels.shape[1]), dtype=np.float32)
+    scores = utils.getTrackingScores(labels, outputs)
+    np.testing.assert_allclose(scores, np.zeros((0, 3), dtype=np.float32))
+
+
+def test_getTrackingScores_no_new_cells():
+    labels = 0 * UNTRACKED_LABELS
+    outputs = TRACKING_OUTPUTS
+    scores = utils.getTrackingScores(labels, outputs)
+    print(scores)
+    np.testing.assert_allclose(scores, np.zeros((2, 0), dtype=np.float32))
+
+
+def test_getTrackingScores_no_hits():
+    labels = UNTRACKED_LABELS
+    outputs = TRACKING_OUTPUTS - 100
+    scores = utils.getTrackingScores(labels, outputs)
+    np.testing.assert_allclose(scores, [[0, 0, 0], [0, 0, 0]])
+
+
+def test_getTrackingScores():
+    labels = UNTRACKED_LABELS
+    outputs = TRACKING_OUTPUTS
+    scores = utils.getTrackingScores(labels, outputs)
+    np.testing.assert_allclose(scores, [[2/3, 1, 0], [1, 2/3, 1/2]])
