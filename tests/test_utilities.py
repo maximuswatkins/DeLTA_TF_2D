@@ -6,8 +6,6 @@ Created on Tue Oct 19 15:01:05 2021
 @author: ooconnor
 """
 #
-import random
-
 import pytest
 import numpy as np
 import cv2
@@ -146,68 +144,30 @@ def _test_deskew(filename, angle0):
 #%% Eval create_windows
 
 
-def rand_img(image_size):
-    img = np.random.random(image_size)
+def rand_img(image_size, seed):
+    rng = np.random.default_rng(seed)
+    img = rng.random(image_size)
     return img
 
 
 @pytest.mark.order(2)
-class Test_create_windows:
-    def test_create_windows_base(self):
-        assert (
-            utils.create_windows(
-                rand_img((512, 512)), target_size=(512, 512), min_overlap=24
-            )[0].shape[0]
-            == 1
-        )
-
-    def test_create_windows_2048x2048(self):
-        assert (
-            utils.create_windows(
-                rand_img((2048, 2048)), target_size=(512, 512), min_overlap=24
-            )[0].shape[0]
-            == 25
-        )
-
-    def test_create_windows_200x200(self):
-        assert (
-            utils.create_windows(
-                rand_img((200, 200)), target_size=(512, 512), min_overlap=24
-            )[0].shape[0]
-            == 1
-        )
-
-    def test_create_windows_200x600(self):
-        assert (
-            utils.create_windows(
-                rand_img((200, 600)), target_size=(512, 512), min_overlap=24
-            )[0].shape[0]
-            == 2
-        )
-
-    def test_create_windows_600x200(self):
-        assert (
-            utils.create_windows(
-                rand_img((600, 200)), target_size=(512, 512), min_overlap=24
-            )[0].shape[0]
-            == 2
-        )
-
-    def test_create_windows_100x700(self):
-        assert (
-            utils.create_windows(
-                rand_img((1000, 700)), target_size=(512, 512), min_overlap=24
-            )[0].shape[0]
-            == 6
-        )
-
-    def test_create_windows_696x520(self):
-        assert (
-            utils.create_windows(
-                rand_img((696, 520)), target_size=(512, 512), min_overlap=24
-            )[0].shape[0]
-            == 4
-        )
+@pytest.mark.parametrize("seed", range(10))  # Run it 10 times
+@pytest.mark.parametrize("image_size, expected", [
+    ((512, 512), 1),
+    ((2048, 2048), 25),
+    ((200, 200), 1),
+    ((200, 600), 2),
+    ((600, 200), 2),
+    ((1000, 700), 6),
+    ((696, 520), 4),
+])
+def test_create_windows_base(image_size, expected, seed):
+    assert (
+        utils.create_windows(
+            rand_img(image_size, seed), target_size=(512, 512), min_overlap=24
+        )[0].shape[0]
+        == expected
+    )
 
 
 def test_cell_perimeter():
@@ -227,16 +187,17 @@ def test_cell_perimeter():
 #%% Eval find_contours
 
 
-def rand_mask(image_size, max_dots=100, max_radius=30):
+def rand_mask(image_size, max_dots=100, max_radius=30, seed=None):
     "Generate a random binary mask with random size dots"
+    rng = np.random.default_rng(seed)
     mask = np.zeros(image_size, dtype=np.uint8)
-    num_dots = random.randint(0, max_dots)
+    num_dots = rng.integers(max_dots, endpoint=True)
 
     for dot in range(num_dots):
         cv2.circle(
             mask,
-            center=(random.randint(0, image_size[0]), random.randint(0, image_size[0])),
-            radius=random.randint(1, max_radius),
+            center=(rng.integers(image_size[0]), rng.integers(image_size[0])),
+            radius=rng.integers(1, max_radius),
             color=1,
             thickness=-1,
         )
@@ -257,56 +218,12 @@ def evaluate_contours(mask, contours, image_size):
 
 
 @pytest.mark.order(2)
-@pytest.mark.parametrize("execution_number", range(10))  # Run it 10 times
-class Test_find_contours:
-    def test_find_contours_base(self, execution_number):
-        image_size = (512, 512)
-        mask = rand_mask(image_size)
-        contours = utils.find_contours(mask)
-        assert evaluate_contours(mask, contours, image_size)
-
-    def test_find_contours_2048x2048(self, execution_number):
-        image_size = (2048, 2048)
-        mask = rand_mask(image_size)
-        contours = utils.find_contours(mask)
-        assert evaluate_contours(mask, contours, image_size)
-
-    def test_find_contours_200x200(self, execution_number):
-        image_size = (200, 600)
-        mask = rand_mask(image_size)
-        contours = utils.find_contours(mask)
-        assert evaluate_contours(mask, contours, image_size)
-
-    def test_find_contours_200x600(self, execution_number):
-        image_size = (200, 600)
-        mask = rand_mask(image_size)
-        contours = utils.find_contours(mask)
-        assert evaluate_contours(mask, contours, image_size)
-
-    def test_find_contours_600x200(self, execution_number):
-        image_size = (600, 200)
-        mask = rand_mask(image_size)
-        contours = utils.find_contours(mask)
-        assert evaluate_contours(mask, contours, image_size)
-
-    def test_find_contours_100x700(self, execution_number):
-        image_size = (100, 700)
-        mask = rand_mask(image_size)
-        contours = utils.find_contours(mask)
-        assert evaluate_contours(mask, contours, image_size)
-
-    def test_find_contours_696x520(self, execution_number):
-        image_size = (696, 520)
-        mask = rand_mask(image_size)
-        contours = utils.find_contours(mask)
-        assert evaluate_contours(mask, contours, image_size)
-
-    def test_find_contours_256x32(self, execution_number):
-        image_size = (256, 32)
-        mask = rand_mask(image_size)
-        contours = utils.find_contours(mask)
-        assert evaluate_contours(mask, contours, image_size)
-
+@pytest.mark.parametrize("seed", range(10))  # Run it 10 times
+@pytest.mark.parametrize("image_size", [(512, 512), (2048, 2048), (200, 200), (200, 600), (600, 200), (100, 700), (696, 520), (256, 32)])
+def test_find_contours(image_size, seed):
+    mask = rand_mask(image_size, seed=seed)
+    contours = utils.find_contours(mask)
+    assert evaluate_contours(mask, contours, image_size)
 
 def test_skeleton_poles():
     skel = np.array(
@@ -366,13 +283,14 @@ def test_extract_poles():
     assert np.array_equal(poles, solution)
 
 
-@pytest.mark.parametrize("execution_number", range(1000))  # Run it 1000 times
-def test_track_poles(execution_number):
+@pytest.mark.parametrize("seed", range(1000))  # Run it 1000 times
+def test_track_poles(seed):
+    rng = np.random.default_rng(seed)
     # Random previous old pole:
-    prev_old = np.random.randint(low=0, high=32767, size=2, dtype=np.int16)
+    prev_old = rng.integers(low=0, high=2**15, size=2, dtype=np.int16)
     # Random previous new pole is some small random distance away:
     while True:
-        increment = np.random.normal(loc=0, scale=20, size=2).astype(np.int16)
+        increment = rng.normal(loc=0, scale=20, size=2).astype(np.int16)
         dist = np.linalg.norm(increment)
         if dist < 10:  # At least 10 pixels between poles
             continue
@@ -382,14 +300,14 @@ def test_track_poles(execution_number):
 
     while True:
         # Simulate whole cell shift:
-        cell_shift = np.random.gamma(shape=2, scale=2, size=2)
+        cell_shift = rng.gamma(shape=2, scale=2, size=2)
 
         # Simulate small pole shifts:
-        increment = np.random.uniform(low=-3, high=3, size=2)
+        increment = rng.uniform(low=-3, high=3, size=2)
         new_new = prev_new + cell_shift + increment
 
         # Simulate small pole shifts:
-        increment = np.random.uniform(low=-3, high=3, size=2)
+        increment = rng.uniform(low=-3, high=3, size=2)
         new_old = prev_old + cell_shift + increment
 
         new_new = new_new.astype(np.int16)
@@ -397,7 +315,7 @@ def test_track_poles(execution_number):
         if np.all(new_new >= 0) and np.all(new_old >= 0):
             break
 
-    if random.random() > 0.5:
+    if rng.random() > 0.5:
         poles = [new_new, new_old]
     else:
         poles = [new_old, new_new]
@@ -408,14 +326,14 @@ def test_track_poles(execution_number):
     assert np.all(out_new == new_new)
 
 
-@pytest.mark.parametrize("execution_number", range(1000))  # Run it 1000 times
-def test_division_poles(execution_number):
-
+@pytest.mark.parametrize("seed", range(1000))  # Run it 1000 times
+def test_division_poles(seed):
+    rng = np.random.default_rng(seed)
     # Random previous old pole:
-    prev_old = np.random.randint(low=0, high=32767, size=2, dtype=np.int16)
+    prev_old = rng.integers(low=0, high=2**15, size=2, dtype=np.int16)
     # Random previous new pole is some small random distance away:
     while True:
-        increment = np.random.normal(loc=0, scale=20, size=2).astype(np.int16)
+        increment = rng.normal(loc=0, scale=20, size=2).astype(np.int16)
         dist = np.linalg.norm(increment)
         if dist < 20:  # At least 20 pixels between poles
             continue
@@ -426,14 +344,14 @@ def test_division_poles(execution_number):
     # Generate shift poles to create "current frame"
     while True:
         # Simulate whole cell shift:
-        cell_shift = np.random.gamma(shape=2, scale=2, size=2)
+        cell_shift = rng.gamma(shape=2, scale=2, size=2)
 
         # Simulate small pole shifts:
-        increment = np.random.uniform(low=-3, high=3, size=2)
+        increment = rng.uniform(low=-3, high=3, size=2)
         daughter_old = prev_new + cell_shift + increment
 
         # Simulate small pole shifts:
-        increment = np.random.uniform(low=-3, high=3, size=2)
+        increment = rng.uniform(low=-3, high=3, size=2)
         mother_old = prev_old + cell_shift + increment
 
         daughter_old = daughter_old.astype(np.int16)
@@ -453,17 +371,17 @@ def test_division_poles(execution_number):
     daughter_new = (daughter_old + sep2dau).astype(np.int16)
 
     # Randomly assign poles to the input lists:
-    if random.random() > 0.5:
+    if rng.random() > 0.5:
         mother_poles = [mother_new, mother_old]
     else:
         mother_poles = [mother_old, mother_new]
 
-    if random.random() > 0.5:
+    if rng.random() > 0.5:
         daughter_poles = [daughter_new, daughter_old]
     else:
         daughter_poles = [daughter_old, daughter_new]
 
-    if random.random() > 0.5:
+    if rng.random() > 0.5:
         first_cell_is_mother_t = True
         poles_cell1 = mother_poles
         poles_cell2 = daughter_poles
@@ -486,17 +404,17 @@ def test_division_poles(execution_number):
 
 
 #%% Make sure contour coloring and cv2 colormap work
-def _base_test_color(max_dots):
+def _base_test_color(max_dots, seed=None):
 
     # Get random mask and RGB frame:
-    mask = rand_mask((2048, 2048), max_dots=max_dots)
+    mask = rand_mask((2048, 2048), max_dots=max_dots, seed=seed)
     frame = np.repeat(mask[:, :, np.newaxis].astype(np.float64), 3, axis=2)
 
     # Get cells numbers and contours:
     cells, contours = utils.getcellsinframe(utils.label_seg(mask), return_contours=True)
 
     # Get random colors:
-    colors = utils.getrandomcolors(len(cells), seed=random.randint(0, 1024))
+    colors = utils.getrandomcolors(len(cells), seed=seed)
 
     # Color cells contours:
     for c, cell in enumerate(cells):
@@ -526,23 +444,11 @@ def _evaluate_color_nb(mask, frame):
 
 
 @pytest.mark.order(2)
-@pytest.mark.parametrize("execution_number", range(5))  # Run it 10 times
-class Test_color_contours:
-    def test_nocell(self, execution_number):
-        mask, frame = _base_test_color(0)
-        _evaluate_color_nb(mask, frame)
-
-    def test_onecell(self, execution_number):
-        mask, frame = _base_test_color(1)
-        _evaluate_color_nb(mask, frame)
-
-    def test_twocells(self, execution_number):
-        mask, frame = _base_test_color(2)
-        _evaluate_color_nb(mask, frame)
-
-    def test_100cells(self, execution_number):
-        mask, frame = _base_test_color(100)
-        _evaluate_color_nb(mask, frame)
+@pytest.mark.parametrize("seed", range(5))  # Run it 5 times
+@pytest.mark.parametrize("max_dots", [0, 1, 2, 100])
+def test_color_contours(max_dots, seed):
+    mask, frame = _base_test_color(0, seed=seed)
+    _evaluate_color_nb(mask, frame)
 
 
 #%% Test xpreader
