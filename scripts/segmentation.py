@@ -18,17 +18,19 @@ from delta.model import unet_seg
 import delta.utilities as utils
 from delta.utilities import cfg
 
-# Load config:
-cfg.load_config(presets="2D")
+### Parameters:
+    
+# Configuration presets: ("2D" or "mothermachine")
+presets = "2D"
 
-# Input image sequence (change to whatever images sequence you want to evaluate):
-inputs_folder = cfg.eval_movie
+# Image sequence to segment: (replace with your own)
+inputs_folder = cfg.eval_movie # or cfg.eval_movie + "/cropped_rois" for mother machine
 
-# # For mother machine instead:
-# cfg.load_config(presets='mothermachine')
+### /Parameters
 
-# # Images sequence (change to whatever images sequence you want to evaluate):
-# inputs_folder = os.path.join(cfg.eval_movie,'cropped_rois')
+
+# Load presets:
+cfg.load_config(presets=presets)
 
 # Outputs folder:
 outputs_folder = os.path.join(inputs_folder, "segmentation")
