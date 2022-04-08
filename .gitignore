@@ -2,8 +2,11 @@
 /delta/assets/
 
 # Ignore test results folder:
-/tests/data/*/results
-/tests/data/*/delta_results
+/tests/data/**/results
+/tests/data/**/delta_results
+/tests/data/**/roi_masks
+/tests/data/**/segmentation
+/tests/data/**/tracking
 
 # Ignore auto-generated docs pages:
 /docs/_generated/

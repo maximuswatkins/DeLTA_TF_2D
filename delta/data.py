@@ -1338,19 +1338,19 @@ def predictCompilefromseg_track(
         )
     elif len(numstrs) == 3 and len(charstrs) == 4:
         # Order is position, chamber, frame/timepoint
-        protoype = (
-            f"{charstrs[0]}%0{len(numstrs[1])}d"
-            f"{charstrs[1]}%0{len(numstrs[2])}d"
-            f"{charstrs[2]}%0{len(numstrs[3])}d"
+        prototype = (
+            f"{charstrs[0]}%0{len(numstrs[0])}d"
+            f"{charstrs[1]}%0{len(numstrs[1])}d"
+            f"{charstrs[2]}%0{len(numstrs[2])}d"
             f"{charstrs[3]}"
         )
         fileorder = "pct"
     elif len(numstrs) == 2 and len(charstrs) == 3:
         # Order is position, frame/timepoint
-        protoype = (
-            f"{charstrs[0]}%0{len(numstrs[1])}d"
-            f"{charstrs[1]}%0{len(numstrs[2])}d"
-            f"{charstrs[3]}"
+        prototype = (
+            f"{charstrs[0]}%0{len(numstrs[0])}d"
+            f"{charstrs[1]}%0{len(numstrs[1])}d"
+            f"{charstrs[2]}"
         )
         fileorder = "pt"
         crop = True

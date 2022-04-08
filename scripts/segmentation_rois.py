@@ -15,11 +15,16 @@ from delta.utilities import cfg
 from delta.data import saveResult_seg, predictGenerator_seg, postprocess
 from delta.model import unet_rois
 
+### Parameters:
+
+# Images sequence: (replace with your own)
+inputs_folder = cfg.eval_movie
+
+### /Parameters
+
+
 # Load config file:
 cfg.load_config(presets="mothermachine")
-
-# Images sequence (change to whatever images sequence you want to evaluate):
-inputs_folder = cfg.eval_movie
 
 # Output folder:
 outputs_folder = os.path.join(inputs_folder, "roi_masks")
