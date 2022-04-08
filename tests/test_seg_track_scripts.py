@@ -13,7 +13,7 @@ import pytest
 test_folder = Path(__file__).parent
 
 
-@pytest.mark.run(after="test_download_assets")
+@pytest.mark.order(2)
 def test_rois_script():
 
     inputs_folder = str(test_folder / "data/movie_mothermachine_tif")
@@ -26,7 +26,7 @@ def test_rois_script():
     )
 
 
-@pytest.mark.run(after="test_download_assets")
+@pytest.mark.order(2)
 @pytest.mark.parametrize(
     "parameters",
     (
@@ -44,7 +44,7 @@ def test_segmentation_script(parameters):
     _run_script(test_folder.parent / "scripts/segmentation.py", _parameters=parameters)
 
 
-@pytest.mark.run(after="test_segmentation_script")
+@pytest.mark.order(3)
 @pytest.mark.parametrize(
     "parameters",
     (
