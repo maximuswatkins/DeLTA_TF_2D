@@ -10,13 +10,21 @@ from pathlib import Path
 
 import pytest
 
+import delta
+
 test_folder = Path(__file__).parent
 
 
 @pytest.mark.order(2)
 def test_rois_script():
 
+    # Test images folder:
     inputs_folder = str(test_folder / "data/movie_mothermachine_tif")
+    
+    # Load gloabl moma config:
+    delta.config.load_config(
+        presets = "mothermachine", config_level = "global"
+        )
 
     _run_script(
         test_folder.parent / "scripts/segmentation_rois.py",
@@ -30,7 +38,9 @@ def test_rois_script():
 @pytest.mark.parametrize(
     "parameters",
     (
+         # 2D seg parameters:
         {"presets": "2D", "inputs_folder": str(test_folder / "data/movie_2D_tif")},
+        # Moma seg parameters:
         {
             "presets": "mothermachine",
             "inputs_folder": str(
@@ -41,6 +51,11 @@ def test_rois_script():
 )
 def test_segmentation_script(parameters):
 
+    # Load global config:
+    delta.config.load_config(
+        presets = parameters["presets"], config_level = "global"
+        )
+    
     _run_script(test_folder.parent / "scripts/segmentation.py", _parameters=parameters)
 
 
@@ -48,7 +63,9 @@ def test_segmentation_script(parameters):
 @pytest.mark.parametrize(
     "parameters",
     (
+         # 2D parameters:
         {"presets": "2D", "inputs_folder": str(test_folder / "data/movie_2D_tif")},
+        # Moma parameters:
         {
             "presets": "mothermachine",
             "inputs_folder": str(
@@ -58,6 +75,11 @@ def test_segmentation_script(parameters):
     ),
 )
 def test_tracking_script(parameters):
+    
+    # Load global config:
+    delta.config.load_config(
+        presets = parameters["presets"], config_level = "global"
+        )
 
     # Adding segmentation folder to the parametrrs dict based on inputs folder:
     parameters["segmentation_folder"] = str(

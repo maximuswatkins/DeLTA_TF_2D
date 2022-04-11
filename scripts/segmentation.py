@@ -21,16 +21,13 @@ from delta.utilities import cfg
 ### Parameters:
     
 # Configuration presets: ("2D" or "mothermachine")
-presets = "2D"
+cfg.load_config(presets="2D")
 
 # Image sequence to segment: (replace with your own)
 inputs_folder = cfg.eval_movie # or cfg.eval_movie + "/cropped_rois" for mother machine
 
 ### /Parameters
 
-
-# Load presets:
-cfg.load_config(presets=presets)
 
 # Outputs folder:
 outputs_folder = os.path.join(inputs_folder, "segmentation")
