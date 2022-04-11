@@ -27,7 +27,7 @@ from delta.model import unet_track
 ### Parameters:
 
 # Configuration presets: ("2D" or "mothermachine")
-presets = "2D"
+cfg.load_config(presets="2D")
 
 # Input images sequences (replace with your own):
 inputs_folder = cfg.eval_movie
@@ -35,9 +35,6 @@ segmentation_folder = os.path.join(inputs_folder, "segmentation")
 
 ### /Parameters
 
-
-# Load config:
-cfg.load_config(presets=presets)
 
 # Output folder:
 outputs_folder = os.path.join(inputs_folder, "tracking")
