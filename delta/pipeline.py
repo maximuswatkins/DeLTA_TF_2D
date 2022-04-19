@@ -1245,7 +1245,7 @@ class ROI:
         -------
         x : 4D array or None
             Tracking input array. Dimensions are (previous_cells,
-            cfg.target_size_track[1], cfg.target_size_track[0], 4). If no
+            cfg.target_size_track[0], cfg.target_size_track[1], 4). If no
             previous cells to track from (e.g. first frame or glitch), None is
             returned.
         boxes : List of tuples of 2 dicts or None
@@ -1278,9 +1278,7 @@ class ROI:
         cells.sort(key=lambda elem: np.max(elem[:, 0, 1]))  # Sorting along Y
 
         # Allocate empty tracking inputs array:
-        x = np.empty(
-            shape=(len(cells),) + cfg.target_size_track + (4,), dtype=np.float32
-        )
+        x = np.empty((len(cells), *cfg.target_size_track, 4), dtype=np.float32)
 
         # Run through contours and compile inputs:
         boxes = []
