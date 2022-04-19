@@ -573,40 +573,41 @@ class Position:
         """
         self._msg(f"Starting tracking ({len(frames)} frames)")
 
-        for f in frames:
-
-            self._msg(f"Tracking - frame {f}/{len(frames)} ")
+        for frame in frames:
+            self._msg(f"Tracking - frame {frame}/{len(frames)} ")
 
             # Compile inputs and references:
             x = []
             references = []
-            for r, roi in enumerate(self.rois):
-                inputs, boxes = roi.get_tracking_inputs(frame=f)
+            for iroi, roi in enumerate(self.rois):
+                inputs, boxes = roi.get_tracking_inputs(frame=frame)
                 if inputs is not None:
-                    x += [inputs]
-                    references += [(r, len(x[-1]), f, boxes)]
+                    x.append(inputs)
+                    references.append((iroi, len(inputs), boxes))
 
             # Predict:
-            if len(x) > 0:
-                x = np.concatenate(x)
-                y = np.empty_like(x)
-                for i in range(0, len(x), cfg.pipeline_track_batch):
-                    j = min((len(x), i + cfg.pipeline_track_batch))
-                    y[i:j] = self.models["tracking"].predict(
+            x = np.concatenate(x) if x else np.empty((0, *cfg.target_size_track, 4))
+            y = np.empty(shape=(*x.shape[:3], 1))
+            for i in range(0, len(x), cfg.pipeline_track_batch):
+                j = min(len(x), i + cfg.pipeline_track_batch)
+                y[i:j] = (
+                    self.models["tracking"]
+                    .predict(
                         x[i:j],
                         batch_size=1,
                         workers=1,
                         use_multiprocessing=False,
                         verbose=0,
                     )
+                )
 
             # Dispatch tracking outputs to rois:
             i = 0
-            for ref in references:
-                self.rois[ref[0]].process_tracking_outputs(
-                    y[i : i + ref[1]], frame=ref[2], boxes=ref[3]
+            for iroi, nbcells, boxes in references:
+                self.rois[iroi].process_tracking_outputs(
+                    y[i : i + nbcells], frame=frame, boxes=boxes
                 )
-                i += ref[1]
+                i += nbcells
 
     def features(
         self,
