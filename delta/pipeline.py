@@ -580,9 +580,8 @@ class Position:
             references = []
             for iroi, roi in enumerate(self.rois):
                 inputs, boxes = roi.get_tracking_inputs(frame=frame)
-                if inputs is not None:
-                    x.append(inputs)
-                    references.append((iroi, len(inputs), boxes))
+                x.append(inputs)
+                references.append((iroi, len(inputs), boxes))
 
             # Predict:
             x = np.concatenate(x) if x else np.empty((0, *cfg.target_size_track, 4))
@@ -1224,10 +1223,7 @@ class ROI:
 
     def get_tracking_inputs(
         self, frame: int
-    ) -> Union[
-        Tuple[np.ndarray, List[Tuple[utils.CroppingBox, utils.CroppingBox]]],
-        Tuple[None, None],
-    ]:
+        ) -> Tuple[np.ndarray, List[Tuple[utils.CroppingBox, utils.CroppingBox]]]:
         """
         Compile tracking inputs for ROI from `seg_stack`.
 
@@ -1257,32 +1253,21 @@ class ROI:
         if len(self.seg_stack) <= frame:
             raise RuntimeError(f"Segmentation incomplete - frame {frame}")
 
-        # If no previous cells to track from, directly update lineage:
-        if (
-            frame == 0
-            or len(self.lineage.cellnumbers) < frame
-            or len(self.lineage.cellnumbers[frame - 1]) == 0
-        ):
+        # Get cell contours from previous frame
+        if frame == 0 or len(self.lineage.cellnumbers) < frame:
+            prev_cell_contours = []
+        else:
+            prev_cell_contours = utils.find_contours(self.seg_stack[frame - 1])
 
-            # Cell poles
-            poles = utils.getpoles(self.seg_stack[frame], scaling=self.scaling)
-
-            # Create new orphan cells
-            for ipls, pls in poles.items():
-                self.lineage.update(None, frame, attrib=[ipls], poles=[pls])
-
-            return None, None
-
-        # Otherwise, get cell contours:
-        cells = utils.find_contours(self.seg_stack[frame - 1])
-        cells.sort(key=lambda elem: np.max(elem[:, 0, 1]))  # Sorting along Y
+        # Sort them along Y
+        prev_cell_contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))
 
         # Allocate empty tracking inputs array:
-        x = np.empty((len(cells), *cfg.target_size_track, 4), dtype=np.float32)
+        x = np.empty((len(prev_cell_contours), *cfg.target_size_track, 4), dtype=np.float32)
 
         # Run through contours and compile inputs:
         boxes = []
-        for c, cell in enumerate(cells):
+        for c, cell in enumerate(prev_cell_contours):
 
             draw_offset: Optional[Tuple[float, float]]
             if self.crop_windows:
