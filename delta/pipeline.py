@@ -412,7 +412,7 @@ class Position:
         # If no reference frame provided, read first frame from reader:
         if reference is None:
             reference = self.reader.getframes(
-                positions=self.position_nb,
+                position=self.position_nb,
                 frames=0,
                 channels=0,
                 squeeze_dimensions=True,
@@ -515,7 +515,7 @@ class Position:
 
         # Load trans frames:
         trans_frames = self.reader.getframes(
-            positions=self.position_nb,
+            position=self.position_nb,
             channels=0,
             frames=frames,
             rotate=self.rotate,
@@ -645,12 +645,12 @@ class Position:
         if len(fluo_channels):
             # Read fluorescence frames:
             fluo_frames = self.reader.getframes(
-                positions=self.position_nb,
+                position=self.position_nb,
                 channels=fluo_channels,
                 frames=frames,
                 squeeze_dimensions=False,
                 rotate=self.rotate,
-            )[0]
+            )
             # Apply drift correction
             if self.drift_correction:
                 for f in range(fluo_frames.shape[1]):
@@ -905,17 +905,13 @@ class Position:
         """
         # Re-read trans frames:
         trans_frames = self.reader.getframes(
-            positions=self.position_nb,
+            position=self.position_nb,
             channels=0,
             frames=frames,
             squeeze_dimensions=False,
             rotate=self.rotate,
         )
-        trans_frames = trans_frames[0, :, 0]
-
-        # Adjust brightness/contrast
-        if trans_frames.ptp() > 0:
-            trans_frames = (trans_frames - trans_frames.min()) / trans_frames.ptp()
+        trans_frames = trans_frames[:, 0]
 
         if self.drift_correction:
             trans_frames, _ = utils.driftcorr(trans_frames, drift=self.drift_values)

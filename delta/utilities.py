@@ -2052,7 +2052,7 @@ class xpreader:
     # TODO: typecheck this function
     def getframes(
         self,
-        positions=None,
+        position: int,
         channels=None,
         frames=None,
         squeeze_dimensions: bool = True,
@@ -2063,11 +2063,8 @@ class xpreader:
 
         Parameters
         ----------
-        positions : None, int, tuple/list of ints, optional
-            The frames from the position index or indexes passed as an integer
-            or a tuple/list will be returned. If None is passed, all positions
-            are returned.
-            The default is None.
+        position : int
+            The position index for which the frames are requested.
         channels : None, int, tuple/list of ints, str, tuple/list of str, optional
             The frames from the channel index or indexes passed as an integer
             or a tuple/list will be returned. If the channel names have been
@@ -2098,16 +2095,11 @@ class xpreader:
         -------
         Numpy Array
             Concatenated frames as requested by the different input options.
-            If squeeze_dimensions=False, the array is 5-dimensional, with the
-            dimensions order being: Position, Time, Channel, Y, X
+            If squeeze_dimensions=False, the array is 4-dimensional, with the
+            dimensions order being: Time, Channel, Y, X
 
         """
         # Handle options:
-        if positions is None:  # No positions specified: load all
-            positions = list(range(self.positions))
-        elif not isinstance(positions, list) and not isinstance(positions, tuple):
-            positions = [positions]
-
         if channels is None:  # No channel specified: load all
             channels = list(range(self.channels))
         elif isinstance(channels, str):  # refer to 1 channel by name (eg 'gfp')
@@ -2138,13 +2130,13 @@ class xpreader:
         elif not isinstance(frames, (list, tuple)):
             if frames == -1:  # Read new frames from files watcher:
                 if self.watchfiles:
-                    if len(positions) > 1 or len(channels) > 1:
+                    if len(channels) > 1:
                         raise ValueError(
-                            "Can not load latest frames for more than one position/channel"
+                            "Can not load latest frames for more than one channel"
                         )
-                    new = self.watcher.new[positions[0]][channels[0]]
+                    new = self.watcher.new[position][channels[0]]
                     frames = list(
-                        range(self.watcher.old[positions[0]][channels[0]] + 1, new + 1)
+                        range(self.watcher.old[position][channels[0]] + 1, new + 1)
                     )
                 else:
                     frames = list(range(self.timepoints))
@@ -2153,39 +2145,36 @@ class xpreader:
 
         # If files watcher, update the old frames array:
         if self.watchfiles:
-            for p in positions:
-                for c in channels:
-                    self.watcher.old[p][c] = frames[-1]
+            for c in channels:
+                self.watcher.old[position][c] = frames[-1]
 
         # Allocate memory:
         output = np.empty(
-            [len(positions), len(frames), len(channels), self.y, self.x],
-            dtype=np.float32,
+            [len(frames), len(channels), self.y, self.x], dtype=np.float32
         )
 
         # Load images:
-        for p, pos in enumerate(positions):
-            for c, cha in enumerate(channels):
-                for f, fra in enumerate(frames):
-                    # Read frame:
-                    if self.use_bioformats:
-                        frame = self.filehandle.read(
-                            series=pos, c=cha, t=fra, rescale=True
-                        )
-                    elif self.filetype == "dir":
-                        frame = read_image(self.getfilenamefromprototype(pos, cha, fra))
-                    elif self.filetype == "tif":
-                        frame = (
-                            self.filehandle.series[pos]
-                            .pages[fra * self.channels + cha]
-                            .asarray()
-                        )
+        for c, cha in enumerate(channels):
+            for f, fra in enumerate(frames):
+                # Read frame:
+                if self.use_bioformats:
+                    frame = self.filehandle.read(
+                        series=position, c=cha, t=fra, rescale=True
+                    )
+                elif self.filetype == "dir":
+                    frame = read_image(self.getfilenamefromprototype(position, cha, fra))
+                elif self.filetype == "tif":
+                    frame = (
+                        self.filehandle.series[position]
+                        .pages[fra * self.channels + cha]
+                        .asarray()
+                    )
 
-                    # Optionally rotate
-                    if rotate is not None:
-                        frame = imrotate(frame, rotate)
-                    # Add to output array:
-                    output[p, f, c, :, :] = frame
+                # Optionally rotate
+                if rotate is not None:
+                    frame = imrotate(frame, rotate)
+                # Add to output array:
+                output[f, c, :, :] = frame
 
         # Return:
         return np.squeeze(output) if squeeze_dimensions else output
