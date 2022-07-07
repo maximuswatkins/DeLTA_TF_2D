@@ -701,42 +701,39 @@ def label_seg(
 
 
 def getcellsinframe(
-    labels: Labels, return_contours: bool = False, background: int = 0
+    labels: Labels, return_contours: bool = False
 ) -> Union[List[int], Tuple[List[int], List[Contour]]]:
     """
     Get numbers of cells present in frame, sorted along Y axis.
 
     Parameters
     ----------
-    labels : 2D numpy array of ints
+    labels : 2D numpy array of uint16
         Single frame from labels stack.
     return_contours : bool, optional
         Flag to get cv2 contours.
 
     Returns
     -------
-    cells : list
-        Cell numbers (0-based indexing).
+    cellids : list
+        Cell ids.
     contours : list
         List of cv2 contours for each cell. Returned if return_contours==True.
 
     """
-    cells, ind = np.unique(labels, return_index=True)
-    cells = [
-        cell - 1 for _, cell in sorted(zip(ind, cells))
-    ]  # Sorting along Y axis, 1-based to 0-based, & removing 1st value (background)
-    cells = [cell for cell in cells if cell != background - 1]  # Remove background
+
+    cellids, ind = np.unique(labels, return_index=True)
+
+    # Sorting along Y axis & removing background
+    cellids = [int(cellid) - 1 for cellid in cellids[1:][np.argsort(ind[1:])]]
 
     if not return_contours:
-        return cells
+        return cellids
 
     # Get opencv contours:
-    contours = []
-    for cell in cells:
-        # Have to do it this way to avoid cases where border is shrunk out
-        cnt = find_contours((labels == cell + 1).astype(np.uint8))
-        contours += cnt
-    return cells, contours
+    contours = [find_contours((labels == cellid + 1).astype(np.uint8))[0] for cellid in cellids]
+
+    return cellids, contours
 
 
 def getcentroid(contour: np.ndarray) -> Tuple[int, int]:
