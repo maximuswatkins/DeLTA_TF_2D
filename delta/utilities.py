@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 import tkinter as tk
+from collections import defaultdict
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
@@ -831,7 +832,7 @@ def getpoles(
     clean_poles = []
 
     # Make sure cells have 2 poles each:
-    for ipls, pls in enumerate(poles):
+    for ipls, pls in poles.items():
         if len(pls) < 2:  # Sometimes skeletonize fails
             clean_poles.append(extrema_poles(labels == ipls + 1, scaling=scaling))
         elif len(pls) == 2:
@@ -954,7 +955,7 @@ def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
     return (poles[i_max], poles[j_max])
 
 
-def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> List[List[Pole]]:
+def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> Dict[int, List[Pole]]:
     """
     Extract poles per cell from ends image.
 
@@ -967,19 +968,19 @@ def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> List[List[P
 
     Returns
     -------
-    poles : list of tuples of 1D numpy arrays
-        For each cell, list of numpy arrays with the y-x coordinates
-        of the poles.  In principle, each list has two poles but sometimes not.
+    poles : Dict[int, List[Pole]]
+        Dict of cellids to list of poles.  In principle, each list has two
+        poles but sometimes the detection fails.
 
     """
     locations = end_img.nonzero()
-    poles: List[List[Pole]] = [[] for _ in range(np.max(labels))]
+    poles = defaultdict(list)
+
     for p in range(len(locations[0])):
+        cellid = labels[locations[0][p], locations[1][p]] - 1
+        poles[cellid] += [np.array([locations[0][p], locations[1][p]], dtype=np.int16)]
 
-        cell = labels[locations[0][p], locations[1][p]] - 1
-        poles[cell] += [np.array([locations[0][p], locations[1][p]], dtype=np.int16)]
-
-    return poles
+    return dict(poles)
 
 
 def eucl(p1: npt.NDArray[Any], p2: npt.NDArray[Any]) -> float:
