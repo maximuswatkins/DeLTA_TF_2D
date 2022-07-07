@@ -936,7 +936,7 @@ class Position:
             for r, roi in enumerate(self.rois):
 
                 # Get chamber-specific variables:
-                colors = utils.getrandomcolors(len(roi.lineage.cells), seed=r)
+                colors = utils.getrandomcolors(range(len(roi.lineage.cells)), seed=r)
                 fr = roi.label_stack[fnb]
                 assert fr is not None  # FIXME: why is it not None?
                 cells, contours = utils.getcellsinframe(fr, return_contours=True)

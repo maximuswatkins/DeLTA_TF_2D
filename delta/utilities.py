@@ -2264,36 +2264,38 @@ class files_watcher(Thread):
 
 #%% Saving & Loading results
 
-
-def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, float]]:
+def getrandomcolors(cellids: Iterable, seed: int = 0) -> Dict[int, Tuple[float, float, float]]:
     """
     Generate list of random hsv colors.
 
     Parameters
     ----------
-    num_colors : int
-        Number of desired colors.
+    cellids : Iterable (for example list, tuple or iterator)
+        Cellids which should be assigned random colors.
     seed : int, optional
-        Random seed.
+        Random seed used to shuffle colors.
 
     Returns
     -------
-    colors : list
-        List of RGB values (0-1 interval).
+    colors : Dict[int, Tuple[float, float, float]]
+        Dictionary of cellids to colors (RGB values in [0,1]).
 
     """
-    if num_colors == 0:
-        return []
+
+    # XXX: Is this necessary?
+    if len(cellids) == 0:
+        return {}
 
     # Get colors
-    gradient = np.linspace(0, 256, num_colors, endpoint=False, dtype=np.uint8)
+    gradient = np.linspace(0, 256, len(cellids), endpoint=False, dtype=np.uint8)
     colors = cv2.applyColorMap(gradient, cv2.COLORMAP_HSV).squeeze(axis=1)
+    colors = colors.astype(np.float64) / 255
 
     # Shuffle colors
     rng = npr.default_rng(seed)
     rng.shuffle(colors)
 
-    return [tuple(color) for color in colors.astype(np.float64) / 255]
+    return {cellid: tuple(color) for cellid, color in zip(cellids, colors)}
 
 
 def vidwrite(

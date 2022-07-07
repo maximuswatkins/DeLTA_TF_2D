@@ -595,7 +595,7 @@ def _base_test_color(max_dots, seed=None):
     cells, contours = utils.getcellsinframe(utils.label_seg(mask), return_contours=True)
 
     # Get random colors:
-    colors = utils.getrandomcolors(len(cells), seed=seed)
+    colors = utils.getrandomcolors(cells, seed=seed)
 
     # Color cells contours:
     for c, cell in enumerate(cells):
