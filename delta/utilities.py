@@ -670,8 +670,8 @@ def label_seg(
 
     """
     contours = find_contours(seg)
-    if not cellnumbers:
-        cellnumbers = list(range(1, len(contours) + 1))
+    if cellnumbers is None:
+        cellnumbers = range(1, len(contours) + 1)
     if len(cellnumbers) != len(contours):
         raise ValueError("cellnumbers must have the same length as the number of cells")
     # Sorting according to the lowest point on the y (vertical) axis
