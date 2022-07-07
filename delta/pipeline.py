@@ -1270,7 +1270,7 @@ class ROI:
             poles = utils.getpoles(self.seg_stack[frame], scaling=self.scaling)
 
             # Create new orphan cells
-            for ipls, pls in enumerate(poles):
+            for ipls, pls in poles.items():
                 self.lineage.update(None, frame, attrib=[ipls], poles=[pls])
 
             return None, None

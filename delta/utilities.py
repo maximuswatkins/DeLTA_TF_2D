@@ -797,7 +797,7 @@ def getpoles(
     seg: SegmentationMask,
     labels: Optional[Labels] = None,
     scaling: Optional[Tuple[float, float]] = None,
-) -> List[Tuple[Pole, Pole]]:
+) -> Dict[int, Tuple[Pole, Pole]]:
     """
     Get cell poles.
 
@@ -814,8 +814,8 @@ def getpoles(
 
     Returns
     -------
-    poles : list
-        List of poles per cell. Each cell in the list has exactly 2 poles.
+    poles : Dict[int, (Pole, Pole)]
+        Dictionary of cellid to poles. Each cell has exactly 2 poles.
 
     """
     # No label provided:
@@ -829,28 +829,24 @@ def getpoles(
     ends_map = skeleton_poles(skel)
     poles = extract_poles(ends_map, labels)
 
-    clean_poles = []
+    clean_poles = {}
 
     # Make sure cells have 2 poles each:
-    for ipls, pls in poles.items():
-        if len(pls) < 2:  # Sometimes skeletonize fails
-            clean_poles.append(extrema_poles(labels == ipls + 1, scaling=scaling))
-        elif len(pls) == 2:
-            clean_poles.append((pls[0], pls[1]))
+    for cellid, cellpoles in poles.items():
+        if len(cellpoles) < 2:  # Sometimes skeletonize fails
+            clean_poles[cellid] = extrema_poles(labels == cellid + 1, scaling=scaling)
+        elif len(cellpoles) == 2:
+            clean_poles[cellid] = tuple(cellpoles)
         else:
-            clean_poles.append(two_poles(pls))
+            clean_poles[cellid] = two_poles(cellpoles)
 
-    # Apply scaling:
-    if scaling:
-        clean_poles = [
-            (
-                np.round(p1 * scaling).astype(np.int16),
-                np.round(p2 * scaling).astype(np.int16),
-            )
-            for p1, p2 in clean_poles
-        ]
+    if not scaling:
+        return clean_poles
 
-    return clean_poles
+    return {
+        cellid: (np.round(p1 * scaling).astype(np.int16), np.round(p2 * scaling).astype(np.int16))
+        for cellid, (p1, p2) in clean_poles.items()
+    }
 
 
 def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
