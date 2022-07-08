@@ -93,6 +93,24 @@ class Cell(Dict):
     new_pole: List[Optional[Pole]]
     old_pole: List[Optional[Pole]]
 
+    def __eq__(self, other) -> bool:
+        eq_keys = self.keys() == other.keys()
+        eq_id = self['id'] == other['id']
+        eq_mother = self['mother'] == other['mother']
+        eq_frames = self['frames'] == other['frames']
+        eq_daughters = self['daughters'] == other['daughters']
+        eq_new_pole = np.array_equal(self['new_pole'], other['new_pole'])
+        eq_old_pole = np.array_equal(self['old_pole'], other['old_pole'])
+        return all([
+            eq_keys,
+            eq_id,
+            eq_mother,
+            eq_frames,
+            eq_daughters,
+            eq_new_pole,
+            eq_old_pole
+            ])
+
 
 #%% Image correction
 
@@ -1210,6 +1228,20 @@ class Lineage:
         self.stack = []  # Orphan attribute?
         self.cellnumbers = []
         "List of cells present in FOV at each timepoint"
+
+    def __eq__(self, other) -> bool:
+        eq_keys = self.__dict__.keys() == other.__dict__.keys()
+        eq_cells = self.cells == other.cells
+        eq_stack = self.stack == other.stack
+        eq_cellnumbers = self.cellnumbers == other.cellnumbers
+        eq_cellnumbers_empty = all(not x for x in self.cellnumbers) and all(not x for x in other.cellnumbers)
+        eqs = [
+            eq_keys,
+            eq_cells,
+            eq_cellnumbers or eq_cellnumbers_empty,
+            eq_stack,
+            ]
+        return all(eqs)
 
     def __str__(self):
         return "\n".join(

@@ -33,6 +33,10 @@ def test_pipeline_tif_stack():
 
     xp.process(frames=[0, 1, 2, 3], clear=False)
 
+    pos0 = delta.pipeline.load_position(xpfolder / "expected_results/Position000000.pkl")
+
+    assert xp.positions[0] == pos0
+
     # Testing position pickle save
 
     with tempfile.TemporaryDirectory() as tempdirname:

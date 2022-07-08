@@ -334,6 +334,26 @@ class Position:
         self._preprocessed: bool = False
         self._pickle_skip: Tuple[str, ...] = ("reader", "models", "_pickle_skip")
 
+    def __eq__(self, other) -> bool:
+        eq_position_nb = self.position_nb == other.position_nb
+        eq_rois = self.rois == other.rois
+        eq_drift_values = np.array_equal(self.drift_values, other.drift_values)
+        eq_drift_correction = self.drift_correction == other.drift_correction
+        eq_crop_windows = self.crop_windows == other.crop_windows
+        eq_verbose = self.verbose == other.verbose
+        eq__preprocessed = self._preprocessed == other._preprocessed
+        eqs = [
+            eq_position_nb,
+            eq_rois,
+            eq_drift_values,
+            eq_drift_correction,
+            eq_crop_windows,
+            eq_verbose,
+            eq__preprocessed
+        ]
+        return all(eqs)
+
+
     def __getstate__(self) -> Dict[str, Any]:
         """
         For pickle.
@@ -1063,6 +1083,58 @@ class ROI:
                 (box["ybr"] - box["ytl"]) / cfg.target_size_seg[0],
                 (box["xbr"] - box["xtl"]) / cfg.target_size_seg[1],
             )
+
+    def __eq__(self, other) -> bool:
+        print(f"ROI {self.roi_nb}")
+        eq_keys = self.__dict__.keys() == other.__dict__.keys()
+        if not eq_keys:
+            print("ROIs differ by arguments")
+        eq_verbose = self.verbose == other.verbose
+        if not eq_verbose:
+            print("ROIs differ by verbose")
+        eq_roi_nb = self.roi_nb == other.roi_nb
+        if not eq_roi_nb:
+            print("ROIs differ by roi_nb")
+        eq_crop_windows = self.crop_windows == other.crop_windows
+        if not eq_crop_windows:
+            print("ROIs differ by crop_windows")
+        eq_box = self.box == other.box
+        if not eq_box:
+            print("ROIs differ by box")
+            print(self.box)
+            print(other.box)
+        eq_img_stack = np.allclose(self.img_stack, other.img_stack, atol=2e-4)
+        if not eq_img_stack:
+            print("ROIs differ by img_stack")
+            try:
+                np.testing.assert_allclose(self.img_stack, other.img_stack, atol=2e-4)
+            except AssertionError as err:
+                print(err)
+        eq_seg_stack = np.array_equal(self.seg_stack, other.seg_stack)
+        if not eq_seg_stack:
+            print("ROIs differ by seg_stack")
+            try:
+                np.testing.assert_array_equal(self.seg_stack, other.seg_stack)
+            except AssertionError as err:
+                print(err)
+        eq_label_stack = np.array_equal(self.label_stack, other.label_stack)
+        if not eq_label_stack:
+            print("ROIs differ by label_stack")
+        eq_lineage = self.lineage == other.lineage
+        if not eq_lineage:
+            print("ROIs differ by lineage")
+        eqs = [
+            eq_keys,
+            eq_lineage,
+            eq_roi_nb,
+            eq_box,
+            eq_img_stack,
+            eq_seg_stack,
+            eq_label_stack,
+            eq_crop_windows,
+            eq_verbose
+        ]
+        return all(eqs)
 
     def get_segmentation_inputs(
         self, img: utils.Image
