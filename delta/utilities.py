@@ -2402,69 +2402,27 @@ def roi_features(
     assert isinstance(cellids, list)  # needed for mypy on Python < 3.8
     assert isinstance(contours, list)  # needed for mypy on Python < 3.8
 
+    cell_features = {}
     # Loop through cells in image, extract single-cell features:
-    cell_features = {
-        cellid: singlecell_features(
-            contour,
-            labels_frame == cellid + 1,
-            roi_box=roi_box,
-            fluo_frames=fluo_frames,
+    for cellid, contour in zip(cellids, contours):
+        mask = labels_frame == cellid + 1
+
+        fluo_values = cell_fluo(fluo_frames, mask, roi_box) if fluo_frames is not None else []
+
+        width, length = cell_width_length(contour)
+
+        cell_features[cellid] = CellFeatures(
+            new_pole=None,
+            old_pole=None,
+            edges=image_edges(contour, mask),
+            width=width,
+            length=length,
+            area=cell_area(contour),
+            perimeter=cell_perimeter(contour),
+            fluo=fluo_values,
         )
-        for cellid, contour in zip(cellids, contours)
-    }
+
     return cell_features
-
-
-def singlecell_features(
-    contour: Contour,
-    mask: SegmentationMask,
-    fluo_frames: Optional[np.ndarray] = None,
-    roi_box: Optional[CroppingBox] = None,
-) -> CellFeatures:
-    """
-    Extract features for a single cell.
-
-    Parameters
-    ----------
-    contour : list
-        Single cell contour from cv2 findcontours.
-    mask : 2D numpy array of bool
-        Mask of the region to extract (typically a single cell).
-    fluo_frames : 3D array, optional
-        Fluorescent images to extract fluo from. Dimensions are
-        (channels, size_y, size_x).
-        The default is None.
-    roi_box : CroppingBox, optional
-        Cropping box to apply shift when looking at full-frame fluo images.
-        The default is None.
-
-    Raises
-    ------
-    ValueError
-        If the number of fluo frames provided is different from the number of
-        fluo features to extract.
-
-    Returns
-    -------
-    features_dict : dict
-        Dictionary of requested features.
-
-    """
-
-    fluo_values = cell_fluo(fluo_frames, mask, roi_box) if fluo_frames is not None else []
-
-    width, length = cell_width_length(contour)
-
-    return CellFeatures(
-        new_pole=None,
-        old_pole=None,
-        edges=image_edges(contour, mask),
-        width=width,
-        length=length,
-        area=cell_area(contour),
-        perimeter=cell_perimeter(contour),
-        fluo=fluo_values,
-    )
 
 
 def image_edges(contour: Contour, image: npt.NDArray[Any]) -> str:
