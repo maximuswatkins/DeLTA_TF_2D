@@ -2376,7 +2376,7 @@ def roi_features(
     features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
     fluo_frames: Optional[np.ndarray] = None,
     roi_box: Optional[CroppingBox] = None,
-) -> Tuple[List[int], List[CellFeatures]]:
+) -> Dict[int, CellFeatures]:
     """
     Extract single-cell morphological and fluorescence features.
 
@@ -2399,32 +2399,26 @@ def roi_features(
 
     Returns
     -------
-    cell_nbs : list of ints
-        IDs of cells present in the labels frame
-    cell_features : list of CellFeatures
-        List of CellFeatures objects with values for requested features.
+    cell_features : Dict[int, CellFeatures]
+        Dictionary that associates cellids and CellFeatures.
     """
     # Cell numbers and contours:
-    cell_nbs, contours = getcellsinframe(labels_frame, return_contours=True)
-    assert isinstance(cell_nbs, list)  # needed for mypy on Python < 3.8
+    cellids, contours = getcellsinframe(labels_frame, return_contours=True)
+    assert isinstance(cellids, list)  # needed for mypy on Python < 3.8
     assert isinstance(contours, list)  # needed for mypy on Python < 3.8
 
     # Loop through cells in image, extract single-cell features:
-    cell_features = []
-    for cell, contour in zip(cell_nbs, contours):
-
-        # Append to features list:
-        cell_features += [
-            singlecell_features(
-                contour,
-                labels_frame == cell + 1,
-                features=features,
-                roi_box=roi_box,
-                fluo_frames=fluo_frames,
-            )
-        ]
-
-    return cell_nbs, cell_features
+    cell_features = {
+        cellid: singlecell_features(
+            contour,
+            labels_frame == cellid + 1,
+            features=features,
+            roi_box=roi_box,
+            fluo_frames=fluo_frames,
+        )
+        for cellid, contour in zip(cellids, contours)
+    }
+    return cell_features
 
 
 def singlecell_features(

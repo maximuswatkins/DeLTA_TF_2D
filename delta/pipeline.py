@@ -1374,7 +1374,7 @@ class ROI:
             raise ValueError(f"Asked for frame {frame} but label_stack has only {len(self.label_stack)} frames")
 
         # Extract features for all cells in the ROI:
-        cells, extracted_features = utils.roi_features(
+        extracted_features = utils.roi_features(
             self.label_stack[frame],
             features=features,
             fluo_frames=fluo_frames,
@@ -1382,10 +1382,10 @@ class ROI:
         )
 
         # Add feature values to lineage for each cell:
-        for cell, cell_features in zip(cells, extracted_features):
-            for feature_name, feature_val in cell_features.__dict__.items():
+        for cellid, features in extracted_features.items():
+            for feature_name, feature_val in features.__dict__.items():
                 if feature_name == "fluo":
                     for ifluo, fluo in enumerate(feature_val, start=1):
-                        self.lineage.setvalue(cell, frame, f"fluo{ifluo}", fluo)
+                        self.lineage.setvalue(cellid, frame, f"fluo{ifluo}", fluo)
                 elif feature_name not in ["new_pole", "old_pole"]:
-                    self.lineage.setvalue(cell, frame, feature_name, feature_val)
+                    self.lineage.setvalue(cellid, frame, feature_name, feature_val)
