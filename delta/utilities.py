@@ -1235,7 +1235,7 @@ class Lineage:
         None.
 
         """
-        self.cells = []
+        self.cells = {}
         """List of single-cell dictionaries
         Each dictionary will contain single-cell lineage and extracted feature
         properties"""
@@ -1262,12 +1262,12 @@ class Lineage:
     def __str__(self) -> str:
         """Display representation of the Lineage."""
         return "\n".join(
-            f"cell #{icell:04}: "
+            f"cell #{cellid:04}: "
             + "".join(
                 " +"[iframe in cell["frames"]]
                 for iframe in range(max(cell["frames"]) + 1)
             )
-            for icell, cell in enumerate(self.cells)
+            for cellid, cell in self.cells.items()
         )
 
     def update(
@@ -1405,7 +1405,7 @@ class Lineage:
                 "old_pole": [old_pole],
             }
         )
-        self.cells.append(new_cell)
+        self.cells[new_cell["id"]] = new_cell
 
         return new_cell["id"]
 
