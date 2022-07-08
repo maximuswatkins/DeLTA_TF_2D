@@ -2373,7 +2373,6 @@ def vidwrite(
 
 def roi_features(
     labels_frame: npt.NDArray[np.uint16],
-    features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
     fluo_frames: Optional[np.ndarray] = None,
     roi_box: Optional[CroppingBox] = None,
 ) -> Dict[int, CellFeatures]:
@@ -2384,10 +2383,6 @@ def roi_features(
     ----------
     labels_frame : 2D array of uint16
         Labels image of numbered cell regions.
-    features : list of str, optional
-        Features to extract. Valid features are 'length','width','area',
-        'perimeter','edges','fluo1','fluo2',...,'fluoN'.
-        The default is ('length','width','area','perimeter','edges').
     fluo_frames : 3D array, optional
         Array of fluo frames to extract fluorescence from. Dimensions are
         (size_x, size_y, fluo_channels). The number of fluo_channels must match
@@ -2412,7 +2407,6 @@ def roi_features(
         cellid: singlecell_features(
             contour,
             labels_frame == cellid + 1,
-            features=features,
             roi_box=roi_box,
             fluo_frames=fluo_frames,
         )
@@ -2424,7 +2418,6 @@ def roi_features(
 def singlecell_features(
     contour: Contour,
     mask: SegmentationMask,
-    features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
     fluo_frames: Optional[np.ndarray] = None,
     roi_box: Optional[CroppingBox] = None,
 ) -> CellFeatures:
@@ -2437,10 +2430,6 @@ def singlecell_features(
         Single cell contour from cv2 findcontours.
     mask : 2D numpy array of bool
         Mask of the region to extract (typically a single cell).
-    features : list of str, optional
-        Features to extract. Valid features are 'length','width','area',
-        'perimeter','edges','fluo1','fluo2',...,'fluoN'.
-        The default is ('length','width','area','perimeter','edges').
     fluo_frames : 3D array, optional
         Fluorescent images to extract fluo from. Dimensions are
         (channels, size_y, size_x).
@@ -2462,19 +2451,7 @@ def singlecell_features(
 
     """
 
-    # Fluo features:
-    fluo_values = []
-    fluo_features = [x for x in features if x[0:4] == "fluo"]
-    if len(fluo_features) > 0:
-        if fluo_frames is None:
-            raise ValueError("You did not provide fluo frames")
-        if len(fluo_features) != fluo_frames.shape[0]:
-            raise ValueError(
-                "You should provide exactly as many fluo frames as you want "
-                f"fluo features to extract. Here fluo_frames.shape[0]={fluo_frames.shape[0]} "
-                f"but you ask for {len(fluo_features)} fluo features: {fluo_features}"
-            )
-        fluo_values = cell_fluo(fluo_frames, mask, roi_box)
+    fluo_values = cell_fluo(fluo_frames, mask, roi_box) if fluo_frames is not None else []
 
     width, length = cell_width_length(contour)
 

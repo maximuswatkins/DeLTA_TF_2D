@@ -636,7 +636,6 @@ class Position:
                 roi.extract_features(
                     frame=f,
                     fluo_frames=fluo_frames[f] if fluo_frames is not None else None,
-                    features=features,
                 )
 
         # Now extracting multi-frame features
@@ -1335,13 +1334,6 @@ class ROI:
         self,
         frame: Optional[int] = None,
         fluo_frames: Optional[np.ndarray] = None,
-        features: Tuple[str, ...] = (
-            "length",
-            "width",
-            "area",
-            "perimeter",
-            "edges",
-        ),
     ) -> None:
         """
         Extract single cell features.
@@ -1356,10 +1348,6 @@ class ROI:
             Fluorescent images to extract fluo from. Dimensions are
             (channels, size_y, size_x).
             The default is None.
-        features : list or tuple of str, optional
-            Features to extract. Options are ("length", "width", "area", "fluo1",
-            "fluo2", "fluo3"...)
-            The default is ("length", "width", "area", "perimeter", "edges").
 
         Returns
         -------
@@ -1376,7 +1364,6 @@ class ROI:
         # Extract features for all cells in the ROI:
         extracted_features = utils.roi_features(
             self.label_stack[frame],
-            features=features,
             fluo_frames=fluo_frames,
             roi_box=self.box,
         )
