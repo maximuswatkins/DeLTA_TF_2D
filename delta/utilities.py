@@ -2426,7 +2426,6 @@ def roi_features(
         IDs of cells present in the labels frame
     cell_features : list of dict
         List of dictionary with values for requested features.
-
     """
     # Cell numbers and contours:
     cell_nbs, contours = getcellsinframe(labels_frame, return_contours=True)
