@@ -1039,7 +1039,7 @@ class ROI:
         "Segmentation images stack"
         self.lineage = utils.Lineage()
         "Lineage object for ROI"
-        self.label_stack: List[Optional[utils.Labels]] = []
+        self.label_stack: List[utils.Labels] = []
         "Labelled images stack"
         self.crop_windows: bool = crop_windows
         "Flag to crop overlapping windows for segmentation"
@@ -1310,6 +1310,7 @@ class ROI:
         """
 
         # Get scores and attributions:
+        # label frame but numbered 1, 2, 3, 4, etc. (temporary labels)
         labels = utils.label_seg(self.seg_stack[frame])
         assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
         scores = utils.getTrackingScores(
@@ -1377,35 +1378,30 @@ class ROI:
         if frame is None:
             frame = len(self.label_stack)
 
-        # Add Nones to label stack list if not long enough:
-        if len(self.label_stack) <= frame:
-            self.label_stack += [None] * (frame + 1 - len(self.label_stack))
+        if len(self.label_stack) < frame:
+            raise ValueError(f"Asked for frame {frame} but label_stack has only {len(self.label_stack)} frames")
 
         # Compile labels frame:
-        if self.label_stack[frame] is None:
+        if len(self.label_stack) == frame:
             if len(self.lineage.cellnumbers) <= frame:
                 cell_nbs = []
             else:
                 cell_nbs = [c + 1 for c in self.lineage.cellnumbers[frame]]
             labels = utils.label_seg(self.seg_stack[frame], cell_nbs)
-            assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
 
-            if self.crop_windows:
-                self.label_stack[frame] = labels
-            else:
+            if not self.crop_windows:
                 resize = (
                     self.box.xbr - self.box.xtl,
                     self.box.ybr - self.box.ytl,
                 )
-                self.label_stack[frame] = cv2.resize(
-                    labels, resize, interpolation=cv2.INTER_NEAREST
-                )
+                labels = cv2.resize(labels, resize, interpolation=cv2.INTER_NEAREST)
 
-        fr = self.label_stack[frame]
-        assert fr is not None  # for mypy
+            assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
+            self.label_stack.append(labels)
+
         # Extract features for all cells in the ROI:
         cells, extracted_features = utils.roi_features(
-            fr,
+            self.label_stack[frame],
             features=features,
             fluo_frames=fluo_frames,
             roi_box=self.box,
