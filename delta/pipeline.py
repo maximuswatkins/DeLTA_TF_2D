@@ -1332,7 +1332,7 @@ class ROI:
 
     def extract_features(
         self,
-        frame: Optional[int] = None,
+        frame: int,
         fluo_frames: Optional[np.ndarray] = None,
     ) -> None:
         """
@@ -1340,10 +1340,8 @@ class ROI:
 
         Parameters
         ----------
-        frame : int, optional
-            The frame to extract for. If None, the earliest frame not yet
-            extracted is run.
-            The default is None.
+        frame : int
+            The frame to extract for.
         fluo_frames : 3D array, optional
             Fluorescent images to extract fluo from. Dimensions are
             (channels, size_y, size_x).
@@ -1354,9 +1352,6 @@ class ROI:
         None.
 
         """
-        # Default frame:
-        if frame is None:
-            frame = len(self.label_stack)
 
         if len(self.label_stack) <= frame:
             raise ValueError(f"Asked for frame {frame} but label_stack has only {len(self.label_stack)} frames")
