@@ -1,0 +1,10 @@
+# For this file to take effect make sure you use git ^2.23 and
+# add blame.ignoreRevsFile to your git configuration:
+# ```
+# git config --global blame.ignoreRevsFile .git-blame-ignore-revs
+# ```
+
+# Renormalize line endings
+65987a58536562f4e6283d2992ea452ae1764570
+# Run black on the codebase
+0dad305daa83193a1f4cc8d985b4c8bc46a3865f
