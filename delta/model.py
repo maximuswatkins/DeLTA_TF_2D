@@ -204,20 +204,20 @@ def unstack_acc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
 def _unet(
     input_layer: tf.Tensor,
-    features: List[int],
+    filters: List[int],
     levels: int,
     conv2d_kwargs: Dict[str, str],
     dropout: float = 0.0,
 ):
     """
     A recursive function to create a U-Net.
-    The number of features at each level are specified with the `features` argument.
+    The number of filters at each level are specified with the `filters` argument.
 
     Parameters
     ----------
     input_layer : tf.Tensor
         The convolutional layer that is the output of the U-Net.
-    features : [int]
+    filters : [int]
         Number of convolutional kernels for each level of the network.
     levels : int
         The total number of layers in the U-Net (to give the correct name to layers).
@@ -234,20 +234,20 @@ def _unet(
 
     """
 
-    name = f"Level{levels - len(features)}"
+    name = f"Level{levels - len(filters)}"
 
-    features_here, *features_next = features
+    filters_here, *filters_next = filters
 
     # Initial convolutions
-    conv1 = Conv2D(features_here, 3, **conv2d_kwargs, name=f"{name}_Conv2D_1")(
+    conv1 = Conv2D(filters_here, 3, **conv2d_kwargs, name=f"{name}_Conv2D_1")(
         input_layer
     )
-    conv2 = Conv2D(features_here, 3, **conv2d_kwargs, name=f"{name}_Conv2D_2")(conv1)
+    conv2 = Conv2D(filters_here, 3, **conv2d_kwargs, name=f"{name}_Conv2D_2")(conv1)
 
     if dropout > 0.0:
         conv2 = Dropout(dropout, name=f"{name}_Dropout_1")(conv2)
 
-    if not features_next:
+    if not filters_next:
         # This is the last layer
         return conv2
 
@@ -257,7 +257,7 @@ def _unet(
     # Recursive unet
     output = _unet(
         pool,
-        features=features_next,
+        filters=filters_next,
         levels=levels,
         conv2d_kwargs=conv2d_kwargs,
         dropout=dropout,
@@ -265,14 +265,14 @@ def _unet(
 
     # Up-sampling
     up = UpSampling2D(size=(2, 2), name=f"{name}_UpSampling2D")(output)
-    conv3 = Conv2D(features_here, 2, **conv2d_kwargs, name=f"{name}_Conv2D_3")(up)
+    conv3 = Conv2D(filters_here, 2, **conv2d_kwargs, name=f"{name}_Conv2D_3")(up)
 
     # Merge with skip connection layer
     merge = Concatenate(axis=3, name=name + "_Concatenate")([conv2, conv3])
 
     # Final convolutions
-    conv4 = Conv2D(features_here, 3, **conv2d_kwargs, name=f"{name}_Conv2D_4")(merge)
-    conv5 = Conv2D(features_here, 3, **conv2d_kwargs, name=f"{name}_Conv2D_5")(conv4)
+    conv4 = Conv2D(filters_here, 3, **conv2d_kwargs, name=f"{name}_Conv2D_4")(merge)
+    conv5 = Conv2D(filters_here, 3, **conv2d_kwargs, name=f"{name}_Conv2D_5")(conv4)
 
     if dropout > 0.0:
         conv5 = Dropout(dropout, name=f"{name}_Dropout_2")(conv5)
@@ -288,6 +288,7 @@ def unet(
     output_classes: int = 1,
     dropout: float = 0,
     levels: int = 5,
+    filters: List[int] = None,
 ) -> Model:
     """
     Generic U-Net declaration.
@@ -311,8 +312,11 @@ def unet(
         The default is 0.
     levels : int, optional
         Number of levels of the U-Net, ie number of successive contraction then
-        expansion blocks are combined together.
+        expansion blocks are combined together. Ignored if `filters` is specified.
         The default is 5.
+    filters : [int], optional
+        Number of convolutional kernels at each level.  The default is
+        starting with 64 and multiplying by 2 at each level.
 
     Returns
     -------
@@ -328,14 +332,17 @@ def unet(
         "kernel_initializer": "he_normal",
     }
 
-    features = [64 * 2**i for i in range(levels)]
+    if filters is None:
+        filters = [64 * 2**i for i in range(levels)]
+    else:
+        levels = len(filters)
 
     # Inputs layer
     true_input = Input(input_size, name="true_input")
 
     output = _unet(
         true_input,
-        features=features,
+        filters=filters,
         levels=levels,
         conv2d_kwargs=conv2d_kwargs,
         dropout=dropout,
@@ -356,6 +363,7 @@ def unet_seg(
     pretrained_weights: str = None,
     input_size: Tuple[int, int, int] = (256, 32, 1),
     levels: int = 5,
+    filters: List[int] = None,
 ) -> Model:
     """
     Cell segmentation U-Net definition function.
@@ -370,8 +378,11 @@ def unet_seg(
         The default is (256,32,1).
     levels : int, optional
         Number of levels of the U-Net, ie number of successive contraction then
-        expansion blocks are combined together.
+        expansion blocks are combined together. Ignored if `filters` is specified.
         The default is 5.
+    filters : [int], optional
+        Number of convolutional kernels at each level.  The default is
+        starting with 64 and multiplying by 2 at each level.
 
     Returns
     -------
@@ -385,6 +396,7 @@ def unet_seg(
         final_activation="sigmoid",
         output_classes=1,
         levels=levels,
+        filters=filters,
     )
 
     model.compile(
@@ -404,6 +416,7 @@ def unet_track(
     pretrained_weights: str = None,
     input_size: Tuple[int, int, int] = (256, 32, 4),
     levels: int = 5,
+    filters: List[int] = None,
 ) -> Model:
     """
     Tracking U-Net definition function.
@@ -418,8 +431,11 @@ def unet_track(
         The default is (256,32,4).
     levels : int, optional
         Number of levels of the U-Net, ie number of successive contraction then
-        expansion blocks are combined together.
+        expansion blocks are combined together. Ignored if `filters` is specified.
         The default is 5.
+    filters : [int], optional
+        Number of convolutional kernels at each level.  The default is
+        starting with 64 and multiplying by 2 at each level.
 
     Returns
     -------
@@ -433,6 +449,7 @@ def unet_track(
         final_activation="sigmoid",
         output_classes=1,
         levels=levels,
+        filters=filters,
     )
 
     model.compile(
@@ -449,7 +466,7 @@ def unet_track(
 
 # Use the following model for segmentation:
 def unet_rois(
-    input_size: Tuple[int, int, int] = (512, 512, 1), levels: int = 5
+    input_size: Tuple[int, int, int] = (512, 512, 1), levels: int = 5, filters: List[int] = None,
 ) -> Model:
     """
     ROIs segmentation U-Net.
@@ -461,8 +478,11 @@ def unet_rois(
         The default is (512,512,1).
     levels : int, optional
         Number of levels of the U-Net, ie number of successive contraction then
-        expansion blocks are combined together.
+        expansion blocks are combined together. Ignored if `filters` is specified.
         The default is 5.
+    filters : [int], optional
+        Number of convolutional kernels at each level.  The default is
+        starting with 64 and multiplying by 2 at each level.
 
     Returns
     -------
@@ -476,6 +496,7 @@ def unet_rois(
         final_activation="sigmoid",
         output_classes=1,
         levels=levels,
+        filters=filters,
     )
 
     model.compile(optimizer=Adam(learning_rate=1e-4), loss="binary_crossentropy")
