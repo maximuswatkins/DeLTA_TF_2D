@@ -13,7 +13,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import (
     Input,
     Conv2D,
-    MaxPooling2D,
+    MaxPool2D,
     Dropout,
     UpSampling2D,
     Concatenate,
@@ -331,7 +331,7 @@ def contracting_block(
     """
 
     # Pooling layer: (sample 'images' down by factor 2)
-    pool = MaxPooling2D(pool_size=(2, 2), name=name + "_MaxPooling2D")(input_layer)
+    pool = MaxPool2D(pool_size=(2, 2), name=name + "_MaxPool2D")(input_layer)
 
     # First convolution layer:
     conv1 = Conv2D(filters, 3, **conv2d_parameters, name=name + "_Conv2D_1")(pool)
