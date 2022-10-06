@@ -1,10 +1,27 @@
-stages:
-  - publish
+test:
+  stage: test
+  
+  image: continuumio/miniconda3:latest
 
-image: python:3
+  before_script:
+    - date
+    - apt-get update
+    - apt-get install -y libgl1
+    - apt-get clean
+    - conda env create --file delta_env.yml
+    - source activate delta_env
+    - pip install pytest pytest-order
+    - date
+    - python -c "import delta; delta.assets.download_assets(load_models=True, load_sets=False, load_evals=False, config_level='global')"
+  
+  script:
+    - date
+    - pytest -k "not download_assets and not test_train"
 
-publish:
-  stage: publish
+deploy:
+  stage: deploy
+
+  image: python:latest
   
   variables:
     TWINE_USERNAME: $PRODUCTION_USERNAME
