@@ -69,7 +69,7 @@ def test_train_moma_rois():
     )
 
     # Train:
-    history = model.fit_generator(
+    history = model.fit(
         myGene,
         steps_per_epoch=steps_per_epoch,
         epochs=epochs,
