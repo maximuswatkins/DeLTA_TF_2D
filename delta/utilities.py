@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 from threading import Thread
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import cv2
 import ffmpeg
@@ -2768,6 +2768,27 @@ def findfirst(mylist: List) -> Optional[int]:
 
     """
     return next((i for i, x in enumerate(mylist) if x > 0), None)
+
+
+def listfiles(directory: Path, suffixes: Iterable[str]) -> [Path]:
+    """
+    Returns a sorted list of filenames in `directory` that have one of the
+    specified extensions.
+
+    Parameters
+    ----------
+    directory : Path
+        Directory to iterate.
+    suffixes : Iterable[str]
+        List, tuple, set, etc. of allowed extensions.
+
+    Returns
+    -------
+    [Path]
+        List of matching filenames.
+    """
+
+    return sorted(p for p in directory.iterdir() if p.suffix in suffixes)
 
 
 def tensorboard_callback():

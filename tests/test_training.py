@@ -4,8 +4,6 @@ Created on Tue Nov  9 16:40:02 2021
 
 @author: jeanbaptiste
 """
-import os
-
 import pytest
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
@@ -21,9 +19,7 @@ def test_train_moma_rois():
 
     # Files:
     training_set = cfg.training_set_rois
-    savefile = os.path.join(
-        cfg._DELTA_DIR, "assets", "test_models", "test_train_mothermachine_rois.hdf5"
-    )
+    savefile = cfg._DELTA_DIR / "assets/test_models/test_train_mothermachine_rois.hdf5"
 
     # Parameters:
     batch_size = 1
@@ -48,8 +44,8 @@ def test_train_moma_rois():
     # Generator init:
     myGene = trainGenerator_seg(
         batch_size,
-        os.path.join(training_set, "img"),
-        os.path.join(training_set, "seg"),
+        training_set / "img",
+        training_set / "seg",
         None,
         augment_params=data_gen_args,
         target_size=cfg.target_size_rois,
@@ -93,9 +89,7 @@ def _train_seg(presets, batch_size=1):
 
     # Files:
     training_set = cfg.training_set_seg
-    savefile = os.path.join(
-        cfg._DELTA_DIR, "assets", "test_models", "test_train_%s_seg.hdf5" % presets
-    )
+    savefile = cfg._DELTA_DIR / f"assets/test_models/test_train_{presets}_seg.hdf5"
 
     # Training parameters:
     # batch_size = 2
@@ -118,9 +112,9 @@ def _train_seg(presets, batch_size=1):
     # Generator init:
     myGene = trainGenerator_seg(
         batch_size,
-        os.path.join(training_set, "img"),
-        os.path.join(training_set, "seg"),
-        os.path.join(training_set, "wei"),
+        training_set / "img",
+        training_set / "seg",
+        training_set / "wei",
         augment_params=data_gen_args,
         target_size=cfg.target_size_seg,
         crop_windows=cfg.crop_windows,
@@ -163,9 +157,7 @@ def _train_track(presets):
 
     # Files:
     training_set = cfg.training_set_track
-    savefile = savefile = os.path.join(
-        cfg._DELTA_DIR, "assets", "test_models", "test_train_%s_track.hdf5" % presets
-    )
+    savefile = savefile = cfg._DELTA_DIR / f"assets/test_models/test_train_{presets}_track.hdf5"
 
     # Training parameters:
     batch_size = 2
@@ -185,12 +177,12 @@ def _train_track(presets):
     # Generator init:
     myGene = trainGenerator_track(
         batch_size,
-        os.path.join(training_set, "img"),
-        os.path.join(training_set, "seg"),
-        os.path.join(training_set, "previmg"),
-        os.path.join(training_set, "segall"),
-        os.path.join(training_set, "mot_dau"),
-        os.path.join(training_set, "wei"),
+        training_set / "img",
+        training_set / "seg",
+        training_set / "previmg",
+        training_set / "segall",
+        training_set / "mot_dau",
+        training_set / "wei",
         data_gen_args,
         target_size=cfg.target_size_track,
         crop_windows=cfg.crop_windows,
