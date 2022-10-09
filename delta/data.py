@@ -8,14 +8,14 @@ from __future__ import print_function
 import os
 import glob
 import re
-import random
 import warnings
 import copy
 import importlib
-from typing import cast, Tuple, List, Dict, Union, Iterator, Generator, Any, Optional
+from typing import cast, Tuple, List, Dict, Union, Iterator, Any, Optional
 
 import cv2
 import numpy as np
+import numpy.random as npr
 import numpy.typing as npt
 import skimage.io as io
 import skimage.transform as trans
@@ -180,6 +180,7 @@ def data_augmentation(
     aug_par: Dict[str, Any],
     order: Union[int, List[int], Tuple[int, ...]] = 0,
     time: Union[int, List[int]] = 0,
+    rng : npr.Generator = None,
 ) -> List[npt.NDArray[Any]]:
     """
     Data augmentation function
@@ -251,6 +252,9 @@ def data_augmentation(
 
     """
 
+    if rng is None:
+        rng = npr.default_rng()
+
     # processing inputs / initializing variables::
     output = list(images_input)
     orderlist = [order] * len(images_input) if isinstance(order, int) else list(order)
@@ -262,29 +266,29 @@ def data_augmentation(
             for index, item in enumerate(output):
                 # Not super elegant, but tells me if binary or grayscale image
                 if orderlist[index] > 0:
-                    output[index] = illumination_voodoo(item)
+                    output[index] = illumination_voodoo(item, rng)
 
     if "histogram_voodoo" in aug_par:
         if aug_par["histogram_voodoo"]:
             for index, item in enumerate(output):
                 # Not super elegant, but tells me if binary or grayscale image
                 if orderlist[index] > 0:
-                    output[index] = histogram_voodoo(item)
+                    output[index] = histogram_voodoo(item, rng)
 
     if "gaussian_noise" in aug_par:
         if aug_par["gaussian_noise"]:
-            sigma = np.random.rand() * aug_par["gaussian_noise"]
+            sigma = rng.uniform(0, aug_par["gaussian_noise"])
             for index, item in enumerate(output):
                 # Not super elegant, but tells me if binary or grayscale image
                 if orderlist[index] > 0:
                     # Add Gaussian noise
-                    item = item + np.random.normal(0, sigma, item.shape)
+                    item = rng.normal(item, sigma)
                     # Rescale to 0-1
                     output[index] = (item - np.min(item)) / np.ptp(item)
 
     if "gaussian_blur" in aug_par:
         if aug_par["gaussian_blur"]:
-            sigma = np.random.rand() * aug_par["gaussian_blur"]
+            sigma = rng.uniform(0, aug_par["gaussian_blur"])
             for index, item in enumerate(output):
                 # Not super elegant, but tells me if binary or grayscale image
                 if orderlist[index] > 0:
@@ -305,19 +309,19 @@ def data_augmentation(
 
     if "horizontal_flip" in aug_par:
         if aug_par["horizontal_flip"]:
-            if random.randint(0, 1):  # coin flip
+            if rng.choice(2):
                 for index, item in enumerate(output):
                     output[index] = np.fliplr(item)
 
     if "vertical_flip" in aug_par:
         if aug_par["vertical_flip"]:
-            if random.randint(0, 1):  # coin flip
+            if rng.choice(2):
                 for index, item in enumerate(output):
                     output[index] = np.flipud(item)
 
     if "rotations_90d" in aug_par:  # Only works with square images right now!
         if aug_par["rotations_90d"]:
-            rot = random.randint(0, 3) * 90.0
+            rot = rng.choice(4) * 90
             if rot > 0:
                 for index, item in enumerate(output):
                     output[index] = trans.rotate(
@@ -325,25 +329,25 @@ def data_augmentation(
                     )
 
     if "rotation" in aug_par:
-        rot = random.uniform(-aug_par["rotation"], aug_par["rotation"])
+        rot = rng.uniform(-aug_par["rotation"], aug_par["rotation"])
         for index, item in enumerate(output):
             output[index] = trans.rotate(item, rot, mode="edge", order=orderlist[index])
 
     # Zoom and shift operations are processed together:
     if "zoom" in aug_par:
         # I want most of them to not be too zoomed
-        zoom = random.expovariate(3 * 1 / aug_par["zoom"])
+        zoom = rng.exponential(aug_par["zoom"] / 3.0)
         zoom = aug_par["zoom"] if zoom > aug_par["zoom"] else zoom
     else:
         zoom = 0
 
     if "shiftX" in aug_par:
-        shiftX = random.uniform(-aug_par["shiftX"], aug_par["shiftX"])
+        shiftX = rng.uniform(-aug_par["shiftX"], aug_par["shiftX"])
     else:
         shiftX = 0
 
     if "shiftY" in aug_par:
-        shiftY = random.uniform(-aug_par["shiftY"], aug_par["shiftY"])
+        shiftY = rng.uniform(-aug_par["shiftY"], aug_par["shiftY"])
     else:
         shiftY = 0
 
@@ -423,7 +427,7 @@ def shift(
     return shifted
 
 
-def histogram_voodoo(image: utils.Image, num_control_points: int = 3) -> utils.Image:
+def histogram_voodoo(image: utils.Image, rng: npr.Generator, num_control_points: int = 3) -> utils.Image:
     """
     This function kindly provided by Daniel Eaton from the Paulsson lab.
     It performs an elastic deformation on the image histogram to simulate
@@ -433,6 +437,8 @@ def histogram_voodoo(image: utils.Image, num_control_points: int = 3) -> utils.I
     ----------
     image : 2D numpy array
         Input image.
+    rng : npr.Generator
+        Pseudo-random number generator.
     num_control_points : int, optional
         Number of inflection points to use on the histogram conversion curve.
         The default is 3.
@@ -445,14 +451,14 @@ def histogram_voodoo(image: utils.Image, num_control_points: int = 3) -> utils.I
     """
     control_points = np.linspace(0, 1, num=num_control_points + 2)
     sorted_points = copy.copy(control_points)
-    random_points = np.random.uniform(low=0.1, high=0.9, size=num_control_points)
+    random_points = rng.uniform(low=0.1, high=0.9, size=num_control_points)
     sorted_points[1:-1] = np.sort(random_points)
     mapping = interpolate.PchipInterpolator(control_points, sorted_points)
 
     return mapping(image)
 
 
-def illumination_voodoo(image: utils.Image, num_control_points: int = 5) -> utils.Image:
+def illumination_voodoo(image: utils.Image, rng: npr.Generator, num_control_points: int = 5) -> utils.Image:
     """
     This function inspired by the one above.
     It simulates a variation in illumination along the length of the chamber
@@ -461,6 +467,8 @@ def illumination_voodoo(image: utils.Image, num_control_points: int = 5) -> util
     ----------
     image : 2D numpy array
         Input image.
+    rng : npr.Generator
+        Pseudo-random number generator.
     num_control_points : int, optional
         Number of inflection points to use on the illumination multiplication
         curve.
@@ -475,7 +483,7 @@ def illumination_voodoo(image: utils.Image, num_control_points: int = 5) -> util
 
     # Create a random curve along the length of the chamber:
     control_points = np.linspace(0, image.shape[0] - 1, num=num_control_points)
-    random_points = np.random.uniform(low=0.1, high=0.9, size=num_control_points)
+    random_points = rng.uniform(low=0.1, high=0.9, size=num_control_points)
     mapping = interpolate.PchipInterpolator(control_points, random_points)
     curve = mapping(np.linspace(0, image.shape[0] - 1, image.shape[0]))
     # Apply this curve to the image intensity along the length of the chamebr:
@@ -532,8 +540,11 @@ def trainGenerator_seg(
         generator.
         The default is False.
     seed : int, optional
-        Seed for numpy's random generator. see numpy.random.seed() doc
+        Seed for the random number generator.
         The default is 1.
+    crop_windows : bool, optional
+        TODO
+        The default is False.
 
     Yields
     ------
@@ -551,9 +562,9 @@ def trainGenerator_seg(
     preload_weight = []
 
     # Get training image files list:
-    image_name_arr = glob.glob(os.path.join(img_path, "*.png")) + glob.glob(
+    image_name_arr = sorted(glob.glob(os.path.join(img_path, "*.png")) + glob.glob(
         os.path.join(img_path, "*.tif")
-    )
+    ))
 
     # If preloading, load the images and compute weight maps:
     if preload:
@@ -584,8 +595,8 @@ def trainGenerator_seg(
                     ),
                 )
 
-    # Reset the pseudo-random generator:
-    random.seed(a=seed)
+    # Create a seeded PRNG
+    rng = npr.default_rng(seed)
 
     image_arr = np.empty((batch_size,) + target_size + (1,), dtype=np.float32)
     if weight_path is None:
@@ -598,7 +609,7 @@ def trainGenerator_seg(
 
         for b in range(batch_size):
             # Pick random image index:
-            index = random.randrange(0, len(image_name_arr))
+            index = rng.integers(len(image_name_arr))
 
             if preload:
                 # Get from preloaded arrays:
@@ -629,9 +640,9 @@ def trainGenerator_seg(
                     )
 
             if crop_windows:
-                y0 = np.random.randint(0, img.shape[0] - (target_size[0] - 1))
+                y0 = rng.integers(img.shape[0] - (target_size[0] - 1))
                 y1 = y0 + target_size[0]
-                x0 = np.random.randint(0, img.shape[1] - (target_size[1] - 1))
+                x0 = rng.integers(img.shape[1] - (target_size[1] - 1))
                 x1 = x0 + target_size[1]
 
                 img = img[y0:y1, x0:x1]
@@ -642,11 +653,11 @@ def trainGenerator_seg(
             # Data augmentation:
             if weight_path is not None:
                 [img, mask, weight] = data_augmentation(
-                    [img, mask, weight], augment_params, order=[1, 0, 0]
+                    [img, mask, weight], augment_params, order=[1, 0, 0], rng=rng
                 )
             else:
                 [img, mask] = data_augmentation(
-                    [img, mask], augment_params, order=[1, 0]
+                    [img, mask], augment_params, order=[1, 0], rng=rng
                 )
 
             # Compile into output arrays:
@@ -837,7 +848,7 @@ def kernel(n: int) -> utils.SegmentationMask:
 
 
 def estimate_seg2D_classweights(
-    mask_path: str, sample_size: int = None
+    mask_path: str, sample_size: int = None, rng: npr.Generator = None
 ) -> Tuple[float, float]:
     """
     Estimate the weights to assign each class in the weight maps
@@ -847,7 +858,10 @@ def estimate_seg2D_classweights(
     mask_path : str
         Path to folder containing segmentations.
     sample_size : int, optional
-        Determines the size of the training set that will be used to calcualte class weights. The default is None.
+        Determines the size of the training set that will be used to calcualte class weights.
+        The default is None.
+    rng : npr.Generator, optional
+        Pseudo-random number generator used to subsample the dataset if needed.
 
     Returns
     -------
@@ -857,13 +871,15 @@ def estimate_seg2D_classweights(
         weight of class 2.
 
     """
-    mask_name_arr = glob.glob(os.path.join(mask_path, "*.png")) + glob.glob(
+    mask_name_arr = sorted(glob.glob(os.path.join(mask_path, "*.png")) + glob.glob(
         os.path.join(mask_path, "*.tif")
-    )
+    ))
 
-    # Take a sample size of training set to reduce computation time.
+    # Subsample the training set to reduce computation time.
     if sample_size:
-        mask_name_arr = random.sample(mask_name_arr, sample_size)
+        if rng is None:
+            rng = npr.default_rng()
+        mask_name_arr = rng.choice(mask_name_arr, sample_size)
 
     c1 = 0
     c2 = 0
@@ -1074,7 +1090,7 @@ def trainGenerator_track(
         pixels will be applied only to the the cropbox for the current timepoint
         input frames (img,segall,mot_dau,wei), to simulate image drift over time.
     seed : int, optional
-        Seed for numpy's random generator. see numpy.random.seed() doc
+        Seed for numpy's random generator.
         The default is 1.
 
     Yields
@@ -1090,14 +1106,14 @@ def trainGenerator_track(
     """
 
     # Initialize variables and arrays:
-    image_name_arr = glob.glob(os.path.join(img_path, "*.png")) + glob.glob(
+    image_name_arr = sorted(glob.glob(os.path.join(img_path, "*.png")) + glob.glob(
         os.path.join(img_path, "*.tif")
-    )
+    ))
     X = np.empty((batch_size,) + target_size + (4,), dtype=np.float32)
     Y = np.empty((batch_size,) + target_size + (2,), dtype=np.float32)
 
-    # Reset the pseudo-random generator:
-    random.seed(a=seed)
+    # Create a PNRG
+    rng = npr.default_rng(seed)
 
     while True:
 
@@ -1105,9 +1121,8 @@ def trainGenerator_track(
         Y[:, :, :, :] = 0
 
         for b in range(batch_size):
-            # Pick random image file name:
-            index = random.randrange(0, len(image_name_arr))
-            filename = image_name_arr[index]
+            # Pick random image file name
+            filename = rng.choice(image_name_arr)
 
             # Read images:
             img: utils.Image = readreshape(
@@ -1164,12 +1179,13 @@ def trainGenerator_track(
                 [img, seg, previmg, segall, track, weights],
                 augment_params,
                 order=[1, 0, 1, 0, 0, 0],
+                rng=rng,
             )
 
             if crop_windows:
                 cb, fb = utils.gettrackingboxes(seg)
                 shape = cast(Tuple[int, int], seg.shape)  # for mypy
-                shiftY, shiftX = utils.getshiftvalues(shift_cropbox, shape, cb)
+                shiftY, shiftX = utils.getshiftvalues(shift_cropbox, shape, cb, rng)
             else:
                 cb = fb = utils.CroppingBox(
                     ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1]

@@ -8,6 +8,7 @@ Created on Tue Oct 19 15:01:05 2021
 #
 import pytest
 import numpy as np
+import numpy.random as npr
 import cv2
 from scipy.ndimage import binary_fill_holes
 from pathlib import Path
@@ -145,7 +146,7 @@ def _test_deskew(filename, angle0):
 
 
 def rand_img(image_size, seed):
-    rng = np.random.default_rng(seed)
+    rng = npr.default_rng(seed)
     img = rng.random(image_size)
     return img
 
@@ -189,7 +190,7 @@ def test_cell_perimeter():
 
 def rand_mask(image_size, max_dots=100, max_radius=30, seed=None):
     "Generate a random binary mask with random size dots"
-    rng = np.random.default_rng(seed)
+    rng = npr.default_rng(seed)
     mask = np.zeros(image_size, dtype=np.uint8)
     num_dots = rng.integers(max_dots, endpoint=True)
 
@@ -285,7 +286,7 @@ def test_extract_poles():
 
 @pytest.mark.parametrize("seed", range(1000))  # Run it 1000 times
 def test_track_poles(seed):
-    rng = np.random.default_rng(seed)
+    rng = npr.default_rng(seed)
     # Random previous old pole:
     prev_old = rng.integers(low=0, high=2**15, size=2, dtype=np.int16)
     # Random previous new pole is some small random distance away:
@@ -328,7 +329,7 @@ def test_track_poles(seed):
 
 @pytest.mark.parametrize("seed", range(1000))  # Run it 1000 times
 def test_division_poles(seed):
-    rng = np.random.default_rng(seed)
+    rng = npr.default_rng(seed)
     # Random previous old pole:
     prev_old = rng.integers(low=0, high=2**15, size=2, dtype=np.int16)
     # Random previous new pole is some small random distance away:

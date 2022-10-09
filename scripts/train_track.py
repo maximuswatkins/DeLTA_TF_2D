@@ -5,11 +5,16 @@ This script trains the tracking U-Net.
 """
 import os
 
+import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 
 from delta.utilities import cfg
 from delta.model import unet_track
 from delta.data import trainGenerator_track
+
+# Set tensorflow's random seed to make the training reproducible
+# (only on CPU: not reproducible on GPU yet)
+tf.keras.utils.set_random_seed(1)
 
 # Load config:
 cfg.load_config(presets="2D")
