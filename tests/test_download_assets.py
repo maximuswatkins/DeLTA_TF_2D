@@ -20,7 +20,7 @@ def test_download_assets():
     )
 
     # Check that all models have been downloaded to the assets folder:
-    assets_dir = Path(__file__).parent.parent / "delta/assets"
+    assets_dir = Path(__file__).parents[1] / "delta/assets"
     for model_name in delta.assets.LATEST_MODELS:
         filename = assets_dir / f"models/{model_name}.hdf5"
         assert filename.exists(), f"Downloaded model file not found: {filename}"

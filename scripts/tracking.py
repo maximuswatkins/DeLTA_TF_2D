@@ -19,7 +19,7 @@ import numpy as np
 
 from delta.data import predictCompilefromseg_track, saveResult_track
 from delta.model import unet_track
-from delta.utilities import cfg, listfiles
+from delta.utilities import cfg, listfiles, read_image
 
 ### Parameters:
 
@@ -40,7 +40,7 @@ outputs_folder.mkdir(exist_ok=True)
 unprocessed = listfiles(inputs_folder, {".png", ".tif"})
 
 # Get original image size:
-imsize = cv2.imread(str(unprocessed[0]), cv2.IMREAD_GRAYSCALE).shape
+imsize = read_image(unprocessed[0]).shape
 
 # Load up model:
 model = unet_track(input_size=cfg.target_size_track + (4,))
@@ -63,7 +63,7 @@ while unprocessed:
         segmentation_folder,
         files_list=to_process,
         target_size=cfg.target_size_track,
-        crop=cfg.crop_windows,
+        crop_windows=cfg.crop_windows,
     )
 
     print("Cells to track: %d" % len(inputs))

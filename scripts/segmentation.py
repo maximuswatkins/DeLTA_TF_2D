@@ -49,7 +49,7 @@ while unprocessed:
         inputs_folder,
         files_list=to_process,
         target_size=cfg.target_size_seg,
-        crop=cfg.crop_windows,
+        crop_windows=cfg.crop_windows,
     )
 
     # mother machine: Don't crop images into windows
@@ -62,7 +62,7 @@ while unprocessed:
         img = readreshape(
             inputs_folder / to_process[0],
             target_size=cfg.target_size_seg,
-            crop=True,
+            method="pad",
         )
         # Create array to store predictions
         results = np.zeros((len(to_process), img.shape[0], img.shape[1], 1))

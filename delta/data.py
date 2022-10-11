@@ -63,11 +63,11 @@ def readreshape(
     target_size: Tuple[int, int] = (256, 32),
     binarize: bool = False,
     order: int = 1,
-    rangescale: bool = True,
-    crop: bool = False,
+    method : str = "resize",
 ) -> npt.NDArray[Any]:
     """
-    Read image from disk and format it
+    Read image from disk, format it and return it as an array of
+    floating-point numbers between 0 and 1.
 
     Parameters
     ----------
@@ -75,7 +75,7 @@ def readreshape(
         Path to file. Only PNG, JPG or single-page TIFF files accepted
     target_size : tupe of int or None, optional
         Size to reshape the image.
-        The default is (256,32).
+        The default is (256, 32).
     binarize : bool, optional
         Use the binarizerange() function on the image.
         The default is False.
@@ -84,12 +84,10 @@ def readreshape(
         0 is nearest neighbor
         1 is bilinear
         The default is 1.
-    rangescale : bool, optional
-        Scale array image values to 0-1 if True.
-        The default is True.
-    crop : bool, optional
-        TODO
-        The default is False.
+    method : "resize" or "pad"
+        What to do if the image is smaller than the target size.
+        In the "resize" mode, larger images will be resized too.
+        The default is "resize".
     Raises
     ------
     ValueError
@@ -101,31 +99,22 @@ def readreshape(
         Loaded array.
 
     """
-    if filename.suffix.lower() in (".png", ".jpg", ".jpeg", ".tif", ".tiff"):
-        i = cv2.imread(str(filename), cv2.IMREAD_ANYDEPTH)
-    else:
-        raise ValueError("Only PNG, JPG or single-page TIF files accepted")
-    if i.ndim == 3:
-        i = i[:, :, 0]
-    # For DeLTA mothermachine, all images are resized in 256x32
-    if not crop:
+    i = utils.read_image(filename)
+    assert i.ndim == 2
+    if method == "pad":
+        # For DeLTA 2D, black space is added if img is smaller than target_size
+        fill_shape = np.maximum(np.array(target_size), np.array(i.shape))
+        img = np.zeros(fill_shape)
+        img[: i.shape[0], : i.shape[1]] = i
+    elif method == "resize":
+        # For DeLTA mothermachine, all images are resized in 256x32
         img = trans.resize(i, target_size, anti_aliasing=True, order=order)
-    # For DeLTA 2D, black space is added if img is smaller than target_size
     else:
-        fill_shape = [
-            target_size[j] if i.shape[j] < target_size[j] else i.shape[j]
-            for j in range(2)
-        ]
-        img = np.zeros((fill_shape[0], fill_shape[1]))
-        img[0 : i.shape[0], 0 : i.shape[1]] = i
+        raise ValueError(f"Resizing method not understood: {method}.")
 
     if binarize:
-        img = binarizerange(img)
-    if rangescale:
-        if np.ptp(img) != 0:
-            img = (img - np.min(img)) / np.ptp(img)
-    if np.max(img) == 255:
-        img = img / 255
+        return binarizerange(img)
+
     return img
 
 
@@ -517,7 +506,7 @@ def trainGenerator_seg(
     augment_params: Dict[str, Any] = {},
     preload: bool = False,
     seed: int = 1,
-    crop_windows: bool = False,
+    crop_windows : bool = False,
 ) -> Iterator[Tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]]:
     """
     Generator for training the segmentation U-Net.
@@ -564,6 +553,8 @@ def trainGenerator_seg(
     preload_img = []
     preload_weight = []
 
+    resize_method = "pad" if crop_windows else "resize"
+
     # Get training image files list:
     image_names = utils.listfiles(img_path, {".png", ".tif"})
 
@@ -572,7 +563,7 @@ def trainGenerator_seg(
         for filename in image_names:
             preload_img.append(
                 readreshape(
-                    filename, target_size=target_size, order=1, crop=crop_windows
+                    filename, target_size=target_size, order=1, method=resize_method
                 )
             )
             preload_mask.append(
@@ -581,8 +572,7 @@ def trainGenerator_seg(
                     target_size=target_size,
                     binarize=True,
                     order=0,
-                    rangescale=False,
-                    crop=crop_windows,
+                    method=resize_method,
                 )
             )
             if weight_path is not None:
@@ -591,8 +581,7 @@ def trainGenerator_seg(
                         weight_path / filename.name,
                         target_size=target_size,
                         order=0,
-                        rangescale=False,
-                        crop=crop_windows,
+                        method=resize_method,
                     ),
                 )
 
@@ -621,23 +610,21 @@ def trainGenerator_seg(
                 # Read images:
                 filename = image_names[index]
                 img = readreshape(
-                    filename, target_size=target_size, order=1, crop=crop_windows
+                    filename, target_size=target_size, order=1, method=resize_method
                 )
                 mask = readreshape(
                     mask_path / filename.name,
                     target_size=target_size,
                     binarize=True,
                     order=0,
-                    rangescale=False,
-                    crop=crop_windows,
+                    method=resize_method,
                 )
                 if weight_path is not None:
                     weight = readreshape(
                         weight_path / filename.name,
                         target_size=target_size,
                         order=0,
-                        rangescale=False,
-                        crop=crop_windows,
+                        method=resize_method,
                     )
 
             if crop_windows:
@@ -725,7 +712,7 @@ def predictGenerator_seg(
     files_path: Path,
     files_list: Union[List[str], Tuple[str, ...]] = None,
     target_size: Tuple[int, int] = (256, 32),
-    crop: bool = False,
+    crop_windows: bool = False,
 ) -> Iterator[np.ndarray]:
     """
     Get a generator for predicting segmentation on new image files
@@ -742,6 +729,9 @@ def predictGenerator_seg(
     target_size : tuple of 2 ints, optional
         Size for the images to be resized.
         The default is (256,32).
+    crop_windows : bool
+        TODO
+        The default is False.
 
     Returns
     -------
@@ -763,7 +753,7 @@ def predictGenerator_seg(
                 files_path / fname,
                 target_size=target_size,
                 order=1,
-                crop=crop,
+                method="pad" if crop_windows else "resize",
             )
             # Tensorflow needs one extra single dimension (so that it is a 4D tensor)
             img = np.reshape(img, (1,) + img.shape)
@@ -885,8 +875,8 @@ def estimate_seg2D_classweights(
 
     for mask_name in mask_names:
 
-        mask = cv2.imread(mask_name, 0) / 255
-        # Extract all pixels that include the cells and it's border (no background)
+        mask = utils.read_image(mask_name)
+        # Extract all pixels that include the cells and its border (no background)
         border = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel(20))
         # Set all pixels that include the cells to zero to leave behind the border only
         border[mask > 0] = 0
@@ -1104,6 +1094,8 @@ def trainGenerator_track(
         output groundtruth that is not part of the mother or daughter masks
     """
 
+    resize_method = "pad" if crop_windows else "resize"
+
     # Initialize variables and arrays:
     image_names = utils.listfiles(img_path, {".png", ".tif"})
     X = np.empty((batch_size,) + target_size + (4,), dtype=np.float32)
@@ -1123,29 +1115,27 @@ def trainGenerator_track(
 
             # Read images:
             img: utils.Image = readreshape(
-                filename, target_size=target_size, order=1, crop=True
+                filename, target_size=target_size, order=1, method=resize_method
             )
             seg: utils.SegmentationMask = readreshape(
                 seg_path / filename.name,
                 target_size=target_size,
                 binarize=True,
                 order=0,
-                rangescale=False,
-                crop=True,
+                method=resize_method,
             )
             previmg: utils.Image = readreshape(
                 previmg_path / filename.name,
                 target_size=target_size,
                 order=1,
-                crop=True,
+                method=resize_method,
             )
             segall: utils.SegmentationMask = readreshape(
                 segall_path / filename.name,
                 target_size=target_size,
                 binarize=True,
                 order=0,
-                rangescale=False,
-                crop=True,
+                method=resize_method,
             )
 
             track: utils.SegmentationMask = readreshape(
@@ -1153,8 +1143,7 @@ def trainGenerator_track(
                 target_size=target_size,
                 binarize=True,
                 order=0,
-                rangescale=False,
-                crop=True,
+                method=resize_method,
             )
             if weights_path is not None:
                 if weights_path == "online":
@@ -1165,8 +1154,7 @@ def trainGenerator_track(
                         target_size=target_size,
                         binarize=False,
                         order=0,
-                        rangescale=False,
-                        crop=True,
+                        method=resize_method,
                     )
             else:
                 weights = np.ones_like(track)
@@ -1283,7 +1271,7 @@ def predictCompilefromseg_track(
     seg_path: Path,
     files_list: List[Path],
     target_size: Tuple[int, int] = (256, 32),
-    crop: bool = False,
+    crop_windows : bool = False,
 ) -> Tuple[
     npt.NDArray[np.float32],
     List[Path],
@@ -1306,6 +1294,9 @@ def predictCompilefromseg_track(
     target_size : tuple of 2 ints, optional
         Input and output image size.
         The default is (256,32).
+    crop_windows : bool, optional
+        TODO
+        The default is False.
 
     Returns
     -------
@@ -1329,6 +1320,8 @@ def predictCompilefromseg_track(
     seg_name_list = []
 
     ind = 0
+
+    resize_method = "pad" if crop_windows else "resize"
 
     # Get digits sequences in first filename
     numstrs = re.findall(r"\d+", files_list[0].name)
@@ -1386,29 +1379,27 @@ def predictCompilefromseg_track(
                 img_path / filename,
                 target_size=target_size,
                 order=1,
-                crop=crop,
+                method=resize_method,
             )
             segall = readreshape(
                 seg_path / filename,
                 target_size=target_size,
                 order=0,
                 binarize=True,
-                rangescale=False,
-                crop=crop,
+                method=resize_method,
             )
             previmg = readreshape(
                 img_path / prevframename,
                 target_size=target_size,
                 order=1,
-                crop=crop,
+                method=resize_method,
             )
             prevsegall = readreshape(
                 seg_path / prevframename,
                 target_size=target_size,
                 order=0,
                 binarize=True,
-                rangescale=False,
-                crop=crop,
+                method=resize_method,
             )
 
             lblimg, lblnb = label(prevsegall, connectivity=1, return_num=True)
@@ -1420,7 +1411,7 @@ def predictCompilefromseg_track(
                 seg = seg.astype(np.uint8)  # Output is boolean otherwise
 
                 # Cell-centered crop boxes:
-                if crop:
+                if crop_windows:
                     shape = cast(Tuple[int, int], img.shape)  # for mypy
                     cb, fb = utils.gettrackingboxes(seg, shape)
                 else:

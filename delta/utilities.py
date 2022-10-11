@@ -1907,12 +1907,10 @@ class xpreader:
                 self.watcher.start()
             else:
                 # Load first image, get image data from it
-                I = cv2.imread(
-                    str(self.getfilenamefromprototype(0, 0, 0)), cv2.IMREAD_ANYDEPTH
-                )
-                self.x = I.shape[1]
-                self.y = I.shape[0]
-                self.dtype = I.dtype
+                img = read_image(self.getfilenamefromprototype(0, 0, 0))
+                self.x = img.shape[1]
+                self.y = img.shape[0]
+                self.dtype = img.dtype
 
         elif file_extension.lower() == ".tif" or file_extension.lower() == ".tiff":
             # Works with single-series tif & mutli-series ome.tif
@@ -2229,10 +2227,7 @@ class xpreader:
                             series=pos, c=cha, t=fra, rescale=False
                         )
                     elif self.filetype == "dir":
-                        frame = cv2.imread(
-                            str(self.getfilenamefromprototype(pos, cha, fra)),
-                            cv2.IMREAD_ANYDEPTH,
-                        )
+                        frame = read_image(self.getfilenamefromprototype(pos, cha, fra))
                     elif self.filetype == "tif":
                         frame = (
                             self.filehandle.series[pos]
@@ -2750,6 +2745,27 @@ def cell_fluo(
 
 
 #%% Misc
+
+def read_image(filename: Path) -> np.ndarray:
+    """
+    Returns the image as a numpy array of np.float32 rescaled between 0 and 1.
+
+    Parameters
+    ----------
+    filename : Path
+        Filename of the image to read.
+
+    Returns
+    -------
+    image : np.ndarray of np.float32
+    """
+    img = cv2.imread(str(filename), cv2.IMREAD_ANYDEPTH)
+    if img is None:
+        raise ValueError(f"File not found or format not understood: {filename}.")
+    for depth, dtype in [(8, np.uint8), (16, np.uint16), (32, np.uint32)]:
+        if img.dtype == dtype:
+            return img.astype(np.float32) / (2**depth - 1)
+    raise ValueError(f"Image depth not understood: {img.dtype}.")
 
 
 def findfirst(mylist: List) -> Optional[int]:

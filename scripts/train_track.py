@@ -40,7 +40,7 @@ data_gen_args = dict(
 myGene = trainGenerator_track(
     batch_size,
     training_set / "img",
-    training_set / "sev",
+    training_set / "seg",
     training_set / "previmg",
     training_set / "segall",
     training_set / "mot_dau",
