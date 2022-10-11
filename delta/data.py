@@ -1495,7 +1495,7 @@ def tracking_weights(
     skel = morph.skeletonize(track, method="lee")
 
     # Tracked Cell weights are distance from edges + skeleton at 255 in the center
-    weights = utils.rangescale(dist_in + 1, (1, 42))
+    weights = 1 + 41 * (dist_in.astype(np.float32) - dist_in.min()) / dist_in.ptp()
     weights[skel > 0] = 255
 
     # Rest of the image is weighed according to distance from tracked cell:

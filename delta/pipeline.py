@@ -400,7 +400,6 @@ class Position:
                 positions=self.position_nb,
                 frames=0,
                 channels=0,
-                rescale=(0, 1),
                 squeeze_dimensions=True,
             )
 
@@ -462,9 +461,7 @@ class Position:
 
         # Predict
         roismask = self.models["rois"].predict(
-            utils.rangescale(cv2.resize(reference, cfg.target_size_rois), (0, 1))[
-                np.newaxis, :, :, np.newaxis
-            ],
+            cv2.resize(reference, cfg.target_size_rois)[np.newaxis, :, :, np.newaxis],
             verbose=0,
         )
 
@@ -504,7 +501,6 @@ class Position:
             positions=self.position_nb,
             channels=0,
             frames=frames,
-            rescale=(0, 1),
             rotate=self.rotate,
         )
 
@@ -890,11 +886,15 @@ class Position:
             positions=self.position_nb,
             channels=0,
             frames=frames,
-            rescale=(0, 1),
             squeeze_dimensions=False,
             rotate=self.rotate,
         )
         trans_frames = trans_frames[0, :, 0]
+
+        # Adjust brightness/contrast
+        if trans_frames.ptp() > 0:
+            trans_frames = (trans_frames - trans_frames.min()) / trans_frames.ptp()
+
         if self.drift_correction:
             trans_frames, _ = utils.driftcorr(trans_frames, drift=self.drift_values)
         movie = []
@@ -1088,7 +1088,7 @@ class ROI:
         """
 
         # Crop and scale:
-        i = utils.rangescale(utils.cropbox(img, self.box), rescale=(0, 1))
+        i = utils.cropbox(img, self.box)
         # Append i as is to input images stack:
         self.img_stack.append(i)
 
