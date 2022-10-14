@@ -20,6 +20,7 @@ import ffmpeg
 import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
+from scipy.special import logit
 from skimage.morphology import skeletonize
 
 from . import config as cfg
@@ -1138,7 +1139,7 @@ def getTrackingScores(
         Segmentation mask of input/target cells that the tracking U-Net is
         tracking against. (ie segmentation mask of the 'current'/'new' frame)
     outputs : 4D array of floats
-        Tracking U-Net output.
+        Tracking U-Net output (logits).
     boxes : list of dict, optional
         Cropping box and fill box to re-place output prediction masks in the
         original coordinates to index the labels frame.
@@ -1163,8 +1164,8 @@ def getTrackingScores(
     scores = np.zeros([outputs.shape[0], total_cell], dtype=np.float32)
     for o, output in enumerate(outputs):
 
-        # Find pixels with a score > .05:
-        nz = list((output > 0.05).nonzero())
+        # Find pixels with more than 5% probability
+        nz = list((output > logit(0.05)).nonzero())
         if len(nz[0]) == 0:
             continue
 
@@ -2358,6 +2359,10 @@ def loadmodels(toload: Tuple[str, ...] = None) -> Dict[str, Any]:
         models["tracking"] = tf.keras.models.load_model(
             cfg.model_file_track, compile=False
         )
+
+    # In order to be able to use the old models that had a sigmoid as final activation
+    for model in models.values():
+        model.layers[-1].activation = None
 
     return models
 

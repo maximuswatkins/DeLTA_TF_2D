@@ -49,16 +49,13 @@ def pixelwise_weighted_binary_crossentropy_seg(
 
     # Make background weights be equal to the model's prediction
     bool_bkgd = weight == 0 / 255
-    weight = tf.where(bool_bkgd, y_pred, weight)
-
-    epsilon = tf.convert_to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
-    y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
-    y_pred = tf.math.log(y_pred / (1 - y_pred))
+    weight = tf.where(bool_bkgd, tf.math.sigmoid(y_pred), weight)
 
     zeros = array_ops.zeros_like(y_pred, dtype=y_pred.dtype)
     cond = y_pred >= zeros
     relu_logits = math_ops.select(cond, y_pred, zeros)
     neg_abs_logits = math_ops.select(cond, -y_pred, y_pred)
+
     entropy = math_ops.add(
         relu_logits - y_pred * seg,
         math_ops.log1p(math_ops.exp(neg_abs_logits)),
@@ -104,14 +101,11 @@ def pixelwise_weighted_binary_crossentropy_track(
     except:
         pass
 
-    epsilon = tf.convert_to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
-    y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
-    y_pred = tf.math.log(y_pred / (1 - y_pred))
-
     zeros = array_ops.zeros_like(y_pred, dtype=y_pred.dtype)
     cond = y_pred >= zeros
     relu_logits = math_ops.select(cond, y_pred, zeros)
     neg_abs_logits = math_ops.select(cond, -y_pred, y_pred)
+
     entropy = math_ops.add(
         relu_logits - y_pred * seg,
         math_ops.log1p(math_ops.exp(neg_abs_logits)),
@@ -153,7 +147,7 @@ def unstack_acc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     except:
         pass
 
-    return keras.metrics.binary_accuracy(seg, y_pred)
+    return keras.metrics.binary_accuracy(seg, y_pred, threshold=0)
 
 
 def _unet(
@@ -238,7 +232,7 @@ def _unet(
 # Generic unet declaration:
 def unet(
     input_size: Tuple[int, int, int] = (256, 32, 1),
-    final_activation: str = "sigmoid",
+    final_activation: str = None,
     output_classes: int = 1,
     dropout: float = 0,
     levels: int = 5,
@@ -252,10 +246,10 @@ def unet(
     input_size : tuple of 3 ints, optional
         Dimensions of the input tensor, excluding batch size.
         The default is (256,32,1).
-    final_activation : string or function, optional
+    final_activation : None, string or function, optional
         Activation function for the final 2D convolutional layer. see
         keras.activations
-        The default is 'sigmoid'.
+        The default is None (no activation: outputs logits).
     output_classes : int, optional
         Number of output classes, ie dimensionality of the output space of the
         last 2D convolutional layer.
@@ -347,7 +341,7 @@ def unet_seg(
 
     model = unet(
         input_size=input_size,
-        final_activation="sigmoid",
+        final_activation=None,
         output_classes=1,
         levels=levels,
         filters=filters,
@@ -400,7 +394,7 @@ def unet_track(
 
     model = unet(
         input_size=input_size,
-        final_activation="sigmoid",
+        final_activation=None,
         output_classes=1,
         levels=levels,
         filters=filters,
@@ -447,12 +441,15 @@ def unet_rois(
 
     model = unet(
         input_size=input_size,
-        final_activation="sigmoid",
+        final_activation=None,
         output_classes=1,
         levels=levels,
         filters=filters,
     )
 
-    model.compile(optimizer=Adam(learning_rate=1e-4), loss="binary_crossentropy")
+    model.compile(
+        optimizer=Adam(learning_rate=1e-4),
+        loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+    )
 
     return model

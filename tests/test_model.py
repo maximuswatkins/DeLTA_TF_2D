@@ -39,11 +39,10 @@ def test_pixelwise_weighted_binary_crossentropy_seg():
     labels = rng.integers(2, size=shape)
     weights = rng.uniform(size=shape)
     logits = rng.normal(size=shape)
-    preds = tf.math.sigmoid(logits)
     tf_labels_weights = tf.constant(np.stack([labels, weights], axis=-1))
-    tf_preds = tf.constant(preds[:, :, np.newaxis])
+    tf_logits = tf.constant(logits[:, :, np.newaxis])
 
-    loss = delta.model.pixelwise_weighted_binary_crossentropy_seg(tf_labels_weights, tf_preds)
+    loss = delta.model.pixelwise_weighted_binary_crossentropy_seg(tf_labels_weights, tf_logits)
     loss_sum = loss.numpy().sum()
     assert np.allclose(loss_sum, 8053870.791163433)
 
@@ -54,10 +53,9 @@ def test_pixelwise_weighted_binary_crossentropy_track():
     labels = rng.integers(2, size=shape)
     weights = rng.uniform(size=shape)
     logits = rng.normal(size=shape)
-    preds = tf.math.sigmoid(logits)
     tf_labels_weights = tf.constant(np.stack([labels, weights], axis=-1))
-    tf_preds = tf.constant(preds[:, :, np.newaxis])
+    tf_logits = tf.constant(logits[:, :, np.newaxis])
 
-    loss = delta.model.pixelwise_weighted_binary_crossentropy_track(tf_labels_weights, tf_preds)
+    loss = delta.model.pixelwise_weighted_binary_crossentropy_track(tf_labels_weights, tf_logits)
     loss_sum = loss.numpy().sum()
     assert np.allclose(loss_sum, 8053870.791163433)
