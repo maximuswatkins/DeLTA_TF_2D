@@ -796,27 +796,25 @@ def seg_weights(
 
     """
 
-    # Get cell labels mask:
-    # `connectivity=2` is used to be consistent with `findContours` from OpenCV
-    lblimg, lblnb = label(mask, connectivity=2, return_num=True)
+    # Get cell labels mask
+    lblnb, lblimg = cv2.connectedComponents(utils.to_integer_values(mask, np.uint8))
 
-    # Compute cell-to-cell distance masks:
-    distance_array = float("inf") * np.ones(mask.shape[0:2] + (max(lblnb, 2),))
-    for i in range(0, lblnb):
-        _, distance_array[:, :, i] = morph.medial_axis(
-            (lblimg == i + 1) == 0, return_distance=True
-        )
+    # Compute cell-to-cell distances
+    distances = np.inf * np.ones((*mask.shape, max(lblnb, 2)))
+    for i in range(lblnb - 1):
+        imask = (lblimg != i + 1).astype(np.uint8)
+        distances[:, :, i] = cv2.distanceTransform(imask, cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
 
-    # Keep 2 smallest only:
-    distance_array = np.sort(distance_array, axis=-1)[:, :, 0:2]
+    # Put 2 smallest distances at the beginning
+    distances.partition(1, axis=-1)
 
-    # Compute weights map:
-    weightmap = w0 * np.exp(-np.square(np.sum(distance_array, -1)) / (2 * sigma**2))
-    weightmap = np.multiply(weightmap, mask == 0)
-    weightmap = np.add(weightmap, (mask == 0) * classweights[0])
-    weightmap = np.add(weightmap, (mask == 1) * classweights[1])
+    # Compute weights map
+    weights = w0 * np.exp(-distances[:, :, :2].sum(-1)**2 / (2 * sigma**2))
+    weights += classweights[0]
+    weights[mask == 1] = classweights[1]
 
-    return weightmap
+    return weights
+
 
 
 def kernel(n: int) -> utils.SegmentationMask:
