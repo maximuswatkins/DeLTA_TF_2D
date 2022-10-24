@@ -978,8 +978,8 @@ def seg_weights_2D(
     border_skel = morph.skeletonize(border > 0)
 
     # Find the distances from the skeleton of the segmention and border
-    s, border_dist = morph.medial_axis(border_skel < 1, return_distance=True)
-    s, mask_dist = morph.medial_axis(mask_skel < 1, return_distance=True)
+    border_dist = cv2.distanceTransform(255*(border_skel < 1).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
+    mask_dist = cv2.distanceTransform(255*(mask_skel < 1).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
 
     # Use the distance from the skeletons to create a gradient towards the skeleton
     border_gra = border * (classweights[1]) / (border_dist + 1) ** 2
