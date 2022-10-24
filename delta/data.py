@@ -11,7 +11,7 @@ import os
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 import cv2
 import numpy as np
@@ -814,6 +814,40 @@ def seg_weights(
     weights[mask == 1] = classweights[1]
 
     return weights
+
+
+def make_weights(
+    training_dataset_path: Union[str, Path],
+    weights_function: Callable[[utils.SegmentationMask], npt.NDArray[np.float32]],
+) -> None:
+    """
+    Create the directory `training_dataset_path/"wei"` and populate it with the
+    image weights for training.  The directory `training_dataset_path` should
+    already contain "img" with the input images and "seg" with the segmentation
+    masks (images with 0 for background pixels and 255 for cell pixels).
+
+    Parameters
+    ----------
+    training_dataset_path : str or Path
+        Directory containing two directories: "img" for the images and "seg"
+        for the segmentation masks.  A third directory "wei" will be created
+        inside for the weights.
+    weights_function : Callable[utils.SegmentationMask, npt.NDArray[np.float32]],
+        Function that takes a segmentation mask (0 for background and 1 for
+        cells) and returns a weight array (non-negative floats).  The weights
+        will be normalized by their maximum before being written down as images.
+        Possible values are `delta.data.seg_weights` for mothermachine images,
+        `delta.data.seg_weights_2D` for 2D pads, or custom functions or lambdas.
+    """
+    training_dataset_path = Path(training_dataset_path)
+    (training_dataset_path / "wei").mkdir()
+    for seg_path in sorted((training_dataset_path / "seg").iterdir()):
+        print(f"Making weights for {seg_path.name}...")
+        mask = utils.read_image(seg_path)
+        weights = weights_function(mask)
+        norm_weights = weights / weights.max() if weights.max() > 0 else weights
+        int_weights = utils.to_integer_values(norm_weights, np.uint8)
+        cv2.imwrite(str(training_dataset_path / "wei" / seg_path.name), int_weights)
 
 
 
