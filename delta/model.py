@@ -18,7 +18,7 @@ from tensorflow.python.ops import array_ops, math_ops
 
 
 def pixelwise_weighted_binary_crossentropy_seg(
-    y_true: tf.Tensor, y_pred: tf.Tensor
+    seg_weights: tf.Tensor, logits: tf.Tensor
 ) -> tf.Tensor:
     """
     Pixel-wise weighted binary cross-entropy loss.
@@ -27,9 +27,9 @@ def pixelwise_weighted_binary_crossentropy_seg(
 
     Parameters
     ----------
-    y_true : Tensor
+    seg_weights : Tensor
         Stack of groundtruth segmentation masks + weight maps.
-    y_pred : Tensor
+    logits : Tensor
         Predicted segmentation masks.
 
     Returns
@@ -38,35 +38,20 @@ def pixelwise_weighted_binary_crossentropy_seg(
         Pixel-wise weight binary cross-entropy between inputs.
 
     """
-    try:
-        # The weights are passed as part of the y_true tensor:
-        [seg, weight] = tf.unstack(y_true, 2, axis=-1)
+    # The weights are passed as part of the seg_weights tensor:
+    seg, weights = tf.unstack(seg_weights, 2, axis=-1)
 
-        seg = tf.expand_dims(seg, -1)
-        weight = tf.expand_dims(weight, -1)
-    except:
-        pass
+    seg = tf.expand_dims(seg, -1)
+    weights = tf.expand_dims(weights, -1)
 
     # Make background weights be equal to the model's prediction
-    bool_bkgd = weight == 0 / 255
-    weight = tf.where(bool_bkgd, tf.math.sigmoid(y_pred), weight)
+    weights = tf.where(weights == 0, tf.math.sigmoid(logits), weights)
 
-    zeros = array_ops.zeros_like(y_pred, dtype=y_pred.dtype)
-    cond = y_pred >= zeros
-    relu_logits = math_ops.select(cond, y_pred, zeros)
-    neg_abs_logits = math_ops.select(cond, -y_pred, y_pred)
+    entropy = tf.nn.relu(logits) - logits * seg + tf.math.log1p(tf.exp(-tf.abs(logits)))
 
-    entropy = math_ops.add(
-        relu_logits - y_pred * seg,
-        math_ops.log1p(math_ops.exp(neg_abs_logits)),
-        name=None,
-    )
+    loss = K.mean(weights * entropy, axis=-1)
 
-    loss = K.mean(math_ops.multiply(weight, entropy), axis=-1)
-
-    loss = tf.scalar_mul(
-        10 ** 6, tf.scalar_mul(1 / tf.math.sqrt(tf.math.reduce_sum(weight)), loss)
-    )
+    loss = 1e6 * loss / tf.math.sqrt(tf.math.reduce_sum(weights))
 
     return loss
 
