@@ -44,3 +44,12 @@ def test_seg_weights_complex():
     int_weights = delta.utils.to_integer_values(norm_weights, np.uint8)
     assert np.allclose(int_weights / 255, target)
 
+
+def test_seg_weights_2D_complex():
+    path = Path(__file__).parent / "data/images"
+    mask = delta.utils.read_image(path / "complex_mask.png")
+    target = delta.utils.read_image(path / "complex_weights_2D.png")
+    weights = delta.data.seg_weights_2D(mask, classweights=(0.3, 0.7))
+    norm_weights = weights / weights.max()
+    int_weights = delta.utils.to_integer_values(norm_weights, np.uint8)
+    assert np.allclose(int_weights / 255, target)
