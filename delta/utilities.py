@@ -18,6 +18,7 @@ from pathlib import Path
 import cv2
 import ffmpeg
 import numpy as np
+import numpy.random as npr
 import numpy.typing as npt
 from skimage.morphology import skeletonize
 
@@ -532,7 +533,7 @@ def gettrackingboxes(
 
 
 def getshiftvalues(
-    shift: int, img_shape: Tuple[int, int], cb: CroppingBox
+    shift: int, img_shape: Tuple[int, int], cb: CroppingBox, rng: npr.Generator
 ) -> Tuple[int, int]:
     """
 
@@ -545,6 +546,8 @@ def getshiftvalues(
     cropbox : dict
         Crop box in the cropbox() input format.
         The crop box determines which part of the full-size frame to crop out.
+    rng : npr.Generator
+        Pseudo-random number generator
 
     Returns
     -------
@@ -556,11 +559,11 @@ def getshiftvalues(
     """
     upperY = np.min((shift, img_shape[0] - cb["ybr"]))
     lowerY = np.min((shift, cb["ytl"]))
-    shiftY = int(np.random.uniform(-lowerY, upperY))
+    shiftY = round(rng.uniform(-lowerY, upperY))
 
     upperX = np.min((shift, img_shape[1] - cb["xbr"]))
     lowerX = np.min((shift, cb["xtl"]))
-    shiftX = int(np.random.uniform(-lowerX, upperX))
+    shiftX = round(rng.uniform(-lowerX, upperX))
 
     return shiftY, shiftX
 
@@ -2361,15 +2364,14 @@ def loadmodels(toload: Tuple[str, ...] = None) -> Dict[str, Any]:
 
 def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, float]]:
     """
-    Pseudo-randomly generate list of random hsv colors.
+    Generate list of random hsv colors.
 
     Parameters
     ----------
     num_colors : int
         Number of desired colors.
-    seed : None or int, optional
-        Seed to use with numpy.random.seed().
-        The default is 0.
+    seed : int, optional
+        Random seed.
 
     Returns
     -------
@@ -2381,22 +2383,15 @@ def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, 
     if num_colors == 0:
         return []
 
-    # Get colors:
-    colors = (
-        cv2.applyColorMap(
-            np.linspace(0, 256, num_colors, endpoint=False, dtype=np.uint8),
-            cv2.COLORMAP_HSV,
-        ).astype(np.float64)
-        / 255
-    )
-    colors = [tuple(x) for x in colors[:, 0]]
+    # Get colors
+    gradient = np.linspace(0, 256, num_colors, endpoint=False, dtype=np.uint8)
+    colors = cv2.applyColorMap(gradient, cv2.COLORMAP_HSV).squeeze(axis=1)
 
-    # Pseudo randomly shuffle colors:
-    if seed is not None:
-        np.random.seed(seed)
-    np.random.shuffle(colors)
+    # Shuffle colors
+    rng = npr.default_rng(seed)
+    rng.shuffle(colors)
 
-    return colors
+    return [tuple(color) for color in colors.astype(np.float64) / 255]
 
 
 def vidwrite(
