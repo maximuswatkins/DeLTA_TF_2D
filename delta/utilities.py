@@ -7,13 +7,13 @@ to minimize the risk of unforeseen bugs.
 @author: jblugagne
 """
 
-import re
-import time
-import sys
 import importlib
-from threading import Thread
-from typing import cast, Tuple, List, Optional, Union, Any, Dict
+import re
+import sys
+import time
 from pathlib import Path
+from threading import Thread
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import cv2
 import ffmpeg

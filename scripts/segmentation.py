@@ -8,14 +8,15 @@ The images are processed by batches of 4096 to prevent memory issues.
 @author: jblugagne
 """
 
-import os
 import glob
+import os
 
 import numpy as np
 
-from delta.data import saveResult_seg, predictGenerator_seg, postprocess, readreshape
-from delta.model import unet_seg
 import delta.utilities as utils
+from delta.data import (postprocess, predictGenerator_seg, readreshape,
+                        saveResult_seg)
+from delta.model import unet_seg
 from delta.utilities import cfg
 
 ### Parameters:

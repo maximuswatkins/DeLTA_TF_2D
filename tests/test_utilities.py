@@ -4,16 +4,17 @@ Created on Tue Oct 19 15:01:05 2021
 
 @author: ooconnor
 """
-#
-import pytest
+import sys
+from pathlib import Path
+
+import cv2
 import numpy as np
 import numpy.random as npr
-import cv2
+#
+import pytest
 from scipy.ndimage import binary_fill_holes
-from pathlib import Path
-import sys
 
-from delta import utils, pipeline
+from delta import pipeline, utils
 
 #%% Test growth rate
 

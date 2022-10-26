@@ -7,13 +7,12 @@ preprocessing section of pipeline.py and getROIboxes() in utilities.py
 @author: jblugagne
 """
 
-import os
 import glob
+import os
 
-
-from delta.utilities import cfg
-from delta.data import saveResult_seg, predictGenerator_seg, postprocess
+from delta.data import postprocess, predictGenerator_seg, saveResult_seg
 from delta.model import unet_rois
+from delta.utilities import cfg
 
 ### Parameters:
 

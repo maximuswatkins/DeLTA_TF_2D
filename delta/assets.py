@@ -5,13 +5,14 @@ downloads, and writing configuration files
 
 @author: jeanbaptiste
 """
-import os
-import requests
 import json
+import os
 import shutil
-from typing import Union, Dict, Any, Optional
+from typing import Any, Dict, Optional, Union
 
-from .config import _DELTA_DIR, _DEFAULTS_2D, _DEFAULTS_mothermachine
+import requests
+
+from .config import _DEFAULTS_2D, _DELTA_DIR, _DEFAULTS_mothermachine
 
 LATEST_MODELS = {
     "unet_moma_seg": "1o4Ur0bQ7IvqCkfjeNFYdoEjpAsN7b2uK",

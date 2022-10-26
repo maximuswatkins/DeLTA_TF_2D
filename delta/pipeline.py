@@ -4,20 +4,20 @@ Module for the main processing pipeline.
 @author: jeanbaptiste
 """
 
+import sys
 # Modules:
 import time
-from typing import cast, List, Union, Dict, Optional, Any, Tuple
 import warnings
-import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import cv2
 import numpy as np
 import numpy.typing as npt
 from scipy.io import savemat
-from pathlib import Path
 
-from .data import postprocess
 from . import utilities as utils
+from .data import postprocess
 from .utilities import cfg
 
 

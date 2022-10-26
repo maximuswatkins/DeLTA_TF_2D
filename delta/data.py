@@ -4,23 +4,23 @@ Module for data manipulations and input/output operations.
 @author: jblugagne
 """
 
-import os
+import copy
 import glob
+import importlib
+import os
 import re
 import warnings
-import copy
-import importlib
-from typing import cast, Tuple, List, Dict, Union, Iterator, Any, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 import cv2
 import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
 import skimage.io as io
-import skimage.transform as trans
-from skimage.measure import label
 import skimage.morphology as morph
+import skimage.transform as trans
 from scipy import interpolate
+from skimage.measure import label
 
 # Try to import elastic deformations, issue warning if not found:
 if importlib.util.find_spec("elasticdeform") is None:

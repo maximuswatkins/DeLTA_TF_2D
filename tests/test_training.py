@@ -7,11 +7,11 @@ Created on Tue Nov  9 16:40:02 2021
 import os
 
 import pytest
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
-from delta.utilities import cfg
-from delta.model import unet_rois, unet_seg, unet_track
 from delta.data import trainGenerator_seg, trainGenerator_track
+from delta.model import unet_rois, unet_seg, unet_track
+from delta.utilities import cfg
 
 
 @pytest.mark.order(3)

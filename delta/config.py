@@ -3,10 +3,10 @@ Module for configuration files and configuration parameters
 
 @author: jblugagne
 """
-import os as _os
 import json as _json
+import os as _os
+from typing import Optional, Tuple
 from warnings import warn as _warn
-from typing import Tuple, Optional
 
 from . import __file__ as _delta_init  # Path to __init__ file
 
