@@ -46,7 +46,7 @@ predGene = predictGenerator_seg(
 )
 
 # Predictions:
-results = model.predict_generator(predGene, len(input_files), verbose=1)
+results = model.predict(predGene, len(input_files), verbose=1)
 
 # Post process results:
 results[:, :, :, 0] = postprocess(results[:, :, :, 0])

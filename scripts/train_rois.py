@@ -64,7 +64,7 @@ model_checkpoint = ModelCheckpoint(
 early_stopping = EarlyStopping(monitor="loss", mode="min", verbose=1, patience=patience)
 
 # Train:
-history = model.fit_generator(
+history = model.fit(
     myGene,
     steps_per_epoch=steps_per_epoch,
     epochs=epochs,
