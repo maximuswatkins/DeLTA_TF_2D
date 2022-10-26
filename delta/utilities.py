@@ -231,9 +231,9 @@ def getDriftTemplate(
 
     if len(chamberboxes) == 0 and not whole_frame:
         return None
-    (y_cut, x_cut) = [
+    (y_cut, x_cut) = (
         round(i * 0.025) for i in img.shape
-    ]  # Cutting out 2.5% of the image on eahc side as drift margin
+    )  # Cutting out 2.5% of the image on eahc side as drift margin
 
     box = CroppingBox(
         xtl=x_cut,
@@ -2432,7 +2432,7 @@ def vidwrite(
             "pipe:",
             format="rawvideo",
             pix_fmt="rgb24",
-            s="{}x{}".format(width, height),
+            s=f"{width}x{height}",
             r=7,
         )
         .output(

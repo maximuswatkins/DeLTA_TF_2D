@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module for configuration files and configuration parameters
 
@@ -247,7 +246,7 @@ def _read_json(json_file: str):
 
     # Load file:
     print(f"Loading configuration from: {json_file}")
-    with open(json_file, "r") as f:
+    with open(json_file) as f:
         variables = _json.loads(f.read())
 
     # Type cast:
