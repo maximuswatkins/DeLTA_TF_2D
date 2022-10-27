@@ -412,7 +412,7 @@ def histogram_voodoo(
 
     """
     control_points = np.linspace(0, 1, num=num_control_points + 2)
-    sorted_points = copy.copy(control_points)
+    sorted_points = np.array(control_points)
     random_points = rng.uniform(low=0.1, high=0.9, size=num_control_points)
     sorted_points[1:-1] = np.sort(random_points)
     mapping = interpolate.PchipInterpolator(control_points, sorted_points)
@@ -448,7 +448,7 @@ def illumination_voodoo(
     control_points = np.linspace(0, image.shape[0] - 1, num=num_control_points)
     random_points = rng.uniform(low=0.1, high=0.9, size=num_control_points)
     mapping = interpolate.PchipInterpolator(control_points, random_points)
-    curve = mapping(np.linspace(0, image.shape[0] - 1, image.shape[0]))
+    curve = mapping(np.arange(image.shape[0]))
     # Apply this curve to the image intensity along the length of the chamebr:
     newimage = np.multiply(
         image,
