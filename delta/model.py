@@ -127,45 +127,6 @@ def pixelwise_weighted_binary_crossentropy_track(
     return loss
 
 
-def class_weighted_categorical_crossentropy(
-    class_weights: Union[List[float], Tuple[float, ...]]
-) -> Callable[[tf.Tensor, tf.Tensor], float]:
-    """
-    Generate class-weighted categorical cross-entropy loss function.
-    The code is adapted from the Keras TF backend.
-    (see their github)
-
-    Parameters
-    ----------
-    class_weights : tuple/list of floats
-        Weights for each class/category.
-
-    Returns
-    -------
-    function.
-        Class-weighted categorical cross-entropy loss function.
-
-    """
-
-    def loss_function(y_true: tf.Tensor, y_pred: tf.Tensor) -> float:
-
-        # scale preds so that the class probas of each sample sum to 1
-        y_pred /= tf.reduce_sum(y_pred, -1, True)
-        # manual computation of crossentropy
-        epsilon = tf.convert_to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
-        y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
-
-        # Multiply each class by its weight:
-        classes_list = tf.unstack(y_true * tf.math.log(y_pred), axis=-1)
-        for i in range(len(classes_list)):
-            classes_list[i] = tf.scalar_mul(class_weights[i], classes_list[i])
-
-        # Return weighted sum:
-        return -tf.reduce_sum(tf.stack(classes_list, axis=-1), -1)
-
-    return loss_function
-
-
 def unstack_acc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     """
     Unstacks the mask from the weights in the output tensor for
