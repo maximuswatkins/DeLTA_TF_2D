@@ -240,11 +240,6 @@ def data_augmentation(
         Note that the histogram voodoo operation is only applied to images with
         a non-zero order.
         The default is 0.
-    time : int or list of ints, optional
-        Timepoint of each input. If a list is provided, inputs belonging to the
-        same timepoint (e.g. 0 for previous timepoint images and 1 for current)
-        will be treated the same in time-related transformations (e.g.
-        timeshift, where current frames are shifted relative to previous frames)
 
     Returns
     -------
@@ -261,41 +256,23 @@ def data_augmentation(
 
     # Apply augmentation operations:
 
-    if "illumination_voodoo" in aug_par:
-        if aug_par["illumination_voodoo"]:
-            for index, item in enumerate(output):
-                # Not super elegant, but tells me if binary or grayscale image
-                if orderlist[index] > 0:
-                    output[index] = illumination_voodoo(item, rng)
+    if aug_par.get("illumination_voodoo"):
+        output = [illumination_voodoo(item, rng) if order > 0 else item
+                  for order, item in zip(orderlist, output)]
 
-    if "histogram_voodoo" in aug_par:
-        if aug_par["histogram_voodoo"]:
-            for index, item in enumerate(output):
-                # Not super elegant, but tells me if binary or grayscale image
-                if orderlist[index] > 0:
-                    output[index] = histogram_voodoo(item, rng)
+    if aug_par.get("histogram_voodoo"):
+        output = [histogram_voodoo(item, rng) if order > 0 else item
+                  for order, item in zip(orderlist, output)]
 
-    if "gaussian_noise" in aug_par:
-        if aug_par["gaussian_noise"]:
-            sigma = rng.uniform(0, aug_par["gaussian_noise"])
-            for index, item in enumerate(output):
-                # Not super elegant, but tells me if binary or grayscale image
-                if orderlist[index] > 0:
-                    # Add Gaussian noise
-                    item = rng.normal(item, sigma)
-                    # Rescale to 0-1
-                    output[index] = (item - np.min(item)) / np.ptp(item)
+    if aug_par.get("gaussian_noise"):
+        output = [np.clip(rng.normal(item, aug_par["gaussian_noise"]), 0, 1) if order > 0 else item
+                  for order, item in zip(orderlist, output)]
 
-    if "gaussian_blur" in aug_par:
-        if aug_par["gaussian_blur"]:
-            sigma = rng.uniform(0, aug_par["gaussian_blur"])
-            for index, item in enumerate(output):
-                # Not super elegant, but tells me if binary or grayscale image
-                if orderlist[index] > 0:
-                    item = cv2.GaussianBlur(item, (5, 5), sigma)  # blur image
-                    output[index] = item
+    if aug_par.get("gaussian_blur"):
+        output = [cv2.GaussianBlur(item, (5, 5), aug_par["gaussian_blur"]) if order > 0 else item
+                  for order, item in zip(orderlist, output)]
 
-    if "elastic_deformation" in aug_par:
+    if aug_par.get("elastic_deformation"):
         output = elasticdeform.deform_random_grid(
             output,
             sigma=aug_par["elastic_deformation"]["sigma"],
@@ -307,56 +284,37 @@ def data_augmentation(
             prefilter=False,
         )
 
-    if "horizontal_flip" in aug_par:
-        if aug_par["horizontal_flip"]:
-            if rng.choice(2):
-                for index, item in enumerate(output):
-                    output[index] = np.fliplr(item)
+    if aug_par.get("horizontal_flip"):
+        if rng.choice(2):
+            output = [np.fliplr(item) for item in output]
 
-    if "vertical_flip" in aug_par:
-        if aug_par["vertical_flip"]:
-            if rng.choice(2):
-                for index, item in enumerate(output):
-                    output[index] = np.flipud(item)
+    if aug_par.get("vertical_flip"):
+        if rng.choice(2):
+            output = [np.flipud(item) for item in output]
 
-    if "rotations_90d" in aug_par:  # Only works with square images right now!
-        if aug_par["rotations_90d"]:
-            rot = rng.choice(4) * 90
-            if rot > 0:
-                for index, item in enumerate(output):
-                    output[index] = trans.rotate(
-                        item, rot, mode="edge", order=orderlist[index]
-                    )
+    if aug_par.get("rotations_90d"):
+        output = [np.rot90(item, k=rng.choice(4)) for item in output]
 
-    if "rotation" in aug_par:
+    if aug_par.get("rotation"):
         rot = rng.uniform(-aug_par["rotation"], aug_par["rotation"])
-        for index, item in enumerate(output):
-            output[index] = trans.rotate(item, rot, mode="edge", order=orderlist[index])
+        output = [trans.rotate(item, rot, mode="edge", order=order) if order > 0 else item
+                  for order, item in zip(orderlist, output)]
 
     # Zoom and shift operations are processed together:
-    if "zoom" in aug_par:
+    if aug_par.get("zoom"):
         # I want most of them to not be too zoomed
         zoom = rng.exponential(aug_par["zoom"] / 3.0)
-        zoom = aug_par["zoom"] if zoom > aug_par["zoom"] else zoom
+        zoom = min(zoom, aug_par["zoom"])
     else:
         zoom = 0
 
-    if "shiftX" in aug_par:
-        shiftX = rng.uniform(-aug_par["shiftX"], aug_par["shiftX"])
-    else:
-        shiftX = 0
-
-    if "shiftY" in aug_par:
-        shiftY = rng.uniform(-aug_par["shiftY"], aug_par["shiftY"])
-    else:
-        shiftY = 0
+    shift_x = rng.uniform(-1.0, 1.0) * aug_par.get("shiftX", 0.0)
+    shift_y = rng.uniform(-1.0, 1.0) * aug_par.get("shiftY", 0.0)
 
     # Apply zoom & shifts:
-    if any(abs(x) > 0 for x in [zoom, shiftX, shiftY]):
-        for index, item in enumerate(output):
-            output[index] = zoomshift(
-                item, zoom + 1, shiftX, shiftY, order=orderlist[index]
-            )
+    if any([zoom, shift_x, shift_y]):
+        output = [zoomshift(item, zoom + 1, shift_x, shift_y, order=order)
+                  for order, item in zip(orderlist, output)]
 
     return output
 

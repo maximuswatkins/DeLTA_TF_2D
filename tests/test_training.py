@@ -36,7 +36,7 @@ def test_train_moma_rois():
         zoom=0.25,
         horizontal_flip=True,
         vertical_flip=True,
-        rotations_90d=True,
+        rotations_90d=False,
         histogram_voodoo=True,
         illumination_voodoo=True,
         gaussian_noise=0.03,
