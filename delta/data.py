@@ -51,7 +51,7 @@ def binarizerange(array: utils.Image, threshold: Optional[float] = None) -> util
 
     Parameters
     ----------
-    array : 2D numpy array
+    array : 2D numpy array of floating-point numbers
         Input array/image.
     threshold : float, optional
         Binarization threshold.
@@ -59,13 +59,13 @@ def binarizerange(array: utils.Image, threshold: Optional[float] = None) -> util
 
     Returns
     -------
-    newi : 2D numpy array
+    newi : 2D numpy array of uint8
            Binarized image.
 
     """
     if threshold is None:
         threshold = (np.amin(array) + np.amax(array)) / 2
-    return np.array(array > threshold, dtype=array.dtype)
+    return (array > threshold).astype(np.uint8)
 
 
 def readreshape(
@@ -124,7 +124,7 @@ def readreshape(
         raise ValueError(f"Resizing method not understood: {method}.")
 
     if binarize:
-        return binarizerange(img)
+        return binarizerange(img).astype(img.dtype)
 
     return img
 
@@ -134,13 +134,13 @@ def postprocess(
     square_size: int = 5,
     min_size: Optional[float] = None,
     crop: bool = False,
-) -> npt.NDArray[np.float32]:
+) -> npt.NDArray[np.uint8]:
     """
     A generic binary image cleaning function based on mathematical morphology.
 
     Parameters
     ----------
-    images : 2D or 3D numpy array
+    images : 2D or 3D numpy array of floating-point numbers between 0 and 1
         Input image or images stacked along axis=0.
     square_size : int, optional
         Size of the square structuring element to use for morphological opening
@@ -152,7 +152,7 @@ def postprocess(
 
     Returns
     -------
-    images : 2D or 3D numpy array
+    images : 2D or 3D numpy array of uint8 (0 or 1)
         Cleaned, binarized images. Note that the dimensions are squeezed before
         return (see numpy.squeeze doc)
 
@@ -161,19 +161,20 @@ def postprocess(
     if images.ndim == 2:
         images = np.expand_dims(images, axis=0)
 
-    # Generate struturing element:
-    selem = morph.square(square_size)
-
-    # Go through stack:
-    for index, image in enumerate(images):
+    outputs = []
+    for image in images:
         image = binarizerange(image, threshold=0)
         if not crop:
-            image = morph.binary_opening(image, selem=selem)
+            kernel = np.ones((square_size, square_size), dtype=np.uint8)
+            image = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
         if min_size is not None:
-            image = morph.remove_small_objects(image, min_size=min_size)
-        images[index, :, :] = image
+            _, labels, stats, _ = cv2.connectedComponentsWithStats(image)
+            threshold = (stats[:, cv2.CC_STAT_AREA] >= min_size).astype(np.uint8)
+            threshold[0] = 0
+            image = threshold[labels]
+        outputs.append(image)
 
-    return np.squeeze(images)
+    return np.squeeze(outputs)
 
 
 #%% DATA AUGMENTATION
@@ -846,7 +847,7 @@ def saveResult_seg(
         if multipage:
             filename = save_path / files_list[0]
             io.imsave(
-                filename, (img * 255).astype(np.uint8), plugin="tifffile", append=True
+                filename, img * 255, plugin="tifffile", append=True
             )
         else:
             if files_list:
@@ -855,7 +856,7 @@ def saveResult_seg(
                 filename = save_path / f"{i}_predict.png"
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                io.imsave(filename, (img * 255).astype(np.uint8))
+                io.imsave(filename, img * 255)
 
 
 def predictGenerator_seg(
@@ -1702,4 +1703,4 @@ def saveResult_track(
             filename = save_path / f"tracking_{i:09d}.png"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            io.imsave(filename, (mother * 255).astype(np.uint8))
+            io.imsave(filename, mother * 255)
