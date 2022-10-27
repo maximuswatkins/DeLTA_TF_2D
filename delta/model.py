@@ -92,16 +92,16 @@ def pixelwise_weighted_binary_crossentropy_track(
     return loss
 
 
-def unstack_acc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+def unstack_acc(seg_weights: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
     """
     Unstacks the mask from the weights in the output tensor for
     segmentation and computes binary accuracy
 
     Parameters
     ----------
-    y_true : Tensor
+    seg_weights : Tensor
         Stack of groundtruth segmentation masks + weight maps.
-    y_pred : Tensor
+    logits : Tensor
         Predicted segmentation masks.
 
     Returns
@@ -110,15 +110,11 @@ def unstack_acc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         Binary prediction accuracy.
 
     """
-    try:
-        [seg, weight] = tf.unstack(y_true, 2, axis=-1)
+    seg, _weights = tf.unstack(seg_weights, 2, axis=-1)
 
-        seg = tf.expand_dims(seg, -1)
-        weight = tf.expand_dims(weight, -1)
-    except:
-        pass
+    seg = tf.expand_dims(seg, -1)
 
-    return keras.metrics.binary_accuracy(seg, y_pred, threshold=0)
+    return keras.metrics.binary_accuracy(seg, logits, threshold=0)
 
 
 def _unet(
