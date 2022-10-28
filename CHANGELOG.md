@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All unet models return now logits, instead of probabilities
 - The function `seg_weights` is faster by a factor 20
 - The function `seg_weights_2D` is faster by a factor 12
+- Upgraded tensorflow dependency to version 2.7
 
 ## [2.0.5] - 2022-03-11
 ### Changed

@@ -26,7 +26,7 @@ INSTALL_REQUIRES = [
     "scikit-image>=0.18",
     "tifffile>=2020",
     "opencv-python>=4.1",
-    "tensorflow>=2.0",
+    "tensorflow>=2.7",
     "ffmpeg-python",
     "requests",
 ]
