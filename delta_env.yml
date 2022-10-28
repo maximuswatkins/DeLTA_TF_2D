@@ -5,7 +5,7 @@ channels:
 dependencies:
   - python>=3.7
   - scikit-image>=0.18
-  - opencv>=4.1
+  - opencv>=4.5
   - tensorflow-gpu>=2.7
   - ffmpeg-python
   - requests

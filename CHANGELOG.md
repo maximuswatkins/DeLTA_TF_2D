@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The function `seg_weights` is faster by a factor 20
 - The function `seg_weights_2D` is faster by a factor 12
 - Upgraded tensorflow dependency to version 2.7
+- Upgraded OpenCV dependency to version 4.5
 
 ## [2.0.5] - 2022-03-11
 ### Changed
