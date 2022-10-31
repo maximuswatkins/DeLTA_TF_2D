@@ -345,46 +345,17 @@ def zoomshift(
         Zoomed and shifted image of same size as input.
 
     """
-    oldshape = image.shape
-    image = trans.rescale(
-        image, zoomlevel, mode="edge", multichannel=False, order=order
-    )
-    shiftX = shiftX * image.shape[0]
-    shiftY = shiftY * image.shape[1]
-    image = shift(image, (shiftY, shiftX), order=order)
-    i0 = (
-        round(image.shape[0] / 2 - oldshape[0] / 2),
-        round(image.shape[1] / 2 - oldshape[1] / 2),
-    )
-    image = image[i0[0] : (i0[0] + oldshape[0]), i0[1] : (i0[1] + oldshape[1])]
-    return image
 
+    # Center of rotation and zoom
+    center = (np.array(image.shape[1::-1]) - 1) / 2
+    # Affine transform matrix
+    matrix = cv2.getRotationMatrix2D(center=center, angle=0, scale=zoomlevel)
+    # Add shift
+    matrix[:, 2] -= [shiftY*image.shape[1]*zoomlevel, shiftX*image.shape[0]*zoomlevel]
 
-def shift(
-    image: utils.Image, vector: Tuple[float, float], order: int = 0
-) -> utils.Image:
-    """
-    Image shifting function.
-
-    Parameters
-    ----------
-    image : 2D numpy array
-        Input image.
-    vector : tuple of floats
-        Translation/shit vector.
-    order : int, optional
-        Interpolation order. The default is 0.
-
-    Returns
-    -------
-    shifted : 2D numpy image
-        Shifted image.
-
-    """
-    transform = trans.AffineTransform(translation=vector)
-    shifted = trans.warp(image, transform, mode="edge", order=order)
-
-    return shifted
+    flags = [cv2.INTER_NEAREST, cv2.INTER_LINEAR][order]
+    new_image = cv2.warpAffine(image, matrix, image.shape[1::-1], flags=flags, borderMode=cv2.BORDER_REPLICATE)
+    return new_image
 
 
 def histogram_voodoo(
