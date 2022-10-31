@@ -296,48 +296,38 @@ def data_augmentation(
     if aug_par.get("rotations_90d"):
         output = [np.rot90(item, k=rng.choice(4)) for item in output]
 
-    if aug_par.get("rotation"):
-        rot = rng.uniform(-aug_par["rotation"], aug_par["rotation"])
-        output = [trans.rotate(item, rot, mode="edge", order=order) if order > 0 else item
-                  for order, item in zip(orderlist, output)]
+    # Rotation, zoom and shift are processed together
+    angle = rng.uniform(-1.0, 1.0) * aug_par.get("rotation", 0.0)
 
-    # Zoom and shift operations are processed together:
-    if aug_par.get("zoom"):
-        # I want most of them to not be too zoomed
-        zoom = rng.exponential(aug_par["zoom"] / 3.0)
-        zoom = min(zoom, aug_par["zoom"])
-    else:
-        zoom = 0
+    zoom = 1 + rng.exponential(aug_par.get("zoom", 0.0) / 3.0)
 
     shift_x = rng.uniform(-1.0, 1.0) * aug_par.get("shiftX", 0.0)
     shift_y = rng.uniform(-1.0, 1.0) * aug_par.get("shiftY", 0.0)
 
-    # Apply zoom & shifts:
-    if any([zoom, shift_x, shift_y]):
-        output = [zoomshift(item, zoom + 1, shift_x, shift_y, order=order)
-                  for order, item in zip(orderlist, output)]
+    output = [affine_transform(item, zoom=zoom, angle=angle, shift=(shift_x, shift_y), order=order)
+              for order, item in zip(orderlist, output)]
 
     return output
 
 
-def zoomshift(
-    image: utils.Image, zoomlevel: float, shiftX: float, shiftY: float, order: int = 0
+def affine_transform(
+    image: utils.Image, zoom: float, angle: float, shift: Tuple[float, float], order: int
 ) -> utils.Image:
     """
-    This function zooms and shifts images.
+    This function applies an affine transformation to an image (zoom, rotation and translation).
 
     Parameters
     ----------
-    I : 2D numpy array
+    image : 2D numpy array
         input image.
-    zoomlevel : float
-        Additional zoom to apply to the image.
-    shiftX : float
-        X-axis shift to apply to the image, in pixels.
-    shiftY : float
-        Y-axis shift to apply to the image, in pixels.
-    order : int, optional
-        Interpolation order. The default is 0.
+    zoom : float
+        Zoom to apply to the image.
+    angle : float
+        Rotation angle to apply to the image.
+    shift : (float, float)
+        Translation to apply to the image, in proportion of the image size.
+    order : int
+        Interpolation order.
 
     Returns
     -------
@@ -349,12 +339,15 @@ def zoomshift(
     # Center of rotation and zoom
     center = (np.array(image.shape[1::-1]) - 1) / 2
     # Affine transform matrix
-    matrix = cv2.getRotationMatrix2D(center=center, angle=0, scale=zoomlevel)
+    matrix = cv2.getRotationMatrix2D(center=center, angle=angle, scale=zoom)
     # Add shift
-    matrix[:, 2] -= [shiftY*image.shape[1]*zoomlevel, shiftX*image.shape[0]*zoomlevel]
+    matrix[:, 2] -= [shift[1]*image.shape[1]*zoom, shift[0]*image.shape[0]*zoom]
 
-    flags = [cv2.INTER_NEAREST, cv2.INTER_LINEAR][order]
-    new_image = cv2.warpAffine(image, matrix, image.shape[1::-1], flags=flags, borderMode=cv2.BORDER_REPLICATE)
+    kwargs = {
+        "flags": [cv2.INTER_NEAREST, cv2.INTER_LINEAR][order],
+        "borderMode": cv2.BORDER_REPLICATE,
+    }
+    new_image = cv2.warpAffine(image, matrix, image.shape[1::-1], **kwargs)
     return new_image
 
 

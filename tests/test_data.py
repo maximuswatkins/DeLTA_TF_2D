@@ -143,7 +143,7 @@ def test_postprocess_opening():
          (1.4, 2.0),
          (1.4, 2.4),
      ])
-def test_zoomshift_shift_order0(shiftX, shiftY):
+def test_affine_transform_shift_order0(shiftX, shiftY):
     img = np.array(
         [
             [1, 0, 1, 1, 0, 1, 1],
@@ -159,7 +159,7 @@ def test_zoomshift_shift_order0(shiftX, shiftY):
         ],
         dtype=np.uint8
     )
-    actual = data.zoomshift(img, zoomlevel=1.0, shiftX=shiftX/img.shape[0], shiftY=shiftY/img.shape[1], order=0)
+    actual = data.affine_transform(img, zoom=1.0, angle=0.0, shift=(shiftX/img.shape[0], shiftY/img.shape[1]), order=0)
     # 1 up, 2 left
     truth = np.array(
         [
@@ -178,7 +178,7 @@ def test_zoomshift_shift_order0(shiftX, shiftY):
     npt.assert_array_equal(actual, truth)
 
 
-def test_zoomshift_zoom_order0():
+def test_affine_transform_zoom_order0():
     img = np.array(
         [
             [1, 0, 1, 1, 0, 1, 1, 1],
@@ -194,7 +194,7 @@ def test_zoomshift_zoom_order0():
         ],
         dtype=np.uint8
     )
-    actual = data.zoomshift(img, zoomlevel=2.0, shiftX=0, shiftY=0, order=0)
+    actual = data.affine_transform(img, zoom=2.0, angle=0.0, shift=(0, 0), order=0)
     truth = np.array(
         [
             [0, 0, 0, 0, 0, 0, 0, 0],
@@ -212,7 +212,7 @@ def test_zoomshift_zoom_order0():
     npt.assert_array_equal(actual, truth)
 
 
-def test_zoomshift_zoomshift_order0():
+def test_affine_transform_zoomshift_order0():
     img = np.array(
         [
             [1, 0, 1, 1, 0, 1, 1, 1],
@@ -228,7 +228,7 @@ def test_zoomshift_zoomshift_order0():
         ],
         dtype=np.uint8
     )
-    actual = data.zoomshift(img, zoomlevel=2.0, shiftX=1.0/img.shape[0], shiftY=2.0/img.shape[1], order=0)
+    actual = data.affine_transform(img, zoom=2.0, angle=0.0, shift=(1.0/img.shape[0], 2.0/img.shape[1]), order=0)
     truth = np.array(
         [
             [1, 1, 1, 1, 0, 0, 0, 0],
