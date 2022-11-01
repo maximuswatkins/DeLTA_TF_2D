@@ -17,7 +17,7 @@ import numpy.typing as npt
 from scipy.io import savemat
 
 from . import utilities as utils
-from .data import postprocess
+from .data import binarizerange, postprocess
 from .utilities import cfg
 
 
@@ -1140,7 +1140,7 @@ class ROI:
             y = utils.stitch_pic(y[..., 0], windows[0], windows[1])
 
         # Binarize:
-        y = (y > 0.5).astype(np.uint8)
+        y = binarizerange(y, threshold=0).astype(np.uint8)
         # Crop out segmentation if image was smaller than target_size
         if self.crop_windows:
             y = y[: self.img_stack[0].shape[0], : self.img_stack[0].shape[1]]

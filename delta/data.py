@@ -33,15 +33,17 @@ from . import utilities as utils
 #%% UTILITIES:
 
 
-def binarizerange(array: utils.Image) -> utils.Image:
+def binarizerange(array: utils.Image, threshold: float = None) -> utils.Image:
     """
-    This function will binarize a numpy array by thresholding it in the middle
-    of its range
+    This function will binarize a numpy array by thresholding it.
 
     Parameters
     ----------
     array : 2D numpy array
-            Input array/image.
+        Input array/image.
+    threshold : float, optional
+        Binarization threshold.
+        By default, the threshold will be the middle of the dynamic range.
 
     Returns
     -------
@@ -50,7 +52,8 @@ def binarizerange(array: utils.Image) -> utils.Image:
 
     """
 
-    threshold = (np.amin(array) + np.amax(array)) / 2
+    if threshold is None:
+        threshold = (np.amin(array) + np.amax(array)) / 2
     return np.array(array > threshold, dtype=array.dtype)
 
 
@@ -163,7 +166,7 @@ def postprocess(
 
     # Go through stack:
     for index, I in enumerate(images):
-        I = binarizerange(I)
+        I = binarizerange(I, threshold=0)
         if not crop:
             I = morph.binary_opening(I, selem=selem)
         if min_size is not None:

@@ -18,7 +18,7 @@ from tensorflow.python.ops import array_ops, math_ops
 
 
 def pixelwise_weighted_binary_crossentropy_seg(
-    y_true: tf.Tensor, y_pred: tf.Tensor
+    seg_weights: tf.Tensor, logits: tf.Tensor
 ) -> tf.Tensor:
     """
     Pixel-wise weighted binary cross-entropy loss.
@@ -27,9 +27,9 @@ def pixelwise_weighted_binary_crossentropy_seg(
 
     Parameters
     ----------
-    y_true : Tensor
+    seg_weights : Tensor
         Stack of groundtruth segmentation masks + weight maps.
-    y_pred : Tensor
+    logits : Tensor
         Predicted segmentation masks.
 
     Returns
@@ -38,44 +38,26 @@ def pixelwise_weighted_binary_crossentropy_seg(
         Pixel-wise weight binary cross-entropy between inputs.
 
     """
-    try:
-        # The weights are passed as part of the y_true tensor:
-        [seg, weight] = tf.unstack(y_true, 2, axis=-1)
+    # The weights are passed as part of the seg_weights tensor:
+    seg, weights = tf.unstack(seg_weights, 2, axis=-1)
 
-        seg = tf.expand_dims(seg, -1)
-        weight = tf.expand_dims(weight, -1)
-    except:
-        pass
+    seg = tf.expand_dims(seg, -1)
+    weights = tf.expand_dims(weights, -1)
 
     # Make background weights be equal to the model's prediction
-    bool_bkgd = weight == 0 / 255
-    weight = tf.where(bool_bkgd, y_pred, weight)
+    weights = tf.where(weights == 0, tf.math.sigmoid(logits), weights)
 
-    epsilon = tf.convert_to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
-    y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
-    y_pred = tf.math.log(y_pred / (1 - y_pred))
+    entropy = tf.nn.relu(logits) - logits * seg + tf.math.log1p(tf.exp(-tf.abs(logits)))
 
-    zeros = array_ops.zeros_like(y_pred, dtype=y_pred.dtype)
-    cond = y_pred >= zeros
-    relu_logits = math_ops.select(cond, y_pred, zeros)
-    neg_abs_logits = math_ops.select(cond, -y_pred, y_pred)
-    entropy = math_ops.add(
-        relu_logits - y_pred * seg,
-        math_ops.log1p(math_ops.exp(neg_abs_logits)),
-        name=None,
-    )
+    loss = K.mean(weights * entropy, axis=-1)
 
-    loss = K.mean(math_ops.multiply(weight, entropy), axis=-1)
-
-    loss = tf.scalar_mul(
-        10 ** 6, tf.scalar_mul(1 / tf.math.sqrt(tf.math.reduce_sum(weight)), loss)
-    )
+    loss = 1e6 * loss / tf.math.sqrt(tf.math.reduce_sum(weights))
 
     return loss
 
 
 def pixelwise_weighted_binary_crossentropy_track(
-    y_true: tf.Tensor, y_pred: tf.Tensor
+    seg_weights: tf.Tensor, logits: tf.Tensor
 ) -> tf.Tensor:
     """
     Pixel-wise weighted binary cross-entropy loss.
@@ -84,9 +66,9 @@ def pixelwise_weighted_binary_crossentropy_track(
 
     Parameters
     ----------
-    y_true : Tensor
+    seg_weights : Tensor
         Stack of groundtruth segmentation masks + weight maps.
-    y_pred : Tensor
+    logits : Tensor
         Predicted segmentation masks.
 
     Returns
@@ -95,87 +77,31 @@ def pixelwise_weighted_binary_crossentropy_track(
         Pixel-wise weight binary cross-entropy between inputs.
 
     """
-    try:
-        # The weights are passed as part of the y_true tensor:
-        [seg, weight] = tf.unstack(y_true, 2, axis=-1)
+    # The weights are passed as part of the seg_weights tensor:
+    seg, weights = tf.unstack(seg_weights, 2, axis=-1)
 
-        seg = tf.expand_dims(seg, -1)
-        weight = tf.expand_dims(weight, -1)
-    except:
-        pass
+    seg = tf.expand_dims(seg, -1)
+    weights = tf.expand_dims(weights, -1)
 
-    epsilon = tf.convert_to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
-    y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
-    y_pred = tf.math.log(y_pred / (1 - y_pred))
+    entropy = tf.nn.relu(logits) - logits * seg + math_ops.log1p(math_ops.exp(-tf.abs(logits)))
 
-    zeros = array_ops.zeros_like(y_pred, dtype=y_pred.dtype)
-    cond = y_pred >= zeros
-    relu_logits = math_ops.select(cond, y_pred, zeros)
-    neg_abs_logits = math_ops.select(cond, -y_pred, y_pred)
-    entropy = math_ops.add(
-        relu_logits - y_pred * seg,
-        math_ops.log1p(math_ops.exp(neg_abs_logits)),
-        name=None,
-    )
+    loss = K.mean(weights * entropy, axis=-1)
 
-    loss = K.mean(math_ops.multiply(weight, entropy), axis=-1)
-
-    loss = tf.scalar_mul(
-        10 ** 6, tf.scalar_mul(1 / tf.math.sqrt(tf.math.reduce_sum(weight)), loss)
-    )
+    loss = 1e6 * loss / tf.math.sqrt(tf.math.reduce_sum(weights))
 
     return loss
 
 
-def class_weighted_categorical_crossentropy(
-    class_weights: Union[List[float], Tuple[float, ...]]
-) -> Callable[[tf.Tensor, tf.Tensor], float]:
-    """
-    Generate class-weighted categorical cross-entropy loss function.
-    The code is adapted from the Keras TF backend.
-    (see their github)
-
-    Parameters
-    ----------
-    class_weights : tuple/list of floats
-        Weights for each class/category.
-
-    Returns
-    -------
-    function.
-        Class-weighted categorical cross-entropy loss function.
-
-    """
-
-    def loss_function(y_true: tf.Tensor, y_pred: tf.Tensor) -> float:
-
-        # scale preds so that the class probas of each sample sum to 1
-        y_pred /= tf.reduce_sum(y_pred, -1, True)
-        # manual computation of crossentropy
-        epsilon = tf.convert_to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
-        y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
-
-        # Multiply each class by its weight:
-        classes_list = tf.unstack(y_true * tf.math.log(y_pred), axis=-1)
-        for i in range(len(classes_list)):
-            classes_list[i] = tf.scalar_mul(class_weights[i], classes_list[i])
-
-        # Return weighted sum:
-        return -tf.reduce_sum(tf.stack(classes_list, axis=-1), -1)
-
-    return loss_function
-
-
-def unstack_acc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+def unstack_acc(seg_weights: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
     """
     Unstacks the mask from the weights in the output tensor for
     segmentation and computes binary accuracy
 
     Parameters
     ----------
-    y_true : Tensor
+    seg_weights : Tensor
         Stack of groundtruth segmentation masks + weight maps.
-    y_pred : Tensor
+    logits : Tensor
         Predicted segmentation masks.
 
     Returns
@@ -184,15 +110,11 @@ def unstack_acc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         Binary prediction accuracy.
 
     """
-    try:
-        [seg, weight] = tf.unstack(y_true, 2, axis=-1)
+    seg, _weights = tf.unstack(seg_weights, 2, axis=-1)
 
-        seg = tf.expand_dims(seg, -1)
-        weight = tf.expand_dims(weight, -1)
-    except:
-        pass
+    seg = tf.expand_dims(seg, -1)
 
-    return keras.metrics.binary_accuracy(seg, y_pred)
+    return keras.metrics.binary_accuracy(seg, logits, threshold=0)
 
 
 def _unet(
@@ -277,7 +199,7 @@ def _unet(
 # Generic unet declaration:
 def unet(
     input_size: Tuple[int, int, int] = (256, 32, 1),
-    final_activation: str = "sigmoid",
+    final_activation: str = None,
     output_classes: int = 1,
     dropout: float = 0,
     levels: int = 5,
@@ -291,10 +213,10 @@ def unet(
     input_size : tuple of 3 ints, optional
         Dimensions of the input tensor, excluding batch size.
         The default is (256,32,1).
-    final_activation : string or function, optional
+    final_activation : None, string or function, optional
         Activation function for the final 2D convolutional layer. see
         keras.activations
-        The default is 'sigmoid'.
+        The default is None (no activation: outputs logits).
     output_classes : int, optional
         Number of output classes, ie dimensionality of the output space of the
         last 2D convolutional layer.
@@ -386,7 +308,7 @@ def unet_seg(
 
     model = unet(
         input_size=input_size,
-        final_activation="sigmoid",
+        final_activation=None,
         output_classes=1,
         levels=levels,
         filters=filters,
@@ -439,7 +361,7 @@ def unet_track(
 
     model = unet(
         input_size=input_size,
-        final_activation="sigmoid",
+        final_activation=None,
         output_classes=1,
         levels=levels,
         filters=filters,
@@ -486,12 +408,15 @@ def unet_rois(
 
     model = unet(
         input_size=input_size,
-        final_activation="sigmoid",
+        final_activation=None,
         output_classes=1,
         levels=levels,
         filters=filters,
     )
 
-    model.compile(optimizer=Adam(learning_rate=1e-4), loss="binary_crossentropy")
+    model.compile(
+        optimizer=Adam(learning_rate=1e-4),
+        loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+    )
 
     return model
