@@ -1,13 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 Module for configuration files and configuration parameters
 
 @author: jblugagne
 """
-import os as _os
 import json as _json
+import os as _os
+from typing import Optional, Tuple
 from warnings import warn as _warn
-from typing import Tuple, Optional
 
 from . import __file__ as _delta_init  # Path to __init__ file
 
@@ -247,7 +246,7 @@ def _read_json(json_file: str):
 
     # Load file:
     print(f"Loading configuration from: {json_file}")
-    with open(json_file, "r") as f:
+    with open(json_file) as f:
         variables = _json.loads(f.read())
 
     # Type cast:

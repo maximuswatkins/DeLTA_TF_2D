@@ -3,25 +3,24 @@ Module for data manipulations and input/output operations.
 
 @author: jblugagne
 """
-from __future__ import print_function
 
-import os
+import copy
 import glob
+import importlib
+import os
 import re
 import warnings
-import copy
-import importlib
-from typing import cast, Tuple, List, Dict, Union, Iterator, Any, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 import cv2
 import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
 import skimage.io as io
-import skimage.transform as trans
-from skimage.measure import label
 import skimage.morphology as morph
+import skimage.transform as trans
 from scipy import interpolate
+from skimage.measure import label
 
 # Try to import elastic deformations, issue warning if not found:
 if importlib.util.find_spec("elasticdeform") is None:
@@ -893,7 +892,7 @@ def estimate_seg2D_classweights(
         border[mask > 0] = 0
 
         # Bkgd (background) is just the image minus the cells + border
-        bkgd = np.ones((mask.shape))
+        bkgd = np.ones(mask.shape)
         bkgd = bkgd - (mask + border)
 
         # Erode the segmentation to avoid putting high emphasiss on edges of cells
@@ -976,7 +975,7 @@ def seg_weights_2D(
     weightmap[border_skel > 0] = classweights[1]
 
     # Keep the background zero and set the erode values in the seg/border to a minimum of 1
-    bkgd = np.ones((mask.shape)) - mask - border
+    bkgd = np.ones(mask.shape) - mask - border
     weightmap[((weightmap == 0) * (bkgd < 1))] = 1 / 255
 
     return weightmap

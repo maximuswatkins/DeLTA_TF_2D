@@ -6,11 +6,11 @@ This script trains the cell segmentation U-Net
 import os
 
 import tensorflow as tf
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
-from delta.utilities import cfg
-from delta.model import unet_seg
 from delta.data import trainGenerator_seg
+from delta.model import unet_seg
+from delta.utilities import cfg
 
 # Set tensorflow's random seed to make the training reproducible
 # (only on CPU: not reproducible on GPU yet)

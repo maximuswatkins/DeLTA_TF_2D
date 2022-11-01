@@ -14,15 +14,15 @@ If there are no chambers, then images will be cropped as done for DeLTA 2D
 @author: jblugagne
 """
 
-import os
 import glob
+import os
 
 import cv2
 import numpy as np
 
-from delta.utilities import cfg
-from delta.data import saveResult_track, predictCompilefromseg_track
+from delta.data import predictCompilefromseg_track, saveResult_track
 from delta.model import unet_track
+from delta.utilities import cfg
 
 ### Parameters:
 

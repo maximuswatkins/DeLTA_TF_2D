@@ -7,13 +7,13 @@ to minimize the risk of unforeseen bugs.
 @author: jblugagne
 """
 
-import re
-import time
-import sys
 import importlib
-from threading import Thread
-from typing import cast, Tuple, List, Optional, Union, Any, Dict
+import re
+import sys
+import time
 from pathlib import Path
+from threading import Thread
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import cv2
 import ffmpeg
@@ -231,9 +231,9 @@ def getDriftTemplate(
 
     if len(chamberboxes) == 0 and not whole_frame:
         return None
-    (y_cut, x_cut) = [
+    (y_cut, x_cut) = (
         round(i * 0.025) for i in img.shape
-    ]  # Cutting out 2.5% of the image on eahc side as drift margin
+    )  # Cutting out 2.5% of the image on eahc side as drift margin
 
     box = CroppingBox(
         xtl=x_cut,
@@ -2432,7 +2432,7 @@ def vidwrite(
             "pipe:",
             format="rawvideo",
             pix_fmt="rgb24",
-            s="{}x{}".format(width, height),
+            s=f"{width}x{height}",
             r=7,
         )
         .output(

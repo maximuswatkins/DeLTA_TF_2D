@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Wed Apr  6 09:47:07 2022
 
@@ -93,7 +92,7 @@ def _run_script(_scriptfile, _parameters):
     "Read script & strip parameters code, set parameters, execute script"
 
     # Read script, and remove parameters block:
-    with open(_scriptfile, "r") as reader:
+    with open(_scriptfile) as reader:
         _script = _strip_parameters(reader)
 
     # set parameters:
