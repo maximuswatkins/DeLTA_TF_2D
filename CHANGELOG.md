@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for a training dataset.
 - The function `delta.utilities.read_image` reads and normalises png, tif and
   more.
+- The function `load_training_dataset_seg` loads training datasets and allows
+  to specify validation and test splits.
 ### Changed
 - Fixed bug in the computation of cell perimeters
 - Fixed training reproducibility bugs
@@ -19,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The function `seg_weights_2D` is faster by a factor 12
 - Upgraded tensorflow dependency to version 2.7
 - Upgraded OpenCV dependency to version 4.5
+### Removed
+- The function `trainGenerator_seg` was removed.
 
 ## [2.0.5] - 2022-03-11
 ### Changed

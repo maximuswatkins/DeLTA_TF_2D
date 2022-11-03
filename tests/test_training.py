@@ -7,7 +7,7 @@ Created on Tue Nov  9 16:40:02 2021.
 import pytest
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
-from delta.data import trainGenerator_seg, trainGenerator_track
+from delta.data import load_training_dataset_seg, trainGenerator_track
 from delta.model import unet_rois, unet_seg, unet_track
 from delta.utilities import cfg
 
@@ -42,13 +42,12 @@ def test_train_moma_rois():
     )
 
     # Generator init:
-    myGene = trainGenerator_seg(
-        batch_size,
-        training_set / "img",
-        training_set / "seg",
-        None,
-        augment_params=data_gen_args,
+    ds_train, ds_val = load_training_dataset_seg(
+        dataset_path=training_set,
         target_size=cfg.target_size_rois,
+        crop=False,
+        kw_data_aug=data_gen_args,
+        validation_split=0.05,
     )
 
     # Define model:
@@ -65,9 +64,10 @@ def test_train_moma_rois():
 
     # Train:
     model.fit(
-        myGene,
+        ds_train,
         steps_per_epoch=steps_per_epoch,
         epochs=epochs,
+        validation_data=ds_val,
         callbacks=[model_checkpoint, early_stopping],
     )
 
@@ -100,7 +100,7 @@ def _train_seg(presets, batch_size=1):
     # Data generator parameters:
     data_gen_args = dict(
         rotation=2,
-        rotations_90d=True,
+        rotations_90d=presets == "2D",
         zoom=0.15,
         horizontal_flip=True,
         vertical_flip=True,
@@ -110,14 +110,13 @@ def _train_seg(presets, batch_size=1):
     )
 
     # Generator init:
-    myGene = trainGenerator_seg(
-        batch_size,
-        training_set / "img",
-        training_set / "seg",
-        training_set / "wei",
-        augment_params=data_gen_args,
+    ds_train, ds_val = load_training_dataset_seg(
+        dataset_path=training_set,
         target_size=cfg.target_size_seg,
-        crop_windows=cfg.crop_windows,
+        crop=presets == "2D",
+        kw_data_aug=data_gen_args,
+        validation_split=0.05,
+        stack=True,
     )
 
     # Define model:
@@ -134,9 +133,10 @@ def _train_seg(presets, batch_size=1):
 
     # Train:
     model.fit(
-        myGene,
+        ds_train,
         steps_per_epoch=steps_per_epoch,
         epochs=epochs,
+        validation_data=ds_val,
         callbacks=[model_checkpoint, early_stopping],
     )
 

@@ -6,7 +6,7 @@ This script trains the chambers segmentation U-Net.
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
-from delta.data import trainGenerator_seg
+from delta.data import load_training_dataset_seg
 from delta.model import unet_rois
 from delta.utilities import cfg, tensorboard_callback
 
@@ -22,7 +22,6 @@ training_set = cfg.training_set_rois
 savefile = cfg.model_file_rois
 
 # Parameters:
-batch_size = 1
 epochs = 600
 steps_per_epoch = 250
 patience = 50
@@ -41,14 +40,12 @@ data_gen_args = dict(
     gaussian_noise=0.03,
 )
 
-# Generator init:
-myGene = trainGenerator_seg(
-    batch_size,
-    training_set / "img",
-    training_set / "seg",
-    None,
-    augment_params=data_gen_args,
+ds_train, ds_val = load_training_dataset_seg(
+    dataset_path=training_set,
     target_size=cfg.target_size_rois,
+    crop=False,
+    kw_data_aug=data_gen_args,
+    validation_split=0.05,
 )
 
 # Define model:
@@ -63,8 +60,9 @@ early_stopping = EarlyStopping(monitor="loss", mode="min", verbose=1, patience=p
 
 # Train:
 history = model.fit(
-    myGene,
+    ds_train,
     steps_per_epoch=steps_per_epoch,
+    validation_data=ds_val,
     epochs=epochs,
     callbacks=[model_checkpoint, early_stopping, tensorboard_callback()],
 )
