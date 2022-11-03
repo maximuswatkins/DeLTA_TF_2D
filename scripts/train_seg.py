@@ -10,7 +10,7 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 from delta.data import trainGenerator_seg
 from delta.model import unet_seg
-from delta.utilities import cfg
+from delta.utilities import cfg, tensorboard_callback
 
 # Set tensorflow's random seed to make the training reproducible
 # (only on CPU: not reproducible on GPU yet)
@@ -67,5 +67,5 @@ history = model.fit(
     myGene,
     steps_per_epoch=steps_per_epoch,
     epochs=epochs,
-    callbacks=[model_checkpoint, early_stopping],
+    callbacks=[model_checkpoint, early_stopping, tensorboard_callback()],
 )

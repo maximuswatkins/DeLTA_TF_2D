@@ -7,8 +7,10 @@ to minimize the risk of unforeseen bugs.
 @author: jblugagne
 """
 
+import datetime
 import importlib
 import re
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -20,6 +22,7 @@ import ffmpeg
 import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
+from tensorflow.keras.callbacks import TensorBoard
 from scipy.special import logit
 from skimage.morphology import skeletonize
 
@@ -2765,3 +2768,13 @@ def findfirst(mylist: List) -> Optional[int]:
 
     """
     return next((i for i, x in enumerate(mylist) if x > 0), None)
+
+
+def tensorboard_callback():
+    try:
+        branch = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"]).rstrip().decode()
+    except FileNotFoundError:
+        branch = ""
+    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_" + branch
+    callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
+    return callback
