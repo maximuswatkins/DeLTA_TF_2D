@@ -663,10 +663,16 @@ class Position:
         for iroi, roi in enumerate(self.rois):
             for icell in range(len(roi.lineage.cells)):
                 for iframe in roi.lineage.cells[icell]["frames"]:
-                    grl = roi.lineage.growthrate(icell, iframe, "length")
-                    roi.lineage.setvalue(icell, iframe, "growthrate_length", grl)
-                    gra = roi.lineage.growthrate(icell, iframe, "area")
-                    roi.lineage.setvalue(icell, iframe, 'growthrate_area', gra)
+                    for feature in ["length", "area"]:
+                        try:
+                            gr = roi.lineage.growthrate(icell, iframe, feature)
+                            roi.lineage.setvalue(icell, iframe, f"growthrate_{feature}", gr)
+                        except KeyError:
+                            warnings.warn(
+                                "An issue happened related to feature extraction: "
+                                "some cells cannot be found after resizing."
+                            )
+
 
     def save(
         self,
