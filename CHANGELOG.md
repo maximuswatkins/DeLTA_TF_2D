@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Added
 - DeLTA now computes the growth rate of the cells
+- The function `delta.data.make_weights` can create all of the weight maps
+  for a training dataset.
+- The function `delta.utilities.read_image` reads and normalises png, tif and
+  more.
 ### Changed
 - Fixed bug in the computation of cell perimeters
 - Fixed training reproducibility bugs
 - All unet models return now logits, instead of probabilities
+- The function `seg_weights` is faster by a factor 20
+- The function `seg_weights_2D` is faster by a factor 12
 
 ## [2.0.5] - 2022-03-11
 ### Changed

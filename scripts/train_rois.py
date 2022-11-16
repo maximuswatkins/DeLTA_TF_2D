@@ -3,8 +3,6 @@ This script trains the chambers segmentation U-Net.
 
 @author: jblugagne
 """
-import os
-
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
@@ -46,8 +44,8 @@ data_gen_args = dict(
 # Generator init:
 myGene = trainGenerator_seg(
     batch_size,
-    os.path.join(training_set, "img"),
-    os.path.join(training_set, "seg"),
+    training_set / "img",
+    training_set / "seg",
     None,
     augment_params=data_gen_args,
     target_size=cfg.target_size_rois,

@@ -7,12 +7,9 @@ preprocessing section of pipeline.py and getROIboxes() in utilities.py
 @author: jblugagne
 """
 
-import glob
-import os
-
 from delta.data import postprocess, predictGenerator_seg, saveResult_seg
 from delta.model import unet_rois
-from delta.utilities import cfg
+from delta.utilities import cfg, listfiles
 
 ### Parameters:
 
@@ -26,14 +23,11 @@ inputs_folder = cfg.eval_movie
 
 
 # Output folder:
-outputs_folder = os.path.join(inputs_folder, "roi_masks")
-if not os.path.exists(outputs_folder):
-    os.makedirs(outputs_folder)
+outputs_folder = inputs_folder / "roi_masks"
+outputs_folder.mkdir(exist_ok=True)
 
 # List files in inputs folder:
-input_files = sorted(
-    glob.glob(inputs_folder + "/*.tif") + glob.glob(inputs_folder + "/*.png")
-)
+input_files = listfiles(inputs_folder, {".tif", ".png"})
 
 # Load up model:
 model = unet_rois(input_size=cfg.target_size_rois + (1,))

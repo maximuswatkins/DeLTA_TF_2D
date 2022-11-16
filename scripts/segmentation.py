@@ -7,17 +7,13 @@ The images are processed by batches of 4096 to prevent memory issues.
 
 @author: jblugagne
 """
-
-import glob
-import os
-
 import numpy as np
 
 import delta.utilities as utils
 from delta.data import (postprocess, predictGenerator_seg, readreshape,
                         saveResult_seg)
 from delta.model import unet_seg
-from delta.utilities import cfg
+from delta.utilities import cfg, listfiles
 
 ### Parameters:
     
@@ -31,14 +27,11 @@ inputs_folder = cfg.eval_movie # or cfg.eval_movie + "/cropped_rois" for mother 
 
 
 # Outputs folder:
-outputs_folder = os.path.join(inputs_folder, "segmentation")
-if not os.path.exists(outputs_folder):
-    os.makedirs(outputs_folder)
+outputs_folder = inputs_folder / "segmentation"
+outputs_folder.mkdir(exist_ok=True)
 
 # List files in inputs folder:
-unprocessed = sorted(
-    glob.glob(inputs_folder + "/*.tif") + glob.glob(inputs_folder + "/*.png")
-)
+unprocessed = listfiles(inputs_folder, {".tif", ".png"})
 
 # Load up model:
 model = unet_seg(input_size=cfg.target_size_seg + (1,))
@@ -56,7 +49,7 @@ while unprocessed:
         inputs_folder,
         files_list=to_process,
         target_size=cfg.target_size_seg,
-        crop=cfg.crop_windows,
+        crop_windows=cfg.crop_windows,
     )
 
     # mother machine: Don't crop images into windows
@@ -67,9 +60,9 @@ while unprocessed:
     # 2D: Cut into overlapping windows
     else:
         img = readreshape(
-            os.path.join(inputs_folder, to_process[0]),
+            inputs_folder / to_process[0],
             target_size=cfg.target_size_seg,
-            crop=True,
+            method="pad",
         )
         # Create array to store predictions
         results = np.zeros((len(to_process), img.shape[0], img.shape[1], 1))

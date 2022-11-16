@@ -8,6 +8,7 @@ downloads, and writing configuration files
 import json
 import os
 import shutil
+from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import requests
@@ -123,6 +124,16 @@ def download_assets(
         )
 
 
+def _write_json(obj: Any, path: Path) -> None:
+    class PathEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, Path):
+                return str(obj)
+            return json.JSONEncoder.default(self, obj)
+    with path.open(mode="w", encoding="utf8") as file:
+        json.dump(obj, file, indent=4, cls=PathEncoder)
+
+
 def _ask(prompt: str, options: Dict[str, Any] = {"y": True, "n": False}) -> Any:
     question = f"{prompt} [{'/'.join(options)}]: "
     answer = input(question)
@@ -140,10 +151,10 @@ def _write_default_configs(
 ) -> None:
 
     if config_level == "local":
-        config_dir = os.path.expanduser("~/.delta")
+        config_dir = Path.home() / ".delta"
     elif config_level == "global":
-        config_dir = os.path.join(_DELTA_DIR, "assets", "config")
-    elif os.path.exists(config_level):
+        config_dir = _DELTA_DIR / "assets/config"
+    elif config_level.exists():
         config_dir = config_level
     else:
         raise ValueError(
@@ -152,8 +163,7 @@ def _write_default_configs(
             """
         )
 
-    if not os.path.exists(config_dir):
-        os.makedirs(config_dir)
+    config_dir.mkdir(parents=True, exist_ok=True)
 
     # Write 2D config:
     config = _DEFAULTS_2D.copy()
@@ -161,16 +171,11 @@ def _write_default_configs(
         config["model_file_seg"] = model_files["unet_pads_seg"]
         config["model_file_track"] = model_files["unet_pads_track"]
     if len(sets_files) > 0:
-        config["training_set_seg"] = os.path.join(
-            sets_files["2D"], "training", "segmentation_set"
-        )
-        config["training_set_track"] = os.path.join(
-            sets_files["2D"], "training", "tracking_set"
-        )
+        config["training_set_seg"] = sets_files["2D"] / "training/segmentation_set"
+        config["training_set_track"] = sets_files["2D"] / "training/tracking_set"
     if len(eval_files) > 0:
-        config["eval_movie"] = os.path.join(eval_files["2D"], "movie_tifs")
-    with open(os.path.join(config_dir, "config_2D.json"), "w") as f:
-        json.dump(config, f, indent=4)
+        config["eval_movie"] = eval_files["2D"] / "movie_tifs"
+    _write_json(config, config_dir / "config_2D.json")
 
     # Write mothermachine config:
     config = _DEFAULTS_mothermachine.copy()
@@ -179,28 +184,18 @@ def _write_default_configs(
         config["model_file_seg"] = model_files["unet_moma_seg"]
         config["model_file_track"] = model_files["unet_moma_track"]
     if len(sets_files) > 0:
-        config["training_set_rois"] = os.path.join(
-            sets_files["mothermachine"], "training", "chambers_seg_set", "train"
-        )
-        config["training_set_seg"] = os.path.join(
-            sets_files["mothermachine"],
-            "training",
-            "segmentation_set",
-            "train_multisets",
-        )
-        config["training_set_track"] = os.path.join(
-            sets_files["mothermachine"], "training", "tracking_set", "train_multisets"
-        )
+        config["training_set_rois"] = sets_files["mothermachine"] / "training/chambers_seg_set/train"
+        config["training_set_seg"] = sets_files["mothermachine"] / "training/segmentation_set/train_multisets"
+        config["training_set_track"] = sets_files["mothermachine"] / "training/tracking_set/train_multisets"
     if len(eval_files) > 0:
-        config["eval_movie"] = os.path.join(eval_files["mothermachine"], "movie_tifs")
-    with open(os.path.join(config_dir, "config_mothermachine.json"), "w") as f:
-        json.dump(config, f, indent=4)
+        config["eval_movie"] = eval_files["mothermachine"] / "movie_tifs"
+    _write_json(config, config_dir / "config_mothermachine.json")
 
     print(f"Config files written to {config_dir}")
 
 
 def _download_models(
-    model_ids: Dict[str, str] = LATEST_MODELS, models_dir: str = None
+    model_ids: Dict[str, str] = LATEST_MODELS, models_dir: Path = None
 ) -> Dict[str, str]:
     """
     Download models from gdrive
@@ -210,7 +205,7 @@ def _download_models(
     model_ids : dict, optional
         Dictionary of the filename:google_id for all necessary model files.
         The default is LATEST_MODELS.
-    models_dir : None or str, optional
+    models_dir : Path, optional
         path to save folder. If None, the delta install folder will be used.
         The default is None.
 
@@ -221,38 +216,36 @@ def _download_models(
 
     """
 
-    if not isinstance(models_dir, str):
+    if models_dir is None:
         # Retrieve the path of the delta install folder:
-        models_dir = os.path.join(_DELTA_DIR, "assets", "models")
-    if not os.path.exists(models_dir):
-        os.makedirs(models_dir)
+        models_dir = _DELTA_DIR / "assets/models"
+    models_dir.mkdir(parents=True, exist_ok=True)
     print(f"Models will be downloaded to {models_dir}")
 
     model_files = dict()
     for filename, google_id in model_ids.items():
         print(f"Downloading model: {filename}...", end="", flush=True)
-        model_files[filename] = os.path.join(models_dir, filename + ".hdf5")
+        model_files[filename] = models_dir / f"{filename}.hdf5"
         _download_file_from_google_drive(google_id, model_files[filename])
         print(" Done")
     return model_files
 
 
 def _download_training_sets(
-    sets_ids: Dict[str, str] = LATEST_TRAININGSETS, sets_dir: str = None
+    sets_ids: Dict[str, str] = LATEST_TRAININGSETS, sets_dir: Path = None
 ) -> Dict[str, str]:
 
-    if not isinstance(sets_dir, str):
+    if sets_dir is None:
         # Retrieve the path of the delta install folder:
-        sets_dir = os.path.join(_DELTA_DIR, "assets", "trainingsets")
-    if not os.path.exists(sets_dir):
-        os.makedirs(sets_dir)
+        sets_dir = _DELTA_DIR / "assets/trainingsets"
+    sets_dir.mkdir(parents=True, exist_ok=True)
     print(f"Training sets will be downloaded and unzipped to {sets_dir}")
 
     sets_files = dict()
     for filename, google_id in sets_ids.items():
         # Download files:
-        sets_files[filename] = os.path.join(sets_dir, filename)
-        zip_file = os.path.join(sets_dir, filename + ".zip")
+        sets_files[filename] = sets_dir / filename
+        zip_file = sets_dir / f"{filename}.zip"
         _download_and_unzip(
             google_id, zip_file, sets_files[filename], remove_previous=True
         )
@@ -261,21 +254,20 @@ def _download_training_sets(
 
 
 def _download_eval_movies(
-    movie_ids: Dict[str, str] = EVAL_MOVIES, movies_dir: str = None
+    movie_ids: Dict[str, str] = EVAL_MOVIES, movies_dir: Path = None
 ) -> Dict[str, str]:
 
-    if not isinstance(movies_dir, str):
+    if movies_dir is None:
         # Retrieve the path of the delta install folder:
-        movies_dir = os.path.join(_DELTA_DIR, "assets", "eval_movies")
-    if not os.path.exists(movies_dir):
-        os.makedirs(movies_dir)
+        movies_dir = _DELTA_DIR / "assets/eval_movies"
+    movies_dir.mkdir(parents=True, exist_ok=True)
     print(f"Evaluation movies will be downloaded and unzipped to {movies_dir}")
 
     movie_files = dict()
     for filename, google_id in movie_ids.items():
         # Download files:
-        movie_files[filename] = os.path.join(movies_dir, filename)
-        zip_file = os.path.join(movies_dir, filename + ".zip")
+        movie_files[filename] = movies_dir / filename
+        zip_file = movies_dir / f"{filename}.zip"
         _download_and_unzip(
             google_id, zip_file, movie_files[filename], remove_previous=True
         )
@@ -284,30 +276,29 @@ def _download_eval_movies(
 
 
 def _download_and_unzip(
-    id: str, zip_file: str, folder: str, remove_previous: bool = False
+    id: str, zip_file: str, folder: Path, remove_previous: bool = False
 ) -> None:
 
     print(f"Downloading zip: {zip_file}...", end="", flush=True)
     _download_file_from_google_drive(id, zip_file)
     print(" Done")
 
-    if remove_previous and os.path.exists(folder):
+    if remove_previous and folder.exists():
         print("Removing previous extraction...", end="", flush=True)
         shutil.rmtree(folder)
         print(" Done")
 
     print(f"Extracting to {folder}...", end="", flush=True)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+    folder.mkdir(parents=True, exist_ok=True)
     shutil.unpack_archive(zip_file, folder)
     print(" Done")
 
     print("Deleting archive...", end="", flush=True)
-    os.remove(zip_file)
+    zip_file.unlink()
     print(" Done")
 
 
-def _download_file_from_google_drive(id: str, destination: str) -> None:
+def _download_file_from_google_drive(id: str, destination: Path) -> None:
     # https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
     # Note from JB: the above answer is outdated, google changed the API such
     # that you only need to pass a "t" to confirm, not a token. See merge
@@ -322,10 +313,10 @@ def _download_file_from_google_drive(id: str, destination: str) -> None:
     _save_response_content(response, destination)
 
 
-def _save_response_content(response: requests.Response, destination: str) -> None:
+def _save_response_content(response: requests.Response, destination: Path) -> None:
     CHUNK_SIZE = 32768
 
-    with open(destination, "wb") as f:
+    with open(destination, "wb") as file:
         for chunk in response.iter_content(CHUNK_SIZE):
             if chunk:  # filter out keep-alive new chunks
-                f.write(chunk)
+                file.write(chunk)

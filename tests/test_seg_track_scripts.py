@@ -18,12 +18,10 @@ test_folder = Path(__file__).parent
 def test_rois_script():
 
     # Test images folder:
-    inputs_folder = str(test_folder / "data/movie_mothermachine_tif")
-    
+    inputs_folder = test_folder / "data/movie_mothermachine_tif"
+
     # Load gloabl moma config:
-    delta.config.load_config(
-        presets = "mothermachine", config_level = "global"
-        )
+    delta.config.load_config(presets="mothermachine", config_level="global")
 
     _run_script(
         test_folder.parent / "scripts/segmentation_rois.py",
@@ -37,24 +35,20 @@ def test_rois_script():
 @pytest.mark.parametrize(
     "parameters",
     (
-         # 2D seg parameters:
-        {"presets": "2D", "inputs_folder": str(test_folder / "data/movie_2D_tif")},
+        # 2D seg parameters:
+        {"presets": "2D", "inputs_folder": test_folder / "data/movie_2D_tif"},
         # Moma seg parameters:
         {
             "presets": "mothermachine",
-            "inputs_folder": str(
-                test_folder / "data/movie_mothermachine_tif/cropped_rois"
-            ),
+            "inputs_folder": test_folder / "data/movie_mothermachine_tif/cropped_rois",
         },
     ),
 )
 def test_segmentation_script(parameters):
 
     # Load global config:
-    delta.config.load_config(
-        presets = parameters["presets"], config_level = "global"
-        )
-    
+    delta.config.load_config(presets=parameters["presets"], config_level="global")
+
     _run_script(test_folder.parent / "scripts/segmentation.py", _parameters=parameters)
 
 
@@ -62,28 +56,22 @@ def test_segmentation_script(parameters):
 @pytest.mark.parametrize(
     "parameters",
     (
-         # 2D parameters:
-        {"presets": "2D", "inputs_folder": str(test_folder / "data/movie_2D_tif")},
+        # 2D parameters:
+        {"presets": "2D", "inputs_folder": test_folder / "data/movie_2D_tif"},
         # Moma parameters:
         {
             "presets": "mothermachine",
-            "inputs_folder": str(
-                test_folder / "data/movie_mothermachine_tif/cropped_rois"
-            ),
+            "inputs_folder": test_folder / "data/movie_mothermachine_tif/cropped_rois",
         },
     ),
 )
 def test_tracking_script(parameters):
-    
+
     # Load global config:
-    delta.config.load_config(
-        presets = parameters["presets"], config_level = "global"
-        )
+    delta.config.load_config(presets=parameters["presets"], config_level="global")
 
     # Adding segmentation folder to the parametrrs dict based on inputs folder:
-    parameters["segmentation_folder"] = str(
-        Path(parameters["inputs_folder"]) / "segmentation"
-    )
+    parameters["segmentation_folder"] = parameters["inputs_folder"] / "segmentation"
 
     _run_script(test_folder.parent / "scripts/tracking.py", _parameters=parameters)
 

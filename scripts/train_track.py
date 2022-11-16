@@ -3,8 +3,6 @@ This script trains the tracking U-Net.
 
 @author: jblugagne
 """
-import os
-
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
@@ -41,12 +39,12 @@ data_gen_args = dict(
 # Generator init:
 myGene = trainGenerator_track(
     batch_size,
-    os.path.join(training_set, "img"),
-    os.path.join(training_set, "seg"),
-    os.path.join(training_set, "previmg"),
-    os.path.join(training_set, "segall"),
-    os.path.join(training_set, "mot_dau"),
-    os.path.join(training_set, "wei"),
+    training_set / "img",
+    training_set / "seg",
+    training_set / "previmg",
+    training_set / "segall",
+    training_set / "mot_dau",
+    training_set / "wei",
     data_gen_args,
     target_size=cfg.target_size_track,
     crop_windows=cfg.crop_windows,

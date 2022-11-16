@@ -14,15 +14,12 @@ If there are no chambers, then images will be cropped as done for DeLTA 2D
 @author: jblugagne
 """
 
-import glob
-import os
-
 import cv2
 import numpy as np
 
 from delta.data import predictCompilefromseg_track, saveResult_track
 from delta.model import unet_track
-from delta.utilities import cfg
+from delta.utilities import cfg, listfiles, read_image
 
 ### Parameters:
 
@@ -31,23 +28,19 @@ cfg.load_config(presets="2D")
 
 # Input images sequences (replace with your own):
 inputs_folder = cfg.eval_movie
-segmentation_folder = os.path.join(inputs_folder, "segmentation")
+segmentation_folder = inputs_folder / "segmentation"
 
 ### /Parameters
 
-
 # Output folder:
-outputs_folder = os.path.join(inputs_folder, "tracking")
-if not os.path.exists(outputs_folder):
-    os.makedirs(outputs_folder)
+outputs_folder = inputs_folder / "tracking"
+outputs_folder.mkdir(exist_ok=True)
 
 # List files to read
-unprocessed = sorted(
-    glob.glob(inputs_folder + "/*.tif") + glob.glob(inputs_folder + "/*.png")
-)
+unprocessed = listfiles(inputs_folder, {".png", ".tif"})
 
 # Get original image size:
-imsize = cv2.imread(unprocessed[0], cv2.IMREAD_GRAYSCALE).shape
+imsize = read_image(unprocessed[0]).shape
 
 # Load up model:
 model = unet_track(input_size=cfg.target_size_track + (4,))
@@ -70,7 +63,7 @@ while unprocessed:
         segmentation_folder,
         files_list=to_process,
         target_size=cfg.target_size_track,
-        crop=cfg.crop_windows,
+        crop_windows=cfg.crop_windows,
     )
 
     print("Cells to track: %d" % len(inputs))

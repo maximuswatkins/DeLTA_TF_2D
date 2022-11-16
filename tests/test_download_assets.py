@@ -4,7 +4,7 @@ Created on Sun Nov  7 10:57:26 2021
 
 @author: jeanbaptiste
 """
-import os
+from pathlib import Path
 
 import pytest
 
@@ -20,40 +20,30 @@ def test_download_assets():
     )
 
     # Check that all models have been downloaded to the assets folder:
-    assets_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../delta"))
+    assets_dir = Path(__file__).parents[1] / "delta/assets"
     for model_name in delta.assets.LATEST_MODELS:
-        filename = os.path.join(assets_dir, "assets", "models", model_name + ".hdf5")
-        assert os.path.exists(filename), (
-            "Downloaded model file not found: %s" % filename
-        )
+        filename = assets_dir / f"models/{model_name}.hdf5"
+        assert filename.exists(), f"Downloaded model file not found: {filename}"
 
     # Check that all sets have been downloaded to the assets folder:
     for set_name in delta.assets.LATEST_TRAININGSETS:
-        filename = os.path.join(assets_dir, "assets", "trainingsets", set_name)
-        assert os.path.exists(filename), (
-            "Extracted training set not found: %s" % filename
-        )
-        assert not os.path.exists(filename + ".zip"), "Zip file was not deleted: %s" % (
-            filename + ".zip"
-        )
+        filename = assets_dir / "trainingsets" / set_name
+        assert filename.exists(), f"Extracted training set not found: {filename}"
+        zipfile = filename.with_suffix(".zip")
+        assert not zipfile.exists(), f"Zip file was not deleted: {zipfile}"
 
     # Check that all movies have been downloaded to the assets folder:
     for eval_name in delta.assets.EVAL_MOVIES:
-        filename = os.path.join(assets_dir, "assets", "eval_movies", eval_name)
-        assert os.path.exists(filename), (
-            "Extracted evaluation movie not found: %s" % filename
-        )
-        assert not os.path.exists(filename + ".zip"), "Zip file was not deleted: %s" % (
-            filename + ".zip"
-        )
+        filename = assets_dir / "eval_movies" / eval_name
+        assert filename.exists(), f"Extracted evalution movie not found: {filename}"
+        zipfile = filename.with_suffix(".zip")
+        assert not zipfile.exists(), f"Zip file was not deleted: {zipfile}"
 
     # Check that config files were created:
-    config_file_2d = os.path.join(assets_dir, "assets", "config", "config_2D.json")
-    assert os.path.exists(config_file_2d), "2D config file not found"
-    config_file_moma = os.path.join(
-        assets_dir, "assets", "config", "config_mothermachine.json"
-    )
-    assert os.path.exists(config_file_moma), "Mother machine config file not found"
+    config_file_2d = assets_dir / "config/config_2D.json"
+    assert config_file_2d.exists(), "2D config file not found"
+    config_file_moma = assets_dir / "config/config_mothermachine.json"
+    assert config_file_moma.exists(), "Mother machine config file not found"
 
     # Check that the config file loads:
     delta.utils.cfg.load_config(config_file_2d)

@@ -5,12 +5,13 @@ Module for configuration files and configuration parameters
 """
 import json as _json
 import os as _os
+import pathlib as _pathlib
+import warnings as _warnings
 from typing import Optional, Tuple
-from warnings import warn as _warn
 
-from . import __file__ as _delta_init  # Path to __init__ file
+from . import __file__ as delta_init  # Path to __init__ file
 
-_DELTA_DIR = _os.path.dirname(_delta_init)
+_DELTA_DIR = _pathlib.Path(delta_init).parent
 "DeLTA lib install directory"
 _LOADED = None
 "Which config file was loaded"
@@ -164,26 +165,14 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
         )
 
     if json_file is None:
-
         # Is there a local/user config file for this preset?
-        _json_file = _os.path.expanduser(
-            _os.path.join("~/.delta", f"config_{presets}.json")
-        )
-        if _os.path.exists(_json_file) and (
-            config_level is None or config_level == "local"
-        ):
+        _json_file = _pathlib.Path.home() / f".delta/config_{presets}.json"
+        if _json_file.exists() and config_level in [None, "local"]:
             json_file = _json_file
 
         # Is there a global config file for this preset?
-        _os.path.join(_DELTA_DIR, "assets", "config")
-        _json_file = _os.path.join(
-            _DELTA_DIR, "assets", "config", f"config_{presets}.json"
-        )
-        if (
-            json_file is None
-            and _os.path.exists(_json_file)
-            and (config_level is None or config_level == "global")
-        ):
+        _json_file = _DELTA_DIR / f"assets/config/config_{presets}.json"
+        if json_file is None and _json_file.exists() and config_level in [None, "global"]:
             json_file = _json_file
 
         # If no file was found, raise error:
@@ -198,7 +187,7 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
 
     # Check if it has the same parameters set as defaults:
     if set(variables.keys()) != set(defaults.keys()):
-        _warn(
+        _warnings.warn(
             "The config file keys differ from the defaults. This is most "
             "likely because the config file was generated for an earlier version"
             " of DeLTA. This may cause issues, to avoid this either use "
@@ -242,16 +231,20 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
                 print(e)
 
 
-def _read_json(json_file: str):
+def _read_json(json_file: _pathlib.Path):
 
     # Load file:
     print(f"Loading configuration from: {json_file}")
-    with open(json_file) as f:
-        variables = _json.loads(f.read())
+    with json_file.open("r") as file:
+        variables = _json.load(file)
 
     # Type cast:
-    for k, v in variables.items():
-        if isinstance(v, list):
-            variables[k] = tuple(v)  # Always use tuples, not lists in config
+    for key, value in variables.items():
+        if isinstance(value, list):
+            # Always use tuples, not lists in config
+            variables[key] = tuple(value)
+        elif key.startswith(("model_file", "training_set", "eval_movie")):
+            variables[key] = _pathlib.Path(value)
 
     return variables
+

@@ -1,10 +1,9 @@
-import os
-import pathlib
+from pathlib import Path
 import subprocess
 
 from setuptools import find_packages, setup
 
-HERE = pathlib.Path(__file__).parent
+HERE = Path(__file__).parent
 
 VERSION = (
     subprocess.run(["git", "describe"], capture_output=True)

@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 from threading import Thread
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import cv2
 import ffmpeg
@@ -58,29 +58,22 @@ class Cell(Dict):
 #%% Image correction
 
 
-def rangescale(frame: Image, rescale: Tuple[float, float]) -> Image:
+def to_integer_values(frame: Image, dtype: type) -> Image:
     """
-    Rescale image values to be within range
+    Returns an image with integer-valued pixels of the given size.
 
     Parameters
     ----------
-    frame : ND numpy array of uint8/uint16/float/bool
-        Input image(s).
-    rescale : Tuple of 2 values
-        Values range for the rescaled image.
+    frame : npt.NDArray[np.float32]
+        Input image with np.float32 pixels contained in [0, 1].
+    dtype : numpy dtype
+        Integer type of the returned image.
 
-    Returns
-    -------
-    2D numpy array of floats
-        Rescaled image
 
     """
-    frame = frame.astype(np.float32)
-    if np.ptp(frame) > 0:
-        frame = ((frame - np.min(frame)) / np.ptp(frame)) * np.ptp(rescale) + rescale[0]
-    else:
-        frame = np.ones_like(frame) * (rescale[0] + rescale[1]) / 2
-    return frame
+    assert frame.max() <= 1, "The pixel values should be contained between 0 and 1."
+    depth = {np.uint8: 8, np.uint16: 16, np.uint32: 32}[dtype]
+    return (frame * (2**depth - 1)).astype(dtype)
 
 
 def deskew(image: Image) -> float:
@@ -101,7 +94,7 @@ def deskew(image: Image) -> float:
     """
     from skimage.transform import hough_line, hough_line_peaks
 
-    image8 = (256 * (image.astype(float) - image.min()) / (image.max() - image.min())).astype(np.uint8)
+    image8 = to_integer_values(image, np.uint8)
 
     # enhance edges
     low_threshold = np.quantile(image8, 0.1)
@@ -183,7 +176,7 @@ def driftcorr(img, template=None, box=None, drift=None):
         if template is None:
             # If we have a position with 0 chambers (see getDriftTemplate)
             return img, (0, 0)
-        template = rangescale(template, (0, 255)).astype(np.uint8)
+        template = to_integer_values(template, np.uint8)
         xcorr = np.empty([img.shape[0]])
         ycorr = np.empty([img.shape[0]])
     elif twoDflag:
@@ -193,7 +186,7 @@ def driftcorr(img, template=None, box=None, drift=None):
 
     for i in range(img.shape[0]):
         if drift is None:
-            frame = rangescale(img[i], (0, 255)).astype(np.uint8)
+            frame = to_integer_values(img[i], np.uint8)
             driftcorrimg = cropbox(frame, box)
             res = cv2.matchTemplate(driftcorrimg, template, cv2.TM_CCOEFF_NORMED)
             _, _, _, max_loc = cv2.minMaxLoc(res)
@@ -1848,7 +1841,7 @@ class xpreader:
             self.x = md.image(0).Pixels.SizeX
             self.y = md.image(0).Pixels.SizeY
             # Get first image to get datatype (there's probably a better way to do this...)
-            self.dtype = self.filehandle.read(rescale=False, c=0).dtype
+            self.dtype = self.filehandle.read(rescale=True, c=0).dtype
 
         elif self.filename.is_dir():
             # Experiment is stored as individual image TIFF files in a folder
@@ -1907,12 +1900,10 @@ class xpreader:
                 self.watcher.start()
             else:
                 # Load first image, get image data from it
-                I = cv2.imread(
-                    str(self.getfilenamefromprototype(0, 0, 0)), cv2.IMREAD_ANYDEPTH
-                )
-                self.x = I.shape[1]
-                self.y = I.shape[0]
-                self.dtype = I.dtype
+                img = read_image(self.getfilenamefromprototype(0, 0, 0))
+                self.x = img.shape[1]
+                self.y = img.shape[0]
+                self.dtype = img.dtype
 
         elif file_extension.lower() == ".tif" or file_extension.lower() == ".tiff":
             # Works with single-series tif & mutli-series ome.tif
@@ -2094,9 +2085,6 @@ class xpreader:
         channels=None,
         frames=None,
         squeeze_dimensions: bool = True,
-        resize: Tuple[int, int] = None,
-        rescale: Tuple[float, float] = None,
-        globalrescale: Tuple[float, float] = None,
         rotate: float = None,
     ) -> np.ndarray:
         """
@@ -2126,15 +2114,6 @@ class xpreader:
             If True, the numpy squeeze function is applied to the output array,
             removing all singleton dimensions.
             The default is True.
-        resize : None or tuple/list of 2 ints, optional
-            Dimensions to resize the frames. If None, no resizing is performed.
-            The default is None.
-        rescale : None or tuple/list of 2 int/floats, optional
-            Rescale all values in each frame to be within the given range.
-            The default is None.
-        globalrescale : None or tuple/list of 2 int/floats, optional
-            Rescale all values in all frames to be within the given range.
-            The default is None.
         rotate : None or float, optional
             Rotation to apply to the image (in degrees).
             The default is None.
@@ -2208,16 +2187,9 @@ class xpreader:
                     self.watcher.old[p][c] = frames[-1]
 
         # Allocate memory:
-        dt: Union[str, type] = self.dtype if rescale is None else np.float32
-        if resize is None:
-            output = np.empty(
-                [len(positions), len(frames), len(channels), self.y, self.x], dtype=dt
-            )
-        else:
-            output = np.empty(
-                [len(positions), len(frames), len(channels), resize[0], resize[1]],
-                dtype=dt,
-            )
+        output = np.empty(
+            [len(positions), len(frames), len(channels), self.y, self.x], dtype=np.float32
+        )
 
         # Load images:
         for p, pos in enumerate(positions):
@@ -2226,13 +2198,10 @@ class xpreader:
                     # Read frame:
                     if self.use_bioformats:
                         frame = self.filehandle.read(
-                            series=pos, c=cha, t=fra, rescale=False
+                            series=pos, c=cha, t=fra, rescale=True
                         )
                     elif self.filetype == "dir":
-                        frame = cv2.imread(
-                            str(self.getfilenamefromprototype(pos, cha, fra)),
-                            cv2.IMREAD_ANYDEPTH,
-                        )
+                        frame = read_image(self.getfilenamefromprototype(pos, cha, fra))
                     elif self.filetype == "tif":
                         frame = (
                             self.filehandle.series[pos]
@@ -2240,21 +2209,11 @@ class xpreader:
                             .asarray()
                         )
 
-                    frame = frame.astype(np.uint16)
-
-                    # Optionally resize and rescale:
+                    # Optionally rotate
                     if rotate is not None:
                         frame = imrotate(frame, rotate)
-                    if resize is not None:
-                        frame = cv2.resize(frame, resize[::-1])  # cv2 inverts shape
-                    if rescale is not None:
-                        frame = rangescale(frame, rescale)
                     # Add to output array:
                     output[p, f, c, :, :] = frame
-
-        # Rescale all images:
-        if globalrescale is not None:
-            output = rangescale(output, globalrescale)
 
         # Return:
         return np.squeeze(output) if squeeze_dimensions else output
@@ -2751,6 +2710,27 @@ def cell_fluo(
 
 #%% Misc
 
+def read_image(filename: Path) -> np.ndarray:
+    """
+    Returns the image as a numpy array of np.float32 rescaled between 0 and 1.
+
+    Parameters
+    ----------
+    filename : Path
+        Filename of the image to read.
+
+    Returns
+    -------
+    image : np.ndarray of np.float32
+    """
+    img = cv2.imread(str(filename), cv2.IMREAD_ANYDEPTH)
+    if img is None:
+        raise ValueError(f"File not found or format not understood: {filename}.")
+    for depth, dtype in [(8, np.uint8), (16, np.uint16), (32, np.uint32)]:
+        if img.dtype == dtype:
+            return img.astype(np.float32) / (2**depth - 1)
+    raise ValueError(f"Image depth not understood: {img.dtype}.")
+
 
 def findfirst(mylist: List) -> Optional[int]:
     """
@@ -2768,6 +2748,27 @@ def findfirst(mylist: List) -> Optional[int]:
 
     """
     return next((i for i, x in enumerate(mylist) if x > 0), None)
+
+
+def listfiles(directory: Path, suffixes: Iterable[str]) -> [Path]:
+    """
+    Returns a sorted list of filenames in `directory` that have one of the
+    specified extensions.
+
+    Parameters
+    ----------
+    directory : Path
+        Directory to iterate.
+    suffixes : Iterable[str]
+        List, tuple, set, etc. of allowed extensions.
+
+    Returns
+    -------
+    [Path]
+        List of matching filenames.
+    """
+
+    return sorted(p for p in directory.iterdir() if p.suffix in suffixes)
 
 
 def tensorboard_callback():

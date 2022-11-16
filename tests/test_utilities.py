@@ -124,17 +124,13 @@ def test_growthrate_double_division():
 #%% Test deskew
 
 
-def test_deskew_0():
-    _test_deskew("angle_+0.53.tif", 0.53)
-
-
-def test_deskew_1():
-    _test_deskew("angle_-0.32.tif", -0.32)
-
-
-def _test_deskew(filename, angle0):
+@pytest.mark.parametrize("filename, angle0", [
+    ("angle_+0.53.tif", 0.53),
+    ("angle_-0.32.tif", -0.32)
+])
+def test_deskew(filename, angle0):
     file = Path(__file__).parent / "data/images" / filename
-    image0 = cv2.imread(str(file), cv2.IMREAD_ANYDEPTH)
+    image0 = utils.read_image(file)
     image = utils.imrotate(image0, -angle0)
     assert np.abs(utils.deskew(image)) <= 0.25
     for angle in np.linspace(-3, 3, 30):
