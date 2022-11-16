@@ -1841,7 +1841,7 @@ class xpreader:
             self.x = md.image(0).Pixels.SizeX
             self.y = md.image(0).Pixels.SizeY
             # Get first image to get datatype (there's probably a better way to do this...)
-            self.dtype = self.filehandle.read(rescale=False, c=0).dtype
+            self.dtype = self.filehandle.read(rescale=True, c=0).dtype
 
         elif self.filename.is_dir():
             # Experiment is stored as individual image TIFF files in a folder
@@ -2198,7 +2198,7 @@ class xpreader:
                     # Read frame:
                     if self.use_bioformats:
                         frame = self.filehandle.read(
-                            series=pos, c=cha, t=fra, rescale=False
+                            series=pos, c=cha, t=fra, rescale=True
                         )
                     elif self.filetype == "dir":
                         frame = read_image(self.getfilenamefromprototype(pos, cha, fra))
