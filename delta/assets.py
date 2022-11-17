@@ -6,10 +6,9 @@ downloads, and writing configuration files
 @author: jeanbaptiste
 """
 import json
-import os
 import shutil
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 import requests
 
@@ -46,21 +45,21 @@ def download_assets(
     Parameters
     ----------
     load_models : bool, str, or None, optional
-        If True, the models will be downloaded from 
+        If True, the models will be downloaded from
         https://drive.google.com/drive/u/0/folders/14EvBCMJIk2LpBCQL-jvsuEwUHNYamyyN
         into an assets folder in the library install path. If a path str is provided,
         the models will be downloaded to the folder it points to. If None, an
         interactive prompt will be used.
         The default is None.
     load_sets : bool, str, or None, optional
-        If True, the models will be downloaded and extracted from 
+        If True, the models will be downloaded and extracted from
         https://drive.google.com/drive/u/0/folders/1f2t71M-dkxKzdl-xfzHo195SnKAuisMl
         into an assets folder in the library install path. If a path str is provided,
         the models will be downloaded to the folder it points to. If None, an
         interactive prompt will be used.
         The default is None.
     load_evals : bool, str, or None, optional
-        If True, the models will be downloaded and extracted from 
+        If True, the models will be downloaded and extracted from
         https://drive.google.com/drive/u/0/folders/1f2t71M-dkxKzdl-xfzHo195SnKAuisMl
         into an assets folder in the library install path. If a path str is provided,
         the models will be downloaded to the folder it points to. If None, an
@@ -68,7 +67,7 @@ def download_assets(
         The default is None.
     config_level : bool, str, or None, optional
         If False, no config file is written. If True, same as 'local'
-        If 'local', new config files will be written under the user's local \
+        If 'local', new config files will be written under the user's local
         config folder, ~/.delta. If 'global', the config files will be written
         to the install folder, to be shared among all users. If a specific dir
         path is provided, the config files will be written there.
@@ -86,21 +85,21 @@ def download_assets(
     load_models = (
         _ask("Download latest models?") if load_models is None else bool(load_models)
     )
-    model_files = _download_models(models_dir=models_dir) if load_models else dict()
+    model_files = _download_models(models_dir=models_dir) if load_models else {}
 
     # Should we download training sets?
     sets_dir = load_sets if isinstance(load_sets, str) else None
     load_sets = (
         _ask("Download latest training sets?") if load_sets is None else bool(load_sets)
     )
-    sets_files = _download_training_sets(sets_dir=sets_dir) if load_sets else dict()
+    sets_files = _download_training_sets(sets_dir=sets_dir) if load_sets else {}
 
     # Should we download evaluation movies?
     movies_dir = load_evals if isinstance(load_evals, str) else None
     load_evals = (
         _ask("Download evaluation movies?") if load_evals is None else bool(load_evals)
     )
-    eval_files = _download_eval_movies(movies_dir=movies_dir) if load_evals else dict()
+    eval_files = _download_eval_movies(movies_dir=movies_dir) if load_evals else {}
 
     # Should we write a new config file?
     if isinstance(config_level, bool):
@@ -145,9 +144,9 @@ def _ask(prompt: str, options: Dict[str, Any] = {"y": True, "n": False}) -> Any:
 
 def _write_default_configs(
     config_level: str = "local",
-    model_files: Dict[str, str] = dict(),
-    sets_files: Dict[str, str] = dict(),
-    eval_files: Dict[str, str] = dict(),
+    model_files: Dict[str, str] = {},
+    sets_files: Dict[str, str] = {},
+    eval_files: Dict[str, str] = {},
 ) -> None:
 
     if config_level == "local":
@@ -222,7 +221,7 @@ def _download_models(
     models_dir.mkdir(parents=True, exist_ok=True)
     print(f"Models will be downloaded to {models_dir}")
 
-    model_files = dict()
+    model_files = {}
     for filename, google_id in model_ids.items():
         print(f"Downloading model: {filename}...", end="", flush=True)
         model_files[filename] = models_dir / f"{filename}.hdf5"
@@ -241,7 +240,7 @@ def _download_training_sets(
     sets_dir.mkdir(parents=True, exist_ok=True)
     print(f"Training sets will be downloaded and unzipped to {sets_dir}")
 
-    sets_files = dict()
+    sets_files = {}
     for filename, google_id in sets_ids.items():
         # Download files:
         sets_files[filename] = sets_dir / filename
@@ -263,7 +262,7 @@ def _download_eval_movies(
     movies_dir.mkdir(parents=True, exist_ok=True)
     print(f"Evaluation movies will be downloaded and unzipped to {movies_dir}")
 
-    movie_files = dict()
+    movie_files = {}
     for filename, google_id in movie_ids.items():
         # Download files:
         movie_files[filename] = movies_dir / filename
@@ -276,11 +275,11 @@ def _download_eval_movies(
 
 
 def _download_and_unzip(
-    id: str, zip_file: str, folder: Path, remove_previous: bool = False
+    google_id: str, zip_file: str, folder: Path, remove_previous: bool = False
 ) -> None:
 
     print(f"Downloading zip: {zip_file}...", end="", flush=True)
-    _download_file_from_google_drive(id, zip_file)
+    _download_file_from_google_drive(google_id, zip_file)
     print(" Done")
 
     if remove_previous and folder.exists():
@@ -298,7 +297,7 @@ def _download_and_unzip(
     print(" Done")
 
 
-def _download_file_from_google_drive(id: str, destination: Path) -> None:
+def _download_file_from_google_drive(google_id: str, destination: Path) -> None:
     # https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
     # Note from JB: the above answer is outdated, google changed the API such
     # that you only need to pass a "t" to confirm, not a token. See merge
@@ -308,7 +307,7 @@ def _download_file_from_google_drive(id: str, destination: Path) -> None:
 
     session = requests.Session()
 
-    response = session.get(URL, params={"id": id, "confirm": "t"}, stream=True)
+    response = session.get(URL, params={"id": google_id, "confirm": "t"}, stream=True)
 
     _save_response_content(response, destination)
 

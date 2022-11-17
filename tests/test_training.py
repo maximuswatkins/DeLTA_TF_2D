@@ -64,7 +64,7 @@ def test_train_moma_rois():
     )
 
     # Train:
-    history = model.fit(
+    model.fit(
         myGene,
         steps_per_epoch=steps_per_epoch,
         epochs=epochs,
@@ -133,7 +133,7 @@ def _train_seg(presets, batch_size=1):
     )
 
     # Train:
-    history = model.fit(
+    model.fit(
         myGene,
         steps_per_epoch=steps_per_epoch,
         epochs=epochs,
@@ -202,7 +202,7 @@ def _train_track(presets):
     )
 
     # Train:
-    history = model.fit(
+    model.fit(
         myGene,
         steps_per_epoch=steps_per_epoch,
         epochs=epochs,

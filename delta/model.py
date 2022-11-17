@@ -3,16 +3,16 @@ Module for model definitions and loss/metrics functions definitions
 
 @author: jblugagne
 """
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Dict, List, Tuple
 
 import tensorflow as tf
-import tensorflow.keras as keras
+from tensorflow import keras
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import (Concatenate, Conv2D, Dropout, Input,
                                      MaxPool2D, UpSampling2D)
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
-from tensorflow.python.ops import array_ops, math_ops
+from tensorflow.python.ops import math_ops
 
 #%% Losses/metrics
 

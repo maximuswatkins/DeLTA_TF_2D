@@ -4,8 +4,8 @@ Module for the main processing pipeline.
 @author: jeanbaptiste
 """
 
+import pickle
 import sys
-# Modules:
 import time
 import warnings
 from pathlib import Path
@@ -198,7 +198,7 @@ class Pipeline:
         """
 
         if frames is None:
-            frames = [f for f in range(self.reader.timepoints)]
+            frames = list(range(self.reader.timepoints))
 
         if positions is None:
             positions = list(range(self.reader.positions))
@@ -656,9 +656,9 @@ class Position:
                 )
 
         # Now extracting multi-frame features
-        for iroi, roi in enumerate(self.rois):
-            for icell in range(len(roi.lineage.cells)):
-                for iframe in roi.lineage.cells[icell]["frames"]:
+        for roi in self.rois:
+            for icell, cell in enumerate(roi.lineage.cells):
+                for iframe in cell["frames"]:
                     for feature in ["length", "area"]:
                         try:
                             gr = roi.lineage.growthrate(icell, iframe, feature)
@@ -668,7 +668,6 @@ class Position:
                                 "An issue happened related to feature extraction: "
                                 "some cells cannot be found after resizing."
                             )
-
 
     def save(
         self,
@@ -709,8 +708,6 @@ class Position:
 
         if "pickle" in save_format:
             self._msg("Saving to pickle format\n" + str(filename.with_suffix(".pkl")))
-            import pickle
-
             with open(filename.with_suffix(".pkl"), "wb") as file:
                 pickle.dump(self, file)
 
@@ -817,7 +814,7 @@ class Position:
         # Lineages:
         data["res"] = []
         for r in self.rois:
-            res: Dict[str, Any] = dict()
+            res: Dict[str, Any] = {}
 
             # Resized labels stack: (ie original ROI size)
             res["labelsstack_resized"] = np.array(r.label_stack, dtype=np.uint16)
@@ -834,7 +831,7 @@ class Position:
             cells = r.lineage.cells
             lin: List[Dict[str, Any]] = []
             for c in cells:
-                lin += [dict()]
+                lin += [{}]
                 # Base lineage:
                 lin[-1]["mother"] = c["mother"] + 1 if c["mother"] is not None else 0
                 lin[-1]["frames"] = np.array(c["frames"], dtype=np.float32) + 1
@@ -842,7 +839,7 @@ class Position:
                 lin[-1]["daughters"][np.isnan(lin[-1]["daughters"])] = 0
                 if "edges" in c:
                     lin[-1]["edges"] = c["edges"]
-                
+
                 # Morphological features:
                 morpho_features = (
                         "area","width","length","perimeter","old_pole",
@@ -851,7 +848,7 @@ class Position:
                 for feat in morpho_features:
                     if feat in c:
                         lin[-1][feat] = np.array(c[feat], dtype=np.float32)
-                
+
                 # Loop through potential fluo channels:
                 fluo = 0
                 while True:
@@ -1014,8 +1011,6 @@ def load_position(filename: Union[str, Path]) -> Position:
         Reloaded Position object. (without reader and models)
 
     """
-
-    import pickle
 
     with open(filename, "rb") as file:
         p = pickle.load(file)
@@ -1212,8 +1207,8 @@ class ROI:
             poles = utils.getpoles(self.seg_stack[frame], scaling=self.scaling)
 
             # Create new orphan cells
-            for c in range(len(poles)):
-                self.lineage.update(None, frame, attrib=[c], poles=[poles[c]])
+            for ipls, pls in enumerate(poles):
+                self.lineage.update(None, frame, attrib=[ipls], poles=[pls])
 
             return None, None
 

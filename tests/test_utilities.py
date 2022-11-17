@@ -464,7 +464,7 @@ class Test_xpreader:
         xpreader = utils.xpreader()
 
         # Init pipeline:
-        xp = pipeline.Pipeline(xpreader)
+        pipeline.Pipeline(xpreader)
 
     def test_2D_tif_cmdln_allargs(self):
         # 'Pretend' arguments were passed to the cmd line:
@@ -493,7 +493,7 @@ class Test_xpreader:
         xpreader = utils.xpreader()
 
         # Init pipeline:
-        xp = pipeline.Pipeline(xpreader)
+        pipeline.Pipeline(xpreader)
 
     def test_2D_tif_xpreader_filename_noresfolder(self):
 
@@ -506,7 +506,7 @@ class Test_xpreader:
         xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
 
         # Init pipeline:
-        xp = pipeline.Pipeline(xpreader)
+        pipeline.Pipeline(xpreader)
 
     def test_2D_tif_xpreader_filename_and_resfolder(self):
 
@@ -519,7 +519,7 @@ class Test_xpreader:
         xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
 
         # Init pipeline:
-        xp = pipeline.Pipeline(
+        pipeline.Pipeline(
             xpreader,
             resfolder=Path(__file__).parent / "data" / "movie_2D_tif" / "results",
         )
@@ -537,4 +537,4 @@ class Test_xpreader:
         )
 
         # Init pipeline:
-        xp = pipeline.Pipeline(xpreader)
+        pipeline.Pipeline(xpreader)

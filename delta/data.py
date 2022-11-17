@@ -5,22 +5,21 @@ Module for data manipulations and input/output operations.
 """
 
 import copy
-import glob
 import importlib
-import os
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union, cast
+from typing import (Any, Callable, Dict, Iterator, List, Optional, Tuple,
+                    Union, cast)
 
 import cv2
 import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
-import skimage.io as io
 import skimage.morphology as morph
 import skimage.transform as trans
 from scipy import interpolate
+from skimage import io
 from skimage.measure import label
 
 # Try to import elastic deformations, issue warning if not found:
@@ -171,8 +170,7 @@ def data_augmentation(
     images_input: List[npt.NDArray[Any]],
     aug_par: Dict[str, Any],
     order: Union[int, List[int], Tuple[int, ...]] = 0,
-    time: Union[int, List[int]] = 0,
-    rng : npr.Generator = None,
+    rng: npr.Generator = None,
 ) -> List[npt.NDArray[Any]]:
     """
     Data augmentation function
@@ -344,7 +342,7 @@ def data_augmentation(
         shiftY = 0
 
     # Apply zoom & shifts:
-    if any([abs(x) > 0 for x in [zoom, shiftX, shiftY]]):
+    if any(abs(x) > 0 for x in [zoom, shiftX, shiftY]):
         for index, item in enumerate(output):
             output[index] = zoomshift(
                 item, zoom + 1, shiftX, shiftY, order=orderlist[index]
@@ -748,7 +746,7 @@ def predictGenerator_seg(
         files_list: Union[List[str], Tuple[str, ...]],
         target_size: Tuple[int, int],
     ) -> Iterator[np.ndarray]:
-        for index, fname in enumerate(files_list):
+        for fname in files_list:
             img = readreshape(
                 files_path / fname,
                 target_size=target_size,
@@ -1303,7 +1301,7 @@ def predictCompilefromseg_track(
     seg_path: Path,
     files_list: List[Path],
     target_size: Tuple[int, int] = (256, 32),
-    crop_windows : bool = False,
+    crop_windows: bool = False,
 ) -> Tuple[
     npt.NDArray[np.float32],
     List[Path],
@@ -1361,16 +1359,7 @@ def predictCompilefromseg_track(
     charstrs = re.findall(r"\D+", files_list[0].name)
 
     # Create the string prototype to be used to generate filenames on the fly:
-    if not (
-        len(numstrs) == 3
-        and len(charstrs) == 4
-        or len(numstrs) == 2
-        and len(charstrs) == 3
-    ):
-        raise ValueError(
-            "Filename formatting error. See documentation for image sequence formatting"
-        )
-    elif len(numstrs) == 3 and len(charstrs) == 4:
+    if len(numstrs) == 3 and len(charstrs) == 4:
         # Order is position, chamber, frame/timepoint
         prototype = (
             f"{charstrs[0]}%0{len(numstrs[0])}d"
@@ -1388,10 +1377,14 @@ def predictCompilefromseg_track(
         )
         fileorder = "pt"
         crop = True
+    else:
+        raise ValueError(
+            "Filename formatting error. See documentation for image sequence formatting"
+        )
     fileordercell = fileorder + "n"
 
     boxes = []
-    for index, item in enumerate(files_list):
+    for item in files_list:
         filename = item.name
         # Get position, chamber & frame numbers:
         cha: Optional[int]

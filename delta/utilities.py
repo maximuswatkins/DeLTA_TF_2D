@@ -13,8 +13,10 @@ import re
 import subprocess
 import sys
 import time
+import tkinter as tk
 from pathlib import Path
 from threading import Thread
+from tkinter import filedialog
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import cv2
@@ -22,9 +24,12 @@ import ffmpeg
 import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
-from tensorflow.keras.callbacks import TensorBoard
+import tensorflow as tf
 from scipy.special import logit
+from skimage.external.tifffile import TiffFile
 from skimage.morphology import skeletonize
+from skimage.transform import hough_line, hough_line_peaks
+from tensorflow.keras.callbacks import TensorBoard
 
 from . import config as cfg
 
@@ -92,8 +97,6 @@ def deskew(image: Image) -> float:
         Rotation angle of the chambers for correction, in degrees.
 
     """
-    from skimage.transform import hough_line, hough_line_peaks
-
     image8 = to_integer_values(image, np.uint8)
 
     # enhance edges
@@ -197,8 +200,7 @@ def driftcorr(img, template=None, box=None, drift=None):
 
     if twoDflag:
         return np.squeeze(img), (xcorr[0], ycorr[0])
-    else:
-        return img, (xcorr, ycorr)
+    return img, (xcorr, ycorr)
 
 
 def getDriftTemplate(
@@ -312,10 +314,9 @@ def cropbox(img: npt.NDArray[Any], box: Optional[CroppingBox]) -> npt.NDArray[An
         Cropped-out region.
 
     """
-    if box is None or all([v is None for v in box.values()]):
+    if box is None or all(v is None for v in box.values()):
         return img
-    else:
-        return img[box["ytl"] : box["ybr"], box["xtl"] : box["xbr"]]
+    return img[box["ytl"] : box["ybr"], box["xtl"] : box["xbr"]]
 
 
 def create_windows(
@@ -397,12 +398,10 @@ def create_windows(
     loc_x += [(img.shape[1] - target_size[1], img.shape[1])]
 
     # Store all cropped images into one numpy array called windows
-    windows = np.zeros(((nx * ny,) + target_size), dtype=img.dtype)
-    for i in range(len(loc_y)):
-        for j in range(len(loc_x)):
-            windows[i * len(loc_x) + j, :, :] = img[
-                loc_y[i][0] : loc_y[i][1], loc_x[j][0] : loc_x[j][1]
-            ]
+    windows = np.zeros((nx * ny, *target_size), dtype=img.dtype)
+    for ily, ly in enumerate(loc_y):
+        for ilx, lx in enumerate(loc_x):
+            windows[ily * len(loc_x) + ilx, :, :] = img[ly[0]:ly[1], lx[0]:lx[1]]
 
     return windows, loc_y, loc_x
 
@@ -436,32 +435,32 @@ def stitch_pic(
     stitch = np.zeros((loc_y[-1][1], loc_x[-1][1]), dtype=results.dtype)
     index = 0
     y_end = 0
-    for i in range(len(loc_y)):
+    for ily, ly in enumerate(loc_y):
 
         # Compute y location of window:
         y_start = y_end
-        if i + 1 == len(loc_y):
-            y_end = loc_y[i][1]
+        if ily + 1 == len(loc_y):
+            y_end = ly[1]
         else:
-            y_end = int((loc_y[i][1] + loc_y[i + 1][0]) / 2)
+            y_end = int((ly[1] + loc_y[ily + 1][0]) / 2)
 
         x_end = 0
-        for j in range(len(loc_x)):
+        for ilx, lx in enumerate(loc_x):
 
             # Compute x location of window:
             x_start = x_end
-            if j + 1 == len(loc_x):
-                x_end = loc_x[j][1]
+            if ilx + 1 == len(loc_x):
+                x_end = lx[1]
             else:
-                x_end = int((loc_x[j][1] + loc_x[j + 1][0]) / 2)
+                x_end = int((lx[1] + loc_x[ilx + 1][0]) / 2)
 
             # Add to array:
-            res_crop_y = -(loc_y[i][1] - y_end) if loc_y[i][1] - y_end > 0 else None
-            res_crop_x = -(loc_x[j][1] - x_end) if loc_x[j][1] - x_end > 0 else None
+            res_crop_y = -(ly[1] - y_end) if ly[1] - y_end > 0 else None
+            res_crop_x = -(lx[1] - x_end) if lx[1] - x_end > 0 else None
             stitch[y_start:y_end, x_start:x_end] = results[
                 index,
-                y_start - loc_y[i][0] : res_crop_y,
-                x_start - loc_x[j][0] : res_crop_x,
+                y_start - ly[0]:res_crop_y,
+                x_start - lx[0]:res_crop_x,
             ]
 
             index += 1
@@ -665,7 +664,7 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
     #     return_contours: Literal[False] = False,
     #     background: int = 0
     # ) -> Labels:
-    ...
+    #     ...
 
 
 def label_seg(
@@ -700,14 +699,13 @@ def label_seg(
     contours = find_contours(seg)
     contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))  # Sorting along Y
     label = np.full(seg.shape, background, dtype=np.uint16)
+    if not return_contours:
+        return label
     for c, contour in enumerate(contours):
         label = cv2.fillPoly(
             label, [contour], c + 1 if cellnumbers is None else cellnumbers[c]
         )
-    if return_contours:
-        return label, contours
-    else:
-        return label
+    return label, contours
 
 
 #### These prototypes help mypy understand the return type of the function
@@ -756,16 +754,16 @@ def getcellsinframe(
     ]  # Sorting along Y axis, 1-based to 0-based, & removing 1st value (background)
     cells = [cell for cell in cells if cell != background - 1]  # Remove background
 
-    # Get opencv contours:
-    if return_contours:
-        contours = []
-        for c, cell in enumerate(cells):
-            # Have to do it this way to avoid cases where border is shrunk out
-            cnt = find_contours((labels == cell + 1).astype(np.uint8))
-            contours += cnt
-        return cells, contours
-    else:
+    if not return_contours:
         return cells
+
+    # Get opencv contours:
+    contours = []
+    for cell in cells:
+        # Have to do it this way to avoid cases where border is shrunk out
+        cnt = find_contours((labels == cell + 1).astype(np.uint8))
+        contours += cnt
+    return cells, contours
 
 
 def getcentroid(contour: np.ndarray) -> Tuple[int, int]:
@@ -843,13 +841,13 @@ def getpoles(
     clean_poles = []
 
     # Make sure cells have 2 poles each:
-    for p in range(len(poles)):
-        if len(poles[p]) < 2:  # Sometimes skeletonize fails
-            clean_poles.append(extrema_poles(labels == p + 1, scaling=scaling))
-        elif len(poles[p]) == 2:
-            clean_poles.append((poles[p][0], poles[p][1]))
+    for ipls, pls in enumerate(poles):
+        if len(pls) < 2:  # Sometimes skeletonize fails
+            clean_poles.append(extrema_poles(labels == ipls + 1, scaling=scaling))
+        elif len(pls) == 2:
+            clean_poles.append((pls[0], pls[1]))
         else:
-            clean_poles.append(two_poles(poles[p]))
+            clean_poles.append(two_poles(pls))
 
     # Apply scaling:
     if scaling:
@@ -950,20 +948,20 @@ def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
 
     dist = 0.0
     # Measure the distance from the first endpoint to all the other poles
-    for i in range(1, len(poles)):
-        d = eucl(poles[0], poles[i])
+    for ipole, pole in enumerate(poles):
+        d = eucl(poles[0], pole)
         if d > dist:
             dist = d
-            i_max = i
+            i_max = ipole
 
     # Redo the same thing starting from the furthest endpoint:
     dist = 0.0
-    for j in range(len(poles)):
-        if j != i_max:  # skip same point
-            d = eucl(poles[i_max], poles[j])
+    for ipole, pole in enumerate(poles):
+        if ipole != i_max:  # skip same point
+            d = eucl(poles[i_max], pole)
             if d > dist:
                 dist = d
-                j_max = j
+                j_max = ipole
 
     return (poles[i_max], poles[j_max])
 
@@ -1169,7 +1167,7 @@ def getTrackingScores(
         if (
             boxes is None
             or boxes[o] is None
-            or all([v is None for v in boxes[o][0].values()])
+            or all(v is None for v in boxes[o][0].values())
         ):
             cells, counts = np.unique(labels[tuple(nz)], return_counts=True)
 
@@ -1481,8 +1479,8 @@ class Lineage:
 
         try:
             i = self.cells[cell]["frames"].index(frame)
-        except ValueError:
-            raise ValueError(f"Cell {cell} is not present in frame {frame}")
+        except ValueError as err:
+            raise ValueError(f"Cell {cell} is not present in frame {frame}") from err
 
         # Get cell dict
         cell_dict = self.cells[cell]
@@ -1624,8 +1622,8 @@ class Lineage:
 
         try:
             i = self.cells[cell]["frames"].index(frame)
-        except ValueError:
-            raise ValueError(f"Cell {cell} is not present in frame {frame}")
+        except ValueError as err:
+            raise ValueError(f"Cell {cell} is not present in frame {frame}") from err
 
         return self.cells[cell][feature][i]
 
@@ -1681,8 +1679,6 @@ def getxppathdialog(ask_folder: bool = False) -> str:
         Path to experiment file or folder.
 
     """
-    import tkinter as tk
-    from tkinter import filedialog
 
     root = tk.Tk()
     # root.withdraw() # For some reason this doesn't work with askdirectory?
@@ -1907,8 +1903,6 @@ class xpreader:
 
         elif file_extension.lower() == ".tif" or file_extension.lower() == ".tiff":
             # Works with single-series tif & mutli-series ome.tif
-            from skimage.external.tifffile import TiffFile
-
             self.filetype = "tif"
 
             self.filehandle = TiffFile(str(self.filename))
@@ -1942,11 +1936,7 @@ class xpreader:
         if importlib.util.find_spec("bioformats"):
             import bioformats
 
-            self.use_bioformats = (
-                True
-                if self.filename.suffix[1:] in bioformats.READABLE_FORMATS
-                else False
-            )
+            self.use_bioformats = self.filename.suffix[1:] in bioformats.READABLE_FORMATS
         i = 2
         while i < len(cmdln_arguments):
             if cmdln_arguments[i] == "--bio-formats":
@@ -2146,7 +2136,7 @@ class xpreader:
                 channels = [self.channelnames.index(channels)]
             else:
                 raise ValueError(channels + " is not a valid channel name.")
-        elif isinstance(channels, list) or isinstance(channels, tuple):
+        elif isinstance(channels, (list, tuple)):
             # If list of ints, nothing to do
             if all(isinstance(c, str) for c in channels):
                 # refer to channels by list/tuple of names:
@@ -2159,12 +2149,12 @@ class xpreader:
                     else:
                         raise ValueError(channel + " is not a valid channel name.")
                 channels = channels_list
-        elif not isinstance(channels, list) and not isinstance(channels, tuple):
+        elif not isinstance(channels, (list, tuple)):
             channels = [channels]
 
         if frames is None:  # No frames specfied: load all
             frames = list(range(self.timepoints))
-        elif type(frames) is not list and type(frames) is not tuple:
+        elif not isinstance(frames, (list, tuple)):
             if frames == -1:  # Read new frames from files watcher:
                 if self.watchfiles:
                     if len(positions) > 1 or len(channels) > 1:
@@ -2302,12 +2292,10 @@ def loadmodels(toload: Tuple[str, ...] = None) -> Dict[str, Any]:
 
     """
 
-    import tensorflow as tf
-
     if toload is None:
         toload = cfg.models
 
-    models = dict()
+    models = {}
 
     if "rois" in toload:
         models["rois"] = tf.keras.models.load_model(cfg.model_file_rois, compile=False)
@@ -2529,7 +2517,7 @@ def singlecell_features(
 
     """
 
-    features_dict: Dict[str, Any] = dict()
+    features_dict: Dict[str, Any] = {}
 
     # Morphological features:
     if "edges" in features:
