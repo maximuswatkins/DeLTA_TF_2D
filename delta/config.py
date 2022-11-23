@@ -9,6 +9,8 @@ import pathlib as _pathlib
 import warnings as _warnings
 from typing import Optional, Tuple
 
+import tensorflow as tf
+
 from . import __file__ as delta_init  # Path to __init__ file
 
 _DELTA_DIR = _pathlib.Path(delta_init).parent
@@ -58,18 +60,18 @@ save_format: Tuple[str, ...] = ()
 TF_CPP_MIN_LOG_LEVEL: str = ""
 "Debugging messages level from Tensorflow ('0' = most verbose to '3' = not verbose)"
 memory_growth_limit: Optional[float] = None
-"""If running into OOM issues or having trouble with cuDNN loading, try setting 
+"""If running into OOM issues or having trouble with cuDNN loading, try setting
 memory_growth_limit to a value in MB: (eg 1024, 2048...)"""
 pipeline_seg_batch: int = 0
-"""If running into OOM issues during segmentation with the pipeline, try lowering 
+"""If running into OOM issues during segmentation with the pipeline, try lowering
 this value. You can also try to increase it to improve speed"""
 pipeline_track_batch: int = 0
-"""If running into OOM issues during tracking with the pipeline, try lowering 
+"""If running into OOM issues during tracking with the pipeline, try lowering
 this value. You can also try to increase it to improve speed"""
 
-"""
-IMPORTANT: Do not change the default parameters below. Update the .json files instead if necessary.
-"""
+###
+# IMPORTANT: Do not change the default parameters below. Update the .json files instead if necessary.
+###
 
 _DEFAULTS_2D = dict(
     presets="2D",  # Type of analysis. Can be '2D', 'mothermachine', or your own custom name for presets
@@ -210,8 +212,6 @@ def load_config(json_file: str = None, presets: str = "2D", config_level: str = 
     # If running into OOM issues or having trouble with cuDNN loading, try setting
     # memory_growth_limit to a value in MB: (eg 1024, 2048...)
     if memory_growth_limit is not None:
-        import tensorflow as tf
-
         gpus = tf.config.experimental.list_physical_devices("GPU")
         if gpus:
             # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
@@ -247,4 +247,3 @@ def _read_json(json_file: _pathlib.Path):
             variables[key] = _pathlib.Path(value)
 
     return variables
-

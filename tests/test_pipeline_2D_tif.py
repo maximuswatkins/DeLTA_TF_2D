@@ -4,7 +4,9 @@ Created on Wed Oct 20 17:50:34 2021
 
 @author: ooconnor
 """
+import copy
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -32,15 +34,13 @@ def test_pipeline_tif_stack():
     xp.process(frames=[0, 1, 2, 3], clear=False)
 
     # Testing position pickle save
-    import tempfile
 
     with tempfile.TemporaryDirectory() as tempdirname:
         assert len(xp.positions) > 0
         pos = xp.positions[0]
         pos.save(filename=tempdirname + "position0", save_format=("pickle",))
-        import copy
 
-        old_pos = copy.deepcopy(pos)
+        copy.deepcopy(pos)
 
         # Testing Position.clear
         pos.clear()
