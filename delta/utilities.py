@@ -25,8 +25,8 @@ import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
 import tensorflow as tf
+from tifffile import TiffFile
 from scipy.special import logit
-from skimage.external.tifffile import TiffFile
 from skimage.morphology import skeletonize
 from skimage.transform import hough_line, hough_line_peaks
 from tensorflow.keras.callbacks import TensorBoard
@@ -631,55 +631,18 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
 
     return chamberboxes
 
-    #### These prototypes help mypy understand the return type of the function
-    #    but can only be used from Python 3.8 because of typing.Literal
-    #
-    #
-    # @overload
-    # def label_seg(
-    #     seg: SegmentationMask,
-    #     cellnumbers: List[int],
-    #     return_contours: Literal[True],
-    #     background: int = 0,
-    # ) -> Tuple[Labels, List[Contour]]:
-    #     ...
-    #
-    #
-    # @overload
-    # def label_seg(
-    #     seg: SegmentationMask,
-    #     cellnumbers: List[int] = None,
-    #     *,
-    #     return_contours: Literal[True],
-    #     background: int = 0
-    # ) -> Tuple[Labels, List[Contour]]:
-    #     ...
-    #
-    #
-    # @overload
-    # def label_seg(
-    #     seg: SegmentationMask,
-    #     cellnumbers: List[int] = None,
-    #     *,
-    #     return_contours: Literal[False] = False,
-    #     background: int = 0
-    # ) -> Labels:
-    #     ...
-
 
 def label_seg(
     seg: SegmentationMask,
     cellnumbers: List[int] = None,
-    return_contours: bool = False,
-    background: int = 0,
-) -> Union[Labels, Tuple[Labels, List[Contour]]]:
+) -> Labels:
     """
     Label cells in segmentation mask
 
     Parameters
     ----------
-    seg : numpy 2D array of float/uint8/uint16/bool
-        Cells segmentation mask. Values >0.5 will be considered cell pixels
+    seg : SegmentationMask
+        Cells segmentation mask.
     cellnumbers : list of ints, optional
         Numbers to attribute to each cell mask, from top to bottom of image.
         Because we are using uint16s, maximum cell number is 65535. If None is
@@ -688,24 +651,22 @@ def label_seg(
 
     Returns
     -------
-    label : 2D numpy array of uint16
+    labels : 2D numpy array of uint16
         Labelled image. Each cell in the image is marked by adjacent pixels
         with values given by cellnumbers
-    contours : list
-        List of cv2 contours for each cell. Returned if return_contours==True.
 
     """
-    seg = (seg > 0.5).astype(np.uint8)
     contours = find_contours(seg)
-    contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))  # Sorting along Y
-    label = np.full(seg.shape, background, dtype=np.uint16)
-    if not return_contours:
-        return label
-    for c, contour in enumerate(contours):
-        label = cv2.fillPoly(
-            label, [contour], c + 1 if cellnumbers is None else cellnumbers[c]
-        )
-    return label, contours
+    if not cellnumbers:
+        cellnumbers = range(1, len(contours) + 1)
+    if len(cellnumbers) != len(contours):
+        raise ValueError("cellnumbers must have the same length as the number of cells")
+    # Sorting according to the lowest point on the y (vertical) axis
+    contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))
+    labels = np.zeros(seg.shape, dtype=np.uint16)
+    for icell, contour in zip(cellnumbers, contours):
+        labels = cv2.fillPoly(labels, [contour], icell)
+    return labels
 
 
 #### These prototypes help mypy understand the return type of the function
