@@ -11,9 +11,8 @@ from typing import Optional, Tuple
 
 import tensorflow as tf
 
-from . import __file__ as delta_init  # Path to __init__ file
 
-_DELTA_DIR = _pathlib.Path(delta_init).parent
+_DELTA_DIR = _pathlib.Path(__file__).parent
 "DeLTA lib install directory"
 _LOADED = None
 "Which config file was loaded"
