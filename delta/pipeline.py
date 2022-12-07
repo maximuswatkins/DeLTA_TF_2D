@@ -662,7 +662,9 @@ class Position:
                     for feature in ["length", "area"]:
                         try:
                             gr = roi.lineage.growthrate(icell, iframe, feature)
-                            roi.lineage.setvalue(icell, iframe, f"growthrate_{feature}", gr)
+                            roi.lineage.setvalue(
+                                icell, iframe, f"growthrate_{feature}", gr
+                            )
                         except KeyError:
                             warnings.warn(
                                 "An issue happened related to feature extraction: "
@@ -842,9 +844,15 @@ class Position:
 
                 # Morphological features:
                 morpho_features = (
-                        "area","width","length","perimeter","old_pole",
-                        "new_pole","growthrate_length","growthrate_area",
-                        )
+                    "area",
+                    "width",
+                    "length",
+                    "perimeter",
+                    "old_pole",
+                    "new_pole",
+                    "growthrate_length",
+                    "growthrate_area",
+                )
                 for feat in morpho_features:
                     if feat in c:
                         lin[-1][feat] = np.array(c[feat], dtype=np.float32)

@@ -10,18 +10,17 @@ The images are processed by batches of 4096 to prevent memory issues.
 import numpy as np
 
 import delta.utilities as utils
-from delta.data import (postprocess, predictGenerator_seg, readreshape,
-                        saveResult_seg)
+from delta.data import postprocess, predictGenerator_seg, readreshape, saveResult_seg
 from delta.model import unet_seg
 from delta.utilities import cfg, listfiles
 
 ### Parameters:
-    
+
 # Configuration presets: ("2D" or "mothermachine")
 cfg.load_config(presets="2D")
 
 # Image sequence to segment: (replace with your own)
-inputs_folder = cfg.eval_movie # or cfg.eval_movie + "/cropped_rois" for mother machine
+inputs_folder = cfg.eval_movie  # or cfg.eval_movie + "/cropped_rois" for mother machine
 
 ### /Parameters
 

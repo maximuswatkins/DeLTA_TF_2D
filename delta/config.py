@@ -178,7 +178,11 @@ def load_config(
 
         # Is there a global config file for this preset?
         _json_file = _DELTA_DIR / f"assets/config/config_{presets}.json"
-        if json_file is None and _json_file.exists() and config_level in [None, "global"]:
+        if (
+            json_file is None
+            and _json_file.exists()
+            and config_level in [None, "global"]
+        ):
             json_file = _json_file
 
         # If no file was found, raise error:

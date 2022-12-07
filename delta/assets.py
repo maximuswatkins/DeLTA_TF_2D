@@ -129,6 +129,7 @@ def _write_json(obj: Any, path: Path) -> None:
             if isinstance(obj, Path):
                 return str(obj)
             return json.JSONEncoder.default(self, obj)
+
     with path.open(mode="w", encoding="utf8") as file:
         json.dump(obj, file, indent=4, cls=PathEncoder)
 
@@ -183,9 +184,15 @@ def _write_default_configs(
         config["model_file_seg"] = model_files["unet_moma_seg"]
         config["model_file_track"] = model_files["unet_moma_track"]
     if len(sets_files) > 0:
-        config["training_set_rois"] = sets_files["mothermachine"] / "training/chambers_seg_set/train"
-        config["training_set_seg"] = sets_files["mothermachine"] / "training/segmentation_set/train_multisets"
-        config["training_set_track"] = sets_files["mothermachine"] / "training/tracking_set/train_multisets"
+        config["training_set_rois"] = (
+            sets_files["mothermachine"] / "training/chambers_seg_set/train"
+        )
+        config["training_set_seg"] = (
+            sets_files["mothermachine"] / "training/segmentation_set/train_multisets"
+        )
+        config["training_set_track"] = (
+            sets_files["mothermachine"] / "training/tracking_set/train_multisets"
+        )
     if len(eval_files) > 0:
         config["eval_movie"] = eval_files["mothermachine"] / "movie_tifs"
     _write_json(config, config_dir / "config_mothermachine.json")

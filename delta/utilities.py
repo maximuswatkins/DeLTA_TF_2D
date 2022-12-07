@@ -247,7 +247,9 @@ def getDriftTemplate(
 
 
 def opencv_areafilt(
-    I: SegmentationMask, min_area: Optional[float] = 20, max_area: Optional[float] = None
+    I: SegmentationMask,
+    min_area: Optional[float] = 20,
+    max_area: Optional[float] = None,
 ) -> SegmentationMask:
     """
     Area filtering using openCV instead of skimage
@@ -358,17 +360,27 @@ def create_windows(
     # Pad the image if smaller than the target size
     pad_x = max(0, target_size[1] - image.shape[1])
     pad_y = max(0, target_size[0] - image.shape[0])
-    padding = ((pad_y//2, pad_y - pad_y//2), (pad_x//2, pad_x - pad_x//2))
+    padding = ((pad_y // 2, pad_y - pad_y // 2), (pad_x // 2, pad_x - pad_x // 2))
     image = np.pad(image, padding)
 
     # Compute offsets
-    starts_x = np.linspace(0, image.shape[1] - target_size[1], num=nsplits_x, endpoint=True, dtype=np.int32)
-    starts_y = np.linspace(0, image.shape[0] - target_size[0], num=nsplits_y, endpoint=True, dtype=np.int32)
+    starts_x = np.linspace(
+        0, image.shape[1] - target_size[1], num=nsplits_x, endpoint=True, dtype=np.int32
+    )
+    starts_y = np.linspace(
+        0, image.shape[0] - target_size[0], num=nsplits_y, endpoint=True, dtype=np.int32
+    )
 
     # Store the cropped images
-    tiles = np.array([image[sy:sy+target_size[0], sx:sx+target_size[1]] for sy in starts_y for sx in starts_x])
-    loc_x = np.vstack((starts_x, starts_x + target_size[1])) - pad_x//2
-    loc_y = np.vstack((starts_y, starts_y + target_size[0])) - pad_y//2
+    tiles = np.array(
+        [
+            image[sy : sy + target_size[0], sx : sx + target_size[1]]
+            for sy in starts_y
+            for sx in starts_x
+        ]
+    )
+    loc_x = np.vstack((starts_x, starts_x + target_size[1])) - pad_x // 2
+    loc_y = np.vstack((starts_y, starts_y + target_size[0])) - pad_y // 2
     return tiles, loc_y.T, loc_x.T
 
 
@@ -401,19 +413,27 @@ def stitch_pic(
     stitch = np.zeros((loc_y[-1][1], loc_x[-1][1]), dtype=results.dtype)
 
     # Compute where patches meet
-    middles_y = [0, *((ly[1] + nly[0]) // 2 for ly, nly in zip(loc_y, loc_y[1:])), loc_y[-1][1]]
-    middles_x = [0, *((lx[1] + nlx[0]) // 2 for lx, nlx in zip(loc_x, loc_x[1:])), loc_x[-1][1]]
+    middles_y = [
+        0,
+        *((ly[1] + nly[0]) // 2 for ly, nly in zip(loc_y, loc_y[1:])),
+        loc_y[-1][1],
+    ]
+    middles_x = [
+        0,
+        *((lx[1] + nlx[0]) // 2 for lx, nlx in zip(loc_x, loc_x[1:])),
+        loc_x[-1][1],
+    ]
 
     index = 0
     for ly, y_start, y_end in zip(loc_y, middles_y, middles_y[1:]):
         for lx, x_start, x_end in zip(loc_x, middles_x, middles_x[1:]):
-            
+
             res_crop_y = -(ly[1] - y_end) if ly[1] - y_end > 0 else None
             res_crop_x = -(lx[1] - x_end) if lx[1] - x_end > 0 else None
             stitch[y_start:y_end, x_start:x_end] = results[
                 index,
-                y_start - ly[0]:res_crop_y,
-                x_start - lx[0]:res_crop_x,
+                y_start - ly[0] : res_crop_y,
+                x_start - lx[0] : res_crop_x,
             ]
 
             index += 1
@@ -718,7 +738,9 @@ def getcentroid(contour: np.ndarray) -> Tuple[int, int]:
 
 
 def getpoles(
-    seg: SegmentationMask, labels: Optional[Labels] = None, scaling: Optional[Tuple[float, float]] = None
+    seg: SegmentationMask,
+    labels: Optional[Labels] = None,
+    scaling: Optional[Tuple[float, float]] = None,
 ) -> List[Tuple[Pole, Pole]]:
     """
     Get cell poles
@@ -1441,7 +1463,9 @@ class Lineage:
         while value_ancestor is None:
             try:
                 # Did the current cell exist at the specified frame? If so, the search is over.
-                value_ancestor = self.getvalue(ancestor, frame=frame - df, feature=feature)
+                value_ancestor = self.getvalue(
+                    ancestor, frame=frame - df, feature=feature
+                )
             except ValueError:
                 # The cell did not exist at the specified frame, so we try with its mother.
                 ancestor = self.cells[ancestor]["mother"]
@@ -1565,7 +1589,12 @@ class Lineage:
         value_fm1 = self.getpastvalue(cell, frame, feature)
         value_f = self.getvalue(cell, frame, feature)
         value_fp1 = self.getfuturevalue(cell, frame, feature)
-        if value_fm1 is not None and value_fp1 is not None and value_fm1 > 0.0 and value_fp1 > 0.0:
+        if (
+            value_fm1 is not None
+            and value_fp1 is not None
+            and value_fm1 > 0.0
+            and value_fp1 > 0.0
+        ):
             return np.log(value_fp1 / value_fm1) / 2.0
         if value_fm1 is not None and value_fm1 > 0.0 and value_f > 0.0:
             return np.log(value_f / value_fm1)
@@ -1850,7 +1879,9 @@ class xpreader:
         if importlib.util.find_spec("bioformats"):
             import bioformats
 
-            self.use_bioformats = self.filename.suffix[1:] in bioformats.READABLE_FORMATS
+            self.use_bioformats = (
+                self.filename.suffix[1:] in bioformats.READABLE_FORMATS
+            )
         i = 2
         while i < len(cmdln_arguments):
             if cmdln_arguments[i] == "--bio-formats":
@@ -2092,7 +2123,8 @@ class xpreader:
 
         # Allocate memory:
         output = np.empty(
-            [len(positions), len(frames), len(channels), self.y, self.x], dtype=np.float32
+            [len(positions), len(frames), len(channels), self.y, self.x],
+            dtype=np.float32,
         )
 
         # Load images:
@@ -2570,7 +2602,9 @@ def cell_perimeter(contour: Contour) -> float:
 
 
 def cell_fluo(
-    fluo_frames: np.ndarray, mask: SegmentationMask, roi_box: Optional[CroppingBox] = None
+    fluo_frames: np.ndarray,
+    mask: SegmentationMask,
+    roi_box: Optional[CroppingBox] = None,
 ) -> List[float]:
     """
     Extract mean fluorescence level from mask
@@ -2611,6 +2645,7 @@ def cell_fluo(
 
 
 #%% Misc
+
 
 def read_image(filename: Path) -> np.ndarray:
     """
@@ -2675,9 +2710,15 @@ def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
 
 def tensorboard_callback():
     try:
-        branch = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"]).rstrip().decode()
+        branch = (
+            subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"])
+            .rstrip()
+            .decode()
+        )
     except FileNotFoundError:
         branch = ""
-    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_" + branch
+    log_dir = (
+        "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_" + branch
+    )
     callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
     return callback

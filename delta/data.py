@@ -9,8 +9,18 @@ import importlib
 import re
 import warnings
 from pathlib import Path
-from typing import (Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple,
-                    Union, cast)
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import cv2
 import numpy as np
@@ -62,7 +72,7 @@ def readreshape(
     target_size: Tuple[int, int] = (256, 32),
     binarize: bool = False,
     order: int = 1,
-    method : str = "resize",
+    method: str = "resize",
 ) -> npt.NDArray[Any]:
     """
     Read image from disk, format it and return it as an array of
@@ -417,7 +427,9 @@ def shift(
     return shifted
 
 
-def histogram_voodoo(image: utils.Image, rng: npr.Generator, num_control_points: int = 3) -> utils.Image:
+def histogram_voodoo(
+    image: utils.Image, rng: npr.Generator, num_control_points: int = 3
+) -> utils.Image:
     """
     This function kindly provided by Daniel Eaton from the Paulsson lab.
     It performs an elastic deformation on the image histogram to simulate
@@ -448,7 +460,9 @@ def histogram_voodoo(image: utils.Image, rng: npr.Generator, num_control_points:
     return mapping(image)
 
 
-def illumination_voodoo(image: utils.Image, rng: npr.Generator, num_control_points: int = 5) -> utils.Image:
+def illumination_voodoo(
+    image: utils.Image, rng: npr.Generator, num_control_points: int = 5
+) -> utils.Image:
     """
     This function inspired by the one above.
     It simulates a variation in illumination along the length of the chamber
@@ -504,7 +518,7 @@ def trainGenerator_seg(
     augment_params: Dict[str, Any] = {},
     preload: bool = False,
     seed: int = 1,
-    crop_windows : bool = False,
+    crop_windows: bool = False,
 ) -> Iterator[Tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]]:
     """
     Generator for training the segmentation U-Net.
@@ -801,13 +815,15 @@ def seg_weights(
     distances = np.inf * np.ones((*mask.shape, max(lblnb, 2)))
     for i in range(lblnb - 1):
         imask = (lblimg != i + 1).astype(np.uint8)
-        distances[:, :, i] = cv2.distanceTransform(imask, cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
+        distances[:, :, i] = cv2.distanceTransform(
+            imask, cv2.DIST_L2, cv2.DIST_MASK_PRECISE
+        )
 
     # Put 2 smallest distances at the beginning
     distances.partition(1, axis=-1)
 
     # Compute weights map
-    weights = w0 * np.exp(-distances[:, :, :2].sum(-1)**2 / (2 * sigma**2))
+    weights = w0 * np.exp(-distances[:, :, :2].sum(-1) ** 2 / (2 * sigma**2))
     weights += classweights[0]
     weights[mask == 1] = classweights[1]
 
@@ -848,7 +864,6 @@ def make_weights(
         cv2.imwrite(str(training_dataset_path / "wei" / seg_path.name), int_weights)
 
 
-
 def kernel(n: int) -> utils.SegmentationMask:
     """
     Get kernel for morphological operations
@@ -869,7 +884,9 @@ def kernel(n: int) -> utils.SegmentationMask:
 
 
 def estimate_seg2D_classweights(
-    mask_path: Path, sample_size: Optional[int] = None, rng: Optional[npr.Generator] = None
+    mask_path: Path,
+    sample_size: Optional[int] = None,
+    rng: Optional[npr.Generator] = None,
 ) -> Tuple[float, float]:
     """
     Estimate the weights to assign each class in the weight maps
@@ -976,8 +993,12 @@ def seg_weights_2D(
     border_skel = morph.skeletonize(border > 0)
 
     # Find the distances from the skeleton of the segmention and border
-    border_dist = cv2.distanceTransform(255*(border_skel < 1).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
-    mask_dist = cv2.distanceTransform(255*(mask_skel < 1).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
+    border_dist = cv2.distanceTransform(
+        255 * (border_skel < 1).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE
+    )
+    mask_dist = cv2.distanceTransform(
+        255 * (mask_skel < 1).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE
+    )
 
     # Use the distance from the skeletons to create a gradient towards the skeleton
     border_gra = border * (classweights[1]) / (border_dist + 1) ** 2
