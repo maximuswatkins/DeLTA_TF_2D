@@ -7,7 +7,7 @@ import json as _json
 import os as _os
 import pathlib as _pathlib
 import warnings as _warnings
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import tensorflow as tf
 
@@ -126,7 +126,11 @@ _DEFAULTS_mothermachine = dict(
 )
 
 
-def load_config(json_file: Optional[str] = None, presets: str = "2D", config_level: Optional[str] = None):
+def load_config(
+    json_file: Optional[Union[str, _pathlib.Path]] = None,
+    presets: str = "2D",
+    config_level: Optional[str] = None,
+):
     """
     Loads json configuration files
 
@@ -185,7 +189,7 @@ def load_config(json_file: Optional[str] = None, presets: str = "2D", config_lev
                 """
             )
 
-    variables = _read_json(json_file)
+    variables = _read_json(_pathlib.Path(json_file))
 
     # Check if it has the same parameters set as defaults:
     if set(variables.keys()) != set(defaults.keys()):

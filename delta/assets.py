@@ -34,10 +34,10 @@ EVAL_MOVIES = {
 
 
 def download_assets(
-    load_models: Optional[Union[bool, str]] = None,
-    load_sets: Optional[Union[bool, str]] = None,
-    load_evals: Optional[Union[bool, str]] = None,
-    config_level: Optional[Union[bool, str]] = None,
+    load_models: Optional[Union[bool, str, Path]] = None,
+    load_sets: Optional[Union[bool, str, Path]] = None,
+    load_evals: Optional[Union[bool, str, Path]] = None,
+    config_level: Optional[Union[bool, str, Path]] = None,
 ) -> None:
     """
     Download assets such as latest models, training sets etc
@@ -81,21 +81,21 @@ def download_assets(
     """
 
     # Should we download models?
-    models_dir = load_models if isinstance(load_models, str) else None
+    models_dir = Path(load_models) if isinstance(load_models, (str, Path)) else None
     load_models = (
         _ask("Download latest models?") if load_models is None else bool(load_models)
     )
     model_files = _download_models(models_dir=models_dir) if load_models else {}
 
     # Should we download training sets?
-    sets_dir = load_sets if isinstance(load_sets, str) else None
+    sets_dir = Path(load_sets) if isinstance(load_sets, (str, Path)) else None
     load_sets = (
         _ask("Download latest training sets?") if load_sets is None else bool(load_sets)
     )
     sets_files = _download_training_sets(sets_dir=sets_dir) if load_sets else {}
 
     # Should we download evaluation movies?
-    movies_dir = load_evals if isinstance(load_evals, str) else None
+    movies_dir = Path(load_evals) if isinstance(load_evals, (str, Path)) else None
     load_evals = (
         _ask("Download evaluation movies?") if load_evals is None else bool(load_evals)
     )
@@ -143,24 +143,24 @@ def _ask(prompt: str, options: Dict[str, Any] = {"y": True, "n": False}) -> Any:
 
 
 def _write_default_configs(
-    config_level: str = "local",
-    model_files: Dict[str, str] = {},
-    sets_files: Dict[str, str] = {},
-    eval_files: Dict[str, str] = {},
+    config_level: Union[str, Path] = "local",
+    model_files: Dict[str, Path] = {},
+    sets_files: Dict[str, Path] = {},
+    eval_files: Dict[str, Path] = {},
 ) -> None:
 
     if config_level == "local":
         config_dir = Path.home() / ".delta"
     elif config_level == "global":
         config_dir = _DELTA_DIR / "assets/config"
-    elif config_level.exists():
-        config_dir = config_level
     else:
-        raise ValueError(
-            f"""Invalid configs level/path: {config_level}
-            If providing a folder path, the folder must exist
-            """
-        )
+        path_config = Path(config_level)
+        if not path_config.is_dir():
+            raise ValueError(
+                f"Invalid config level/path: {config_level}. "
+                "If providing a folder path, the folder must exist."
+            )
+        config_dir = path_config
 
     config_dir.mkdir(parents=True, exist_ok=True)
 
@@ -195,7 +195,7 @@ def _write_default_configs(
 
 def _download_models(
     model_ids: Dict[str, str] = LATEST_MODELS, models_dir: Optional[Path] = None
-) -> Dict[str, str]:
+) -> Dict[str, Path]:
     """
     Download models from gdrive
 
@@ -232,7 +232,7 @@ def _download_models(
 
 def _download_training_sets(
     sets_ids: Dict[str, str] = LATEST_TRAININGSETS, sets_dir: Optional[Path] = None
-) -> Dict[str, str]:
+) -> Dict[str, Path]:
 
     if sets_dir is None:
         # Retrieve the path of the delta install folder:
@@ -254,7 +254,7 @@ def _download_training_sets(
 
 def _download_eval_movies(
     movie_ids: Dict[str, str] = EVAL_MOVIES, movies_dir: Optional[Path] = None
-) -> Dict[str, str]:
+) -> Dict[str, Path]:
 
     if movies_dir is None:
         # Retrieve the path of the delta install folder:
@@ -275,7 +275,7 @@ def _download_eval_movies(
 
 
 def _download_and_unzip(
-    google_id: str, zip_file: str, folder: Path, remove_previous: bool = False
+    google_id: str, zip_file: Path, folder: Path, remove_previous: bool = False
 ) -> None:
 
     print(f"Downloading zip: {zip_file}...", end="", flush=True)
