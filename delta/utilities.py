@@ -25,11 +25,11 @@ import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
 import tensorflow as tf
-from tifffile import TiffFile
 from scipy.special import logit
 from skimage.morphology import skeletonize
 from skimage.transform import hough_line, hough_line_peaks
 from tensorflow.keras.callbacks import TensorBoard
+from tifffile import TiffFile
 
 from . import config as cfg
 
