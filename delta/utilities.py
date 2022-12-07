@@ -78,6 +78,14 @@ class CroppingBox:
     xbr: int
     ybr: int
 
+    def crop(self, img: np.ndarray):
+        """
+        Crops an image according to the cropping box.
+        """
+        if img.ndim == 2:
+            return img[self.ytl:self.ybr, self.xtl:self.xbr]
+        raise ValueError("`img` must have 2 dimensions.")
+
 
 class Cell(Dict):
     """
@@ -225,9 +233,9 @@ def driftcorr(
     template : None or 2D numpy array of uint8/uint16/floats, optional
         The template for drift correction (see getDriftTemplate()).
         default is None.
-    box : None or dictionary, optional
+    box : None or CroppingBox, optional
         A cropping box to extract the part of the frame to compute drift
-        correction over (see cropbox()).
+        correction over.
         default is None.
     drift : None or tuple of 2 numpy arrays, optional
         Pre-computed drift to apply to the img stack. If this is None, you must
@@ -261,7 +269,7 @@ def driftcorr(
     for i in range(img.shape[0]):
         if drift is None:
             frame = to_integer_values(img[i], np.uint8)
-            driftcorrimg = cropbox(frame, box)
+            driftcorrimg = box.crop(frame)
             res = cv2.matchTemplate(driftcorrimg, template, cv2.TM_CCOEFF_NORMED)
             _, _, _, max_loc = cv2.minMaxLoc(res)
             ycorr[i] = max_loc[0] - res.shape[1] / 2
@@ -311,7 +319,7 @@ def getDriftTemplate(
         ybr=-y_cut if whole_frame else max(box.ytl for box in chamberboxes) - y_cut,
     )
 
-    return cropbox(img, box)
+    return box.crop(img)
 
 
 def opencv_areafilt(
@@ -359,28 +367,6 @@ def opencv_areafilt(
 
 
 #%% Image cropping & stitching
-
-
-def cropbox(img: npt.NDArray[Any], box: Optional[CroppingBox]) -> npt.NDArray[Any]:
-    """
-    Crop image.
-
-    Parameters
-    ----------
-    img : 2D numpy array
-        Image to crop.
-    box : Optional[CroppingBox]
-        Cropping box to crop the image with.
-
-    Returns
-    -------
-    2D numpy array
-        Cropped-out region.
-
-    """
-    if box is None:
-        return img
-    return img[box.ytl:box.ybr, box.xtl:box.xbr]
 
 
 def create_windows(
@@ -524,11 +510,9 @@ def gettrackingboxes(
 
     Returns
     -------
-    cropbox : dict
-        Crop box in the cropbox() input format.
+    cropbox : CroppingBox
         The crop box determines which part of the full-size frame to crop out.
-    fillbox : dict
-        Fill box in the cropbox() input format.
+    fillbox : CroppingBox
         The fill box determines which part of the target-size input to fill with
         the cropped out image.
 
@@ -571,8 +555,7 @@ def getshiftvalues(
         Max amount of pixels cropbox to be shifted in the y / x direction.
     img_shape : tuple
         Shape of the image / input that will be cropped.
-    cropbox : dict
-        Crop box in the cropbox() input format.
+    cropbox : CroppingBox
         The crop box determines which part of the full-size frame to crop out.
     rng : npr.Generator
         Pseudo-random number generator.
@@ -580,7 +563,7 @@ def getshiftvalues(
     Returns
     -------
     shiftY : int
-        Number of pixels to shift cropbox in the y irection
+        Number of pixels to shift cropbox in the y direction
     shiftX : int
         Number of pixels to shift cropbox in the x direction.
 
@@ -636,8 +619,8 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
 
     Returns
     -------
-    chamberboxes : list of dictionaries
-        List of cropping box dictionaries (see cropbox()).
+    chamberboxes : list of `CroppingBox`es
+        Chamber `CroppingBox`es.
 
     """
     chamberboxes = []
@@ -2365,9 +2348,8 @@ def roi_features(
         (size_x, size_y, fluo_channels). The number of fluo_channels must match
         the number of fluo features to extract.
         The default is None.
-    roi_box : dict, optional
-        Cropping box dictionary (see cropbox())to apply shift when looking at
-        full-frame fluo images.
+    roi_box : CroppingBox, optional
+        Cropping box to apply shift when looking at full-frame fluo images.
         The default is None.
 
     Returns
@@ -2425,9 +2407,8 @@ def singlecell_features(
         Fluorescent images to extract fluo from. Dimensions are
         (channels, size_y, size_x).
         The default is None.
-    roi_box : dict, optional
-        Cropping box dictionary (see cropbox())to apply shift when looking at
-        full-frame fluo images.
+    roi_box : CroppingBox, optional
+        Cropping box to apply shift when looking at full-frame fluo images.
         The default is None.
 
     Raises
@@ -2591,9 +2572,8 @@ def cell_fluo(
         (channels, size_y, size_x).
     mask : 2D numpy array of bool
         Mask of the region to extract (typically a single cell).
-    roi_box : dictionary, optional
-        Cropping box dictionary (see cropbox())to apply shift when looking at
-        full-frame fluo images.
+    roi_box : CroppingBox, optional
+        Cropping box to apply shift when looking at full-frame fluo images.
         The default is None.
 
     Returns

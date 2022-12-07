@@ -19,7 +19,7 @@ from scipy.io import savemat
 from delta import utilities as utils
 from delta.assets import loadmodels
 from delta.data import binarizerange, postprocess
-from delta.utilities import cfg
+from delta.utilities import cfg, CroppingBox
 
 
 class Pipeline:
@@ -122,7 +122,6 @@ class Pipeline:
         self,
         positions: Optional[List[int]] = None,
         references: Optional[np.ndarray] = None,
-        ROIs: Optional[str] = "model",
     ) -> None:
         """
         Pre-process positions (Rotation correction, identify ROIs,
@@ -138,12 +137,6 @@ class Pipeline:
             the first image of each position will be used. Dimensions
             are (positions, size_y, size_x)
             The default is None.
-        ROIs : None or 'model', optional
-            Regions of interest. If None, whole frames are treated as one ROI.
-            If 'model', the ROIs model from cfg.model_file_rois will be used
-            to detect them. Otherwise, a list of ROIs can be provided in the
-            format of the utilities.py cropbox function input box.
-            The default is 'model'.
 
         Returns
         -------
@@ -435,7 +428,7 @@ class Position:
             self.rois = [
                 ROI(
                     roi_nb=0,
-                    box=utils.CroppingBox(
+                    box=CroppingBox(
                         xtl=0, ytl=0, xbr=reference.shape[1], ybr=reference.shape[0]
                     ),
                     crop_windows=self.crop_windows,
@@ -447,7 +440,7 @@ class Position:
             self.drifttemplate = utils.getDriftTemplate(
                 [r.box for r in self.rois], reference, whole_frame=cfg.whole_frame_drift
             )
-            self.driftcorbox = utils.CroppingBox(
+            self.driftcorbox = CroppingBox(
                 xtl=0,
                 xbr=reference.shape[1],
                 ytl=0,
@@ -1015,9 +1008,7 @@ class ROI:
     ROI processor object.
     """
 
-    def __init__(
-        self, roi_nb: int, box: utils.CroppingBox, crop_windows: bool = False
-    ) -> None:
+    def __init__(self, roi_nb: int, box: CroppingBox, crop_windows: bool = False) -> None:
         """
         Initialize ROI.
 
@@ -1025,9 +1016,8 @@ class ROI:
         ----------
         roi_nb : int
             ROI index.
-        box : dict
-            Crop box for ROI, formatted as in the utilities.py cropbox
-            function input dict.
+        box : CroppingBox
+            CroppingBox for ROI.
         crop_windows : bool, optional
             Flag to crop and stitch back windows for segmentation and tracking.
             The default is False.
@@ -1135,7 +1125,7 @@ class ROI:
 
         """
         # Crop and scale:
-        i = utils.cropbox(img, self.box)
+        i = self.box.crop(img)
         # Rescale pixel values between 0 and 1 for the old model
         i = (i - i.min()) / i.ptp()
         # Append i as is to input images stack:
@@ -1204,7 +1194,7 @@ class ROI:
 
     def get_tracking_inputs(
         self, frame: int
-        ) -> Tuple[np.ndarray, List[Tuple[utils.CroppingBox, utils.CroppingBox]]]:
+    ) -> Tuple[np.ndarray, List[Tuple[CroppingBox, CroppingBox]]]:
         """
         Compile tracking inputs for ROI from `seg_stack`.
 
@@ -1265,14 +1255,12 @@ class ROI:
                 prev_img = cv2.resize(
                     self.img_stack[frame - 1], dsize=cfg.target_size_seg[::-1]
                 )
-                cb = fb = utils.CroppingBox(ytl=None, xtl=None, ybr=None, xbr=None)
+                cb = fb = CroppingBox(ytl=None, xtl=None, ybr=None, xbr=None)
                 draw_offset = None
             boxes += [(cb, fb)]
 
             # Current image
-            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 0] = utils.cropbox(
-                curr_img, cb
-            )
+            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 0] = cb.crop(curr_img)
 
             # Segmentation mask of one previous cell (seed)
             x[c, :, :, 1] = cv2.drawContours(
@@ -1285,14 +1273,10 @@ class ROI:
             )
 
             # Previous image
-            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 2] = utils.cropbox(
-                prev_img, cb
-            )
+            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 2] = cb.crop(prev_img)
 
             # Segmentation of all current cells
-            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 3] = utils.cropbox(
-                self.seg_stack[frame], cb
-            )
+            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 3] = cb.crop(self.seg_stack[frame])
 
         # Return tracking inputs and crop and fill boxes:
         return x, boxes
@@ -1301,7 +1285,7 @@ class ROI:
         self,
         y: np.ndarray,
         frame: int,
-        boxes: Optional[List[Tuple[utils.CroppingBox, utils.CroppingBox]]] = None,
+        boxes: Optional[List[Tuple[CroppingBox, CroppingBox]]] = None,
     ) -> None:
         """
         Process output from tracking U-Net.
