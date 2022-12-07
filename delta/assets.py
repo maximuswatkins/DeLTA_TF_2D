@@ -8,7 +8,7 @@ downloads, and writing configuration files
 import json
 import shutil
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import requests
 
@@ -34,10 +34,10 @@ EVAL_MOVIES = {
 
 
 def download_assets(
-    load_models: Union[bool, str] = None,
-    load_sets: Union[bool, str] = None,
-    load_evals: Union[bool, str] = None,
-    config_level: Union[bool, str] = None,
+    load_models: Optional[Union[bool, str]] = None,
+    load_sets: Optional[Union[bool, str]] = None,
+    load_evals: Optional[Union[bool, str]] = None,
+    config_level: Optional[Union[bool, str]] = None,
 ) -> None:
     """
     Download assets such as latest models, training sets etc
@@ -194,7 +194,7 @@ def _write_default_configs(
 
 
 def _download_models(
-    model_ids: Dict[str, str] = LATEST_MODELS, models_dir: Path = None
+    model_ids: Dict[str, str] = LATEST_MODELS, models_dir: Optional[Path] = None
 ) -> Dict[str, str]:
     """
     Download models from gdrive
@@ -231,7 +231,7 @@ def _download_models(
 
 
 def _download_training_sets(
-    sets_ids: Dict[str, str] = LATEST_TRAININGSETS, sets_dir: Path = None
+    sets_ids: Dict[str, str] = LATEST_TRAININGSETS, sets_dir: Optional[Path] = None
 ) -> Dict[str, str]:
 
     if sets_dir is None:
@@ -253,7 +253,7 @@ def _download_training_sets(
 
 
 def _download_eval_movies(
-    movie_ids: Dict[str, str] = EVAL_MOVIES, movies_dir: Path = None
+    movie_ids: Dict[str, str] = EVAL_MOVIES, movies_dir: Optional[Path] = None
 ) -> Dict[str, str]:
 
     if movies_dir is None:

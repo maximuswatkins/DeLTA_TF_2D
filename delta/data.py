@@ -9,7 +9,7 @@ import importlib
 import re
 import warnings
 from pathlib import Path
-from typing import (Any, Callable, Dict, Iterator, List, Optional, Tuple,
+from typing import (Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple,
                     Union, cast)
 
 import cv2
@@ -33,7 +33,7 @@ from . import utilities as utils
 #%% UTILITIES:
 
 
-def binarizerange(array: utils.Image, threshold: float = None) -> utils.Image:
+def binarizerange(array: utils.Image, threshold: Optional[float] = None) -> utils.Image:
     """
     This function will binarize a numpy array by thresholding it.
 
@@ -120,7 +120,7 @@ def readreshape(
 def postprocess(
     images: npt.NDArray[np.float32],
     square_size: int = 5,
-    min_size: float = None,
+    min_size: Optional[float] = None,
     crop: bool = False,
 ) -> npt.NDArray[np.float32]:
     """
@@ -170,7 +170,7 @@ def data_augmentation(
     images_input: List[npt.NDArray[Any]],
     aug_par: Dict[str, Any],
     order: Union[int, List[int], Tuple[int, ...]] = 0,
-    rng: npr.Generator = None,
+    rng: Optional[npr.Generator] = None,
 ) -> List[npt.NDArray[Any]]:
     """
     Data augmentation function
@@ -708,7 +708,7 @@ def saveResult_seg(
 
 def predictGenerator_seg(
     files_path: Path,
-    files_list: Union[List[str], Tuple[str, ...]] = None,
+    files_list: Optional[Union[List[str], Tuple[str, ...]]] = None,
     target_size: Tuple[int, int] = (256, 32),
     crop_windows: bool = False,
 ) -> Iterator[np.ndarray]:
@@ -742,8 +742,8 @@ def predictGenerator_seg(
     files_list = files_list or sorted(list(files_path.iterdir()))
 
     def generator(
-        files_path: str,
-        files_list: Union[List[str], Tuple[str, ...]],
+        files_path: Path,
+        files_list: Iterable[Path],
         target_size: Tuple[int, int],
     ) -> Iterator[np.ndarray]:
         for fname in files_list:
@@ -869,7 +869,7 @@ def kernel(n: int) -> utils.SegmentationMask:
 
 
 def estimate_seg2D_classweights(
-    mask_path: Path, sample_size: int = None, rng: npr.Generator = None
+    mask_path: Path, sample_size: Optional[int] = None, rng: Optional[npr.Generator] = None
 ) -> Tuple[float, float]:
     """
     Estimate the weights to assign each class in the weight maps
@@ -1061,7 +1061,7 @@ def trainGenerator_track(
     previmg_path: Path,
     segall_path: Path,
     track_path: Path,
-    weights_path: Path = None,
+    weights_path: Optional[Path] = None,
     augment_params: Dict[str, Any] = {},
     crop_windows: bool = False,
     target_size: Tuple[int, int] = (256, 32),
@@ -1243,10 +1243,10 @@ def trainGenerator_track(
 def getfnfromprototype(
     prototype: str,
     fileorder: str,
-    position: int = None,
-    chamber: int = None,
-    frame: int = None,
-    cellnb: int = None,
+    position: Optional[int] = None,
+    chamber: Optional[int] = None,
+    frame: Optional[int] = None,
+    cellnb: Optional[int] = None,
 ) -> Path:
     """
     Generate full filename for specific frame based on file path,
@@ -1540,7 +1540,7 @@ def tracking_weights(
 def saveResult_track(
     save_path: Path,
     npyfile: np.ndarray,
-    files_list: List[Path] = None,
+    files_list: Optional[List[Path]] = None,
 ):
     """
     Save tracking output masks to disk

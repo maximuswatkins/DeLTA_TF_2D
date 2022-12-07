@@ -17,7 +17,7 @@ import tkinter as tk
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union, cast
 
 import cv2
 import ffmpeg
@@ -63,7 +63,7 @@ class Cell(Dict):
 #%% Image correction
 
 
-def to_integer_values(frame: Image, dtype: type) -> Image:
+def to_integer_values(frame: Image, dtype: Type[object]) -> Image:
     """
     Returns an image with integer-valued pixels of the given size.
 
@@ -247,7 +247,7 @@ def getDriftTemplate(
 
 
 def opencv_areafilt(
-    I: SegmentationMask, min_area: Optional[float] = 20, max_area: float = None
+    I: SegmentationMask, min_area: Optional[float] = 20, max_area: Optional[float] = None
 ) -> SegmentationMask:
     """
     Area filtering using openCV instead of skimage
@@ -423,8 +423,8 @@ def stitch_pic(
 
 def gettrackingboxes(
     cell: npt.NDArray[np.uint8],
-    frame_shape: Tuple[int, int] = None,
-    target_size: Tuple[int, int] = None,
+    frame_shape: Optional[Tuple[int, int]] = None,
+    target_size: Optional[Tuple[int, int]] = None,
 ) -> Tuple[CroppingBox, CroppingBox]:
     """
     Get a crop box and a fill box around a cell that fits the tracking target
@@ -587,7 +587,7 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
 
 def label_seg(
     seg: SegmentationMask,
-    cellnumbers: List[int] = None,
+    cellnumbers: Optional[List[int]] = None,
 ) -> Labels:
     """
     Label cells in segmentation mask
@@ -611,7 +611,7 @@ def label_seg(
     """
     contours = find_contours(seg)
     if not cellnumbers:
-        cellnumbers = range(1, len(contours) + 1)
+        cellnumbers = list(range(1, len(contours) + 1))
     if len(cellnumbers) != len(contours):
         raise ValueError("cellnumbers must have the same length as the number of cells")
     # Sorting according to the lowest point on the y (vertical) axis
@@ -718,7 +718,7 @@ def getcentroid(contour: np.ndarray) -> Tuple[int, int]:
 
 
 def getpoles(
-    seg: SegmentationMask, labels: Labels = None, scaling: Tuple[float, float] = None
+    seg: SegmentationMask, labels: Optional[Labels] = None, scaling: Optional[Tuple[float, float]] = None
 ) -> List[Tuple[Pole, Pole]]:
     """
     Get cell poles
@@ -808,7 +808,7 @@ def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
 
 
 def extrema_poles(
-    cellmask: SegmentationMask, scaling: Tuple[float, float] = None
+    cellmask: SegmentationMask, scaling: Optional[Tuple[float, float]] = None
 ) -> Tuple[Pole, Pole]:
     """
     A slower and more rudimentary version of poles finding but that is
@@ -1036,7 +1036,7 @@ def division_poles(
 def getTrackingScores(
     labels: Labels,
     outputs: npt.NDArray[np.float32],
-    boxes: List[Tuple[CroppingBox, CroppingBox]] = None,
+    boxes: Optional[List[Tuple[CroppingBox, CroppingBox]]] = None,
 ) -> Optional[npt.NDArray[np.float32]]:
     """
     Get overlap scores between input/target cells and tracking outputs
@@ -1287,9 +1287,9 @@ class Lineage:
     def createcell(
         self,
         frame: int,
-        new_pole: Pole = None,
-        old_pole: Pole = None,
-        mother: int = None,
+        new_pole: Optional[Pole] = None,
+        old_pole: Optional[Pole] = None,
+        mother: Optional[int] = None,
     ) -> int:
         """
         Create cell to append to lineage list
@@ -1331,9 +1331,9 @@ class Lineage:
         self,
         cell: int,
         frame: int,
-        daughter: int = None,
-        new_pole: Pole = None,
-        old_pole: Pole = None,
+        daughter: Optional[int] = None,
+        new_pole: Optional[Pole] = None,
+        old_pole: Optional[Pole] = None,
     ) -> None:
         """
         Update cell lineage values
@@ -1620,9 +1620,9 @@ class xpreader:
     def __init__(
         self,
         filename=None,
-        channelnames: Tuple[str] = None,
+        channelnames: Optional[Tuple[str]] = None,
         use_bioformats: bool = False,
-        prototype: str = None,
+        prototype: Optional[str] = None,
         fileorder: str = "pct",
         filenamesindexing: int = 1,
         watchfiles: bool = False,
@@ -1989,7 +1989,7 @@ class xpreader:
         channels=None,
         frames=None,
         squeeze_dimensions: bool = True,
-        rotate: float = None,
+        rotate: Optional[float] = None,
     ) -> np.ndarray:
         """
         Get frames from experiment.
@@ -2189,7 +2189,7 @@ class files_watcher(Thread):
 #%% Saving & Loading results
 
 
-def loadmodels(toload: Tuple[str, ...] = None) -> Dict[str, Any]:
+def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
     """
     Load models (as specified in config.py)
 
@@ -2333,8 +2333,8 @@ def vidwrite(
 def roi_features(
     labels_frame: npt.NDArray[np.uint16],
     features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
-    fluo_frames: np.ndarray = None,
-    roi_box: CroppingBox = None,
+    fluo_frames: Optional[np.ndarray] = None,
+    roi_box: Optional[CroppingBox] = None,
 ) -> Tuple[List[int], List[Dict[str, Any]]]:
     """
     Extract single-cell morphological and fluorescence features
@@ -2393,8 +2393,8 @@ def singlecell_features(
     contour: Contour,
     mask: SegmentationMask,
     features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
-    fluo_frames: np.ndarray = None,
-    roi_box: CroppingBox = None,
+    fluo_frames: Optional[np.ndarray] = None,
+    roi_box: Optional[CroppingBox] = None,
 ) -> Dict[str, Any]:
     """
     Extract features for a single cell
@@ -2570,7 +2570,7 @@ def cell_perimeter(contour: Contour) -> float:
 
 
 def cell_fluo(
-    fluo_frames: np.ndarray, mask: SegmentationMask, roi_box: CroppingBox = None
+    fluo_frames: np.ndarray, mask: SegmentationMask, roi_box: Optional[CroppingBox] = None
 ) -> List[float]:
     """
     Extract mean fluorescence level from mask
@@ -2652,7 +2652,7 @@ def findfirst(mylist: List) -> Optional[int]:
     return next((i for i, x in enumerate(mylist) if x > 0), None)
 
 
-def listfiles(directory: Path, suffixes: Iterable[str]) -> [Path]:
+def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
     """
     Returns a sorted list of filenames in `directory` that have one of the
     specified extensions.

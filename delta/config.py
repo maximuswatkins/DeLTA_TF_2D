@@ -126,7 +126,7 @@ _DEFAULTS_mothermachine = dict(
 )
 
 
-def load_config(json_file: str = None, presets: str = "2D", config_level: str = None):
+def load_config(json_file: Optional[str] = None, presets: str = "2D", config_level: Optional[str] = None):
     """
     Loads json configuration files
 
