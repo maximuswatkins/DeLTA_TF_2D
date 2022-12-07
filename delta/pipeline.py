@@ -447,13 +447,13 @@ class Position:
             self.drifttemplate = utils.getDriftTemplate(
                 [r.box for r in self.rois], reference, whole_frame=cfg.whole_frame_drift
             )
-            self.driftcorbox = dict(
+            self.driftcorbox = utils.CroppingBox(
                 xtl=0,
-                xbr=None,
+                xbr=reference.shape[1],
                 ytl=0,
-                ybr=None
+                ybr=reference.shape[0]
                 if cfg.whole_frame_drift
-                else max(self.rois, key=lambda elem: elem.box["ytl"]).box["ytl"],
+                else max(self.rois, key=lambda elem: elem.box.ytl).box.ytl,
             )
 
         self._preprocessed = True
@@ -814,10 +814,10 @@ class Position:
             chambers=np.array(
                 [
                     [
-                        r.box["xtl"],
-                        r.box["ytl"],
-                        r.box["xbr"] - r.box["xtl"],
-                        r.box["ybr"] - r.box["ytl"],
+                        r.box.xtl,
+                        r.box.ytl,
+                        r.box.xbr - r.box.xtl,
+                        r.box.ybr - r.box.ytl,
                     ]
                     for r in self.rois
                 ],
@@ -948,7 +948,7 @@ class Position:
                 if roi.box is None:
                     xtl, ytl = (0, 0)
                 else:
-                    xtl, ytl = (roi.box["xtl"], roi.box["ytl"])
+                    xtl, ytl = (roi.box.xtl, roi.box.ytl)
 
                 # Run through cells in labelled frame:
                 for c, cell in enumerate(cells):
@@ -1058,8 +1058,8 @@ class ROI:
             self.scaling = None
         else:
             self.scaling = (
-                (box["ybr"] - box["ytl"]) / cfg.target_size_seg[0],
-                (box["xbr"] - box["xtl"]) / cfg.target_size_seg[1],
+                (box.ybr - box.ytl) / cfg.target_size_seg[0],
+                (box.xbr - box.xtl) / cfg.target_size_seg[1],
             )
 
     def __eq__(self, other) -> bool:
@@ -1257,7 +1257,7 @@ class ROI:
                 # Cell-centered crop boxes:
                 shape = cast(Tuple[int, int], curr_img.shape)  # for mypy
                 cb, fb = utils.gettrackingboxes(cell, shape)
-                draw_offset = (-cb["xtl"] + fb["xtl"], -cb["ytl"] + fb["ytl"])
+                draw_offset = (-cb.xtl + fb.xtl, -cb.ytl + fb.ytl)
             else:
                 curr_img = cv2.resize(
                     self.img_stack[frame], dsize=cfg.target_size_seg[::-1]
@@ -1270,7 +1270,7 @@ class ROI:
             boxes += [(cb, fb)]
 
             # Current image
-            x[c, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 0] = utils.cropbox(
+            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 0] = utils.cropbox(
                 curr_img, cb
             )
 
@@ -1285,12 +1285,12 @@ class ROI:
             )
 
             # Previous image
-            x[c, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 2] = utils.cropbox(
+            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 2] = utils.cropbox(
                 prev_img, cb
             )
 
             # Segmentation of all current cells
-            x[c, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 3] = utils.cropbox(
+            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 3] = utils.cropbox(
                 self.seg_stack[frame], cb
             )
 
@@ -1409,8 +1409,8 @@ class ROI:
                 self.label_stack[frame] = labels
             else:
                 resize = (
-                    self.box["xbr"] - self.box["xtl"],
-                    self.box["ybr"] - self.box["ytl"],
+                    self.box.xbr - self.box.xtl,
+                    self.box.ybr - self.box.ytl,
                 )
                 self.label_stack[frame] = cv2.resize(
                     labels, resize, interpolation=cv2.INTER_NEAREST

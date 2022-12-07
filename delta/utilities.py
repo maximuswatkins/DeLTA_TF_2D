@@ -15,6 +15,7 @@ import sys
 import time
 import tkinter as tk
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
@@ -55,27 +56,27 @@ SegmentationMask = npt.NDArray[np.uint8]
 
 Pole = npt.NDArray[np.int16]
 
-# TODO: properly type this
-class CroppingBox(Dict):
+
+@dataclass
+class CroppingBox:
     """
-    Dictionary describing a box to cut out.
+    Class describing a box to cut out.
 
     Attributes
     ----------
-        xtl : Any
+        xtl : int
             Top-left corner X coordinate.
-        ytl : Any
+        ytl : int
             Top-left corner Y coordinate.
-        xbr : Any
+        xbr : int
             Bottom-right corner X coordinate.
-        ybr : Any
+        ybr : int
             Bottom-right corner Y coordinate.
     """
-
-    xtl: Any
-    ytl: Any
-    xbr: Any
-    ybr: Any
+    xtl: int
+    ytl: int
+    xbr: int
+    ybr: int
 
 
 class Cell(Dict):
@@ -299,17 +300,15 @@ def getDriftTemplate(
     """
     if len(chamberboxes) == 0 and not whole_frame:
         return None
-    (y_cut, x_cut) = (
-        round(i * 0.025) for i in img.shape
-    )  # Cutting out 2.5% of the image on each side as drift margin
+
+    # Cutting out 2.5% of the image on each side as drift margin
+    y_cut, x_cut = (round(i * 0.025) for i in img.shape)
 
     box = CroppingBox(
         xtl=x_cut,
         xbr=-x_cut,
         ytl=y_cut,
-        ybr=-y_cut
-        if whole_frame
-        else max(chamberboxes, key=lambda elem: elem["ytl"])["ytl"] - y_cut,
+        ybr=-y_cut if whole_frame else max(box.ytl for box in chamberboxes) - y_cut,
     )
 
     return cropbox(img, box)
@@ -379,9 +378,9 @@ def cropbox(img: npt.NDArray[Any], box: Optional[CroppingBox]) -> npt.NDArray[An
         Cropped-out region.
 
     """
-    if box is None or all(v is None for v in box.values()):
+    if box is None:
         return img
-    return img[box["ytl"] : box["ybr"], box["xtl"] : box["xbr"]]
+    return img[box.ytl:box.ybr, box.xtl:box.xbr]
 
 
 def create_windows(
@@ -548,7 +547,7 @@ def gettrackingboxes(
     ytl = int(max(cy - target_size[0] / 2, 0))
     ybr = int(min(cy + target_size[0] / 2, frame_shape[0]))
 
-    cropbox = CroppingBox({"xtl": xtl, "ytl": ytl, "xbr": xbr, "ybr": ybr})
+    cropbox = CroppingBox(xtl=xtl, ytl=ytl, xbr=xbr, ybr=ybr)
 
     xtl = int(max(target_size[1] / 2 - cx, 0))
     xbr = int(min(target_size[1] / 2 + frame_shape[1] - cx, target_size[1]))
@@ -556,7 +555,7 @@ def gettrackingboxes(
     ytl = int(max(target_size[0] / 2 - cy, 0))
     ybr = int(min(target_size[0] / 2 + frame_shape[0] - cy, target_size[0]))
 
-    fillbox = CroppingBox({"xtl": xtl, "ytl": ytl, "xbr": xbr, "ybr": ybr})
+    fillbox = CroppingBox(xtl=xtl, ytl=ytl, xbr=xbr, ybr=ybr)
 
     return cropbox, fillbox
 
@@ -586,12 +585,12 @@ def getshiftvalues(
         Number of pixels to shift cropbox in the x direction.
 
     """
-    upperY = np.min((shift, img_shape[0] - cb["ybr"]))
-    lowerY = np.min((shift, cb["ytl"]))
+    upperY = np.min((shift, img_shape[0] - cb.ybr))
+    lowerY = np.min((shift, cb.ytl))
     shiftY = round(rng.uniform(-lowerY, upperY))
 
-    upperX = np.min((shift, img_shape[1] - cb["xbr"]))
-    lowerX = np.min((shift, cb["xtl"]))
+    upperX = np.min((shift, img_shape[1] - cb.xbr))
+    lowerX = np.min((shift, cb.xtl))
     shiftX = round(rng.uniform(-lowerX, upperX))
 
     return shiftY, shiftX
@@ -659,7 +658,7 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
         )
 
     # Sorting by top-left X (normally sorted by Y top left)
-    chamberboxes.sort(key=lambda box: box["xtl"])
+    chamberboxes.sort(key=lambda box: box.xtl)
 
     return chamberboxes
 
@@ -1139,14 +1138,14 @@ def getTrackingScores(
         if boxes is not None:
             # Clean nz hits outside of fillbox:
             cb, fb = boxes[o][:]
-            to_keep_y = (fb["ytl"] <= nz_y) & (nz_y < fb["ybr"])
-            to_keep_x = (fb["xtl"] <= nz_x) & (nz_x < fb["xbr"])
+            to_keep_y = (fb.ytl <= nz_y) & (nz_y < fb.ybr)
+            to_keep_x = (fb.xtl <= nz_x) & (nz_x < fb.xbr)
             nz_y = nz_y[to_keep_x & to_keep_y]
             nz_x = nz_x[to_keep_x & to_keep_y]
 
             # Offset hits by cropbox-fillbox:
-            nz_y += cb["ytl"] - fb["ytl"]
-            nz_x += cb["xtl"] - fb["xtl"]
+            nz_y += cb.ytl - fb.ytl
+            nz_x += cb.xtl - fb.xtl
 
         # Compute number of hits per cell:
         cells, counts = np.unique(labels[nz_y, nz_x], return_counts=True)
@@ -2607,8 +2606,8 @@ def cell_fluo(
     pixels = np.where(mask)
     if roi_box is not None:
         _pixels = list(pixels)
-        _pixels[0] += roi_box["ytl"]
-        _pixels[1] += roi_box["xtl"]
+        _pixels[0] += roi_box.ytl
+        _pixels[1] += roi_box.xtl
         pixels = tuple(_pixels)
 
     # Loop through fluo frames:

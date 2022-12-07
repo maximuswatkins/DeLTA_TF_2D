@@ -1406,30 +1406,30 @@ def trainGenerator_track(
 
             # Add into arrays:
 
-            X[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 1] = utils.cropbox(
+            X[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 1] = utils.cropbox(
                 seg, cb
             )
-            X[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 2] = utils.cropbox(
+            X[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 2] = utils.cropbox(
                 previmg, cb
             )
 
             # Shift crop box for current frame inputs
-            cb["xtl"] += shiftX
-            cb["xbr"] += shiftX
-            cb["ytl"] += shiftY
-            cb["ybr"] += shiftY
+            cb.xtl += shiftX
+            cb.xbr += shiftX
+            cb.ytl += shiftY
+            cb.ybr += shiftY
 
-            X[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 0] = utils.cropbox(
+            X[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 0] = utils.cropbox(
                 img, cb
             )
-            X[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 3] = utils.cropbox(
+            X[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 3] = utils.cropbox(
                 segall, cb
             )
 
-            Y[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 0] = utils.cropbox(
+            Y[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 0] = utils.cropbox(
                 track, cb
             )
-            Y[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 1] = utils.cropbox(
+            Y[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 1] = utils.cropbox(
                 weights, cb
             )
 
@@ -1640,20 +1640,20 @@ def predictCompilefromseg_track(
 
                 # Current image
                 x[
-                    lbl - 1, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 0
+                    lbl - 1, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 0
                 ] = utils.cropbox(img, cb)
 
                 x[
-                    lbl - 1, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 1
+                    lbl - 1, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 1
                 ] = utils.cropbox(seg, cb)
                 # Previous image
                 x[
-                    lbl - 1, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 2
+                    lbl - 1, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 2
                 ] = utils.cropbox(previmg, cb)
 
                 # Segmentation of all current cells
                 x[
-                    lbl - 1, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 3
+                    lbl - 1, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 3
                 ] = utils.cropbox(segall, cb)
 
                 segfilename = getfnfromprototype(
