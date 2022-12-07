@@ -1573,7 +1573,7 @@ def saveResult_track(
     npyfile : 4D numpy array
         Array of tracking outputs to save to individual files.
     files_list : tuple/list of strings, optional
-        Filenames to save the masks as. Note that the 'mother_' and 'daughter_'
+        Filenames to save the masks as. Note that the `mother_` and `daughter_`
         prefixes will be added to those names. If None, numbers will be used.
         The default is None.
 

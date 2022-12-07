@@ -305,10 +305,10 @@ def cropbox(img: npt.NDArray[Any], box: Optional[CroppingBox]) -> npt.NDArray[An
     box : Dictionary or None
         Dictionary describing the box to cut out, containing the following
         elements:
-            - 'xtl': Top-left corner X coordinate.
-            - 'ytl': Top-left corner Y coordinate.
-            - 'xbr': Bottom-right corner X coordinate.
-            - 'ybr': Bottom-right corner Y coordinate.
+        - 'xtl': Top-left corner X coordinate.
+        - 'ytl': Top-left corner Y coordinate.
+        - 'xbr': Bottom-right corner X coordinate.
+        - 'ybr': Bottom-right corner Y coordinate.
 
     Returns
     -------
@@ -1671,9 +1671,9 @@ class xpreader:
             decimal representation of the position, channel and frame/timepoint
             number of each image file.
             Valid examples:
-                Pos01_Cha3_Fra0005.tif
-                p3c1t034.tif
-                xy 145 - fluo 029 - timepoint 005935 .TIFF
+            - Pos01_Cha3_Fra0005.tif
+            - p3c1t034.tif
+            - xy 145 - fluo 029 - timepoint 005935 .TIFF
         channelnames : List/tuple of strings or None, optional
             Names of the acquisition channels ('trans', 'gfp', ...).
             The default is None.
