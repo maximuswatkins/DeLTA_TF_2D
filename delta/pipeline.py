@@ -35,7 +35,7 @@ class Pipeline:
         verbose: int = 1,
     ):
         """
-        Initialize Pipeline
+        Initialize Pipeline.
 
         Parameters
         ----------
@@ -57,7 +57,6 @@ class Pipeline:
         None.
 
         """
-
         super().__init__()
 
         if cfg._LOADED is None:
@@ -126,7 +125,7 @@ class Pipeline:
     ):
         """
         Pre-process positions (Rotation correction, identify ROIs,
-        initialize drift correction)
+        initialize drift correction).
 
         Parameters
         ----------
@@ -196,7 +195,6 @@ class Pipeline:
         None.
 
         """
-
         if frames is None:
             frames = list(range(self.reader.timepoints))
 
@@ -239,7 +237,7 @@ class Pipeline:
 
     def run(self):
         """
-        On-the-fly processor (not functional yet)
+        On-the-fly processor (not functional yet).
 
         Raises
         ------
@@ -251,7 +249,6 @@ class Pipeline:
         None.
 
         """
-
         if not self.on_the_fly:
             raise RuntimeError(
                 "This Pipeline was not initialized for on-the-fly processing"
@@ -285,7 +282,7 @@ class Pipeline:
 
 class Position:
     """
-    Position processing object
+    Position processing object.
     """
 
     def __init__(
@@ -297,7 +294,7 @@ class Position:
         crop_windows: bool = False,
     ):
         """
-        Initialize Position
+        Initialize Position.
 
         Parameters
         ----------
@@ -338,7 +335,7 @@ class Position:
 
     def __getstate__(self) -> Dict[str, Any]:
         """
-        For pickle
+        For pickle.
 
         Returns
         -------
@@ -346,12 +343,11 @@ class Position:
             Values to store in pickle file.
 
         """
-
         return {k: v for k, v in self.__dict__.items() if k not in self._pickle_skip}
 
     def _msg(self, string: str):
         """
-        Print timestamped messages
+        Print timestamped messages.
 
         Parameters
         ----------
@@ -363,7 +359,6 @@ class Position:
         None.
 
         """
-
         if self.verbose:
             print(f"{time.ctime()}, Position {self.position_nb} - {string}", flush=True)
 
@@ -374,7 +369,7 @@ class Position:
     ):
         """
         Pre-process position (Rotation correction, identify ROIs,
-        initialize drift correction)
+        initialize drift correction).
 
         Parameters
         ----------
@@ -391,7 +386,6 @@ class Position:
         None.
 
         """
-
         self._msg("Starting pre-processing")
 
         # If no reference frame provided, read first frame from reader:
@@ -446,7 +440,7 @@ class Position:
 
     def detect_rois(self, reference: utils.Image):
         """
-        Use U-Net to detect ROIs (chambers etc...)
+        Use U-Net to detect ROIs (chambers etc...).
 
         Parameters
         ----------
@@ -458,7 +452,6 @@ class Position:
         None.
 
         """
-
         # Predict
         roismask = self.models["rois"].predict(
             cv2.resize(reference, cfg.target_size_rois)[np.newaxis, :, :, np.newaxis],
@@ -481,7 +474,7 @@ class Position:
 
     def segment(self, frames: List[int]):
         """
-        Segment cells in all ROIs in position
+        Segment cells in all ROIs in position.
 
         Parameters
         ----------
@@ -493,7 +486,6 @@ class Position:
         None.
 
         """
-
         self._msg(f"Starting segmentation ({len(frames)} frames)")
 
         # Load trans frames:
@@ -542,7 +534,7 @@ class Position:
 
     def track(self, frames: List[int]):
         """
-        Track cells in all ROIs in frames
+        Track cells in all ROIs in frames.
 
         Parameters
         ----------
@@ -554,7 +546,6 @@ class Position:
         None.
 
         """
-
         self._msg(f"Starting tracking ({len(frames)} frames)")
 
         for f in frames:
@@ -604,7 +595,7 @@ class Position:
         ),
     ):
         """
-        Extract features for all ROIs in frames
+        Extract features for all ROIs in frames.
 
         Parameters
         ----------
@@ -619,7 +610,6 @@ class Position:
         None.
 
         """
-
         self._msg(f"Starting feature extraction ({len(frames)} frames)")
 
         # Check if fluo channels are requested in features (fluo1, fluo2, etc):
@@ -678,7 +668,7 @@ class Position:
         save_format: Tuple[str, ...] = ("pickle", "movie"),
     ):
         """
-        Save to disk
+        Save to disk.
 
         Parameters
         ----------
@@ -699,7 +689,6 @@ class Position:
         None.
 
         """
-
         if filename is None:
             filename = f"./Position{self.position_nb:06d}"
         filename = Path(filename)
@@ -720,7 +709,7 @@ class Position:
 
     def load(self, filename: Union[str, Path]):
         """
-        Load position from pickle file
+        Load position from pickle file.
 
         Parameters
         ----------
@@ -732,7 +721,6 @@ class Position:
         None.
 
         """
-
         p = load_position(filename)
 
         for (k, v) in p.__dict__.items():
@@ -742,14 +730,13 @@ class Position:
     def clear(self):
         """
         Clear Position-specific variables from memory (can be loaded back with
-        load())
+        load()).
 
         Returns
         -------
         None.
 
         """
-
         self._msg("Clearing variables from memory")
         for k in self.__dict__.keys():
             if k not in self._pickle_skip:
@@ -757,7 +744,7 @@ class Position:
 
     def legacysave(self, res_file: Union[str, Path]) -> None:
         """
-        Save pipeline data in the legacy Matlab format
+        Save pipeline data in the legacy Matlab format.
 
         Parameters
         ----------
@@ -769,7 +756,6 @@ class Position:
         None.
 
         """
-
         # File reader info
         moviedimensions = [
             self.reader.y,
@@ -877,7 +863,7 @@ class Position:
 
     def results_movie(self, frames: Optional[List[int]] = None) -> Any:
         """
-        Generate movie illustrating segmentation and tracking
+        Generate movie illustrating segmentation and tracking.
 
         Parameters
         ----------
@@ -891,7 +877,6 @@ class Position:
             List of compiled movie frames
 
         """
-
         # Re-read trans frames:
         trans_frames = self.reader.getframes(
             positions=self.position_nb,
@@ -1006,7 +991,7 @@ class Position:
 
 def load_position(filename: Union[str, Path]) -> Position:
     """
-    Load position object from pickle file
+    Load position object from pickle file.
 
     Parameters
     ----------
@@ -1019,7 +1004,6 @@ def load_position(filename: Union[str, Path]) -> Position:
         Reloaded Position object. (without reader and models)
 
     """
-
     with open(filename, "rb") as file:
         p = pickle.load(file)
     return p
@@ -1027,12 +1011,12 @@ def load_position(filename: Union[str, Path]) -> Position:
 
 class ROI:
     """
-    ROI processor object
+    ROI processor object.
     """
 
     def __init__(self, roi_nb: int, box: utils.CroppingBox, crop_windows: bool = False):
         """
-        Initialize ROI
+        Initialize ROI.
 
         Parameters
         ----------
@@ -1079,7 +1063,7 @@ class ROI:
         self, img: utils.Image
     ) -> Tuple[np.ndarray, Optional[Tuple[List, List]]]:
         """
-        Compile segmentation inputs for ROI
+        Compile segmentation inputs for ROI.
 
         Parameters
         ----------
@@ -1095,7 +1079,6 @@ class ROI:
             y and x coordinates of crop windows if any, or None.
 
         """
-
         # Crop and scale:
         i = utils.cropbox(img, self.box)
         # Append i as is to input images stack:
@@ -1141,7 +1124,6 @@ class ROI:
         None.
 
         """
-
         # Stitch windows back together (if needed):
         if windows is None:
             y = y[0, :, :, 0]
@@ -1170,7 +1152,7 @@ class ROI:
         Tuple[None, None],
     ]:
         """
-        Compile tracking inputs for ROI
+        Compile tracking inputs for ROI.
 
         Parameters
         ----------
@@ -1195,7 +1177,6 @@ class ROI:
             Crop and fill boxes to re-place outputs in the ROI
 
         """
-
         # If no frame number passed, run latest:
         if frame is None:
             frame = len(self.lineage.cellnumbers)
@@ -1287,7 +1268,7 @@ class ROI:
         boxes: Optional[List[Tuple[utils.CroppingBox, utils.CroppingBox]]] = None,
     ):
         """
-        Process output from tracking U-Net
+        Process output from tracking U-Net.
 
         Parameters
         ----------
@@ -1306,7 +1287,6 @@ class ROI:
         None.
 
         """
-
         if frame is None:
             frame = len(self.lineage.cellnumbers)
 
@@ -1352,7 +1332,7 @@ class ROI:
         ),
     ):
         """
-        Extract single cell features
+        Extract single cell features.
 
         Parameters
         ----------
@@ -1374,7 +1354,6 @@ class ROI:
         None.
 
         """
-
         # Default frame:
         if frame is None:
             frame = len(self.label_stack)

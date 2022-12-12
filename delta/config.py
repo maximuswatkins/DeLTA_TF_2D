@@ -1,5 +1,5 @@
 """
-Module for configuration files and configuration parameters
+Module for configuration files and configuration parameters.
 
 @author: jblugagne
 """
@@ -130,7 +130,7 @@ def load_config(
     config_level: Optional[str] = None,
 ):
     """
-    Loads json configuration files
+    Loads json configuration files.
 
     Parameters
     ----------
@@ -155,7 +155,6 @@ def load_config(
     None.
 
     """
-
     if presets == "2D":
         defaults = _DEFAULTS_2D
     elif presets == "mothermachine":

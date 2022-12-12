@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Module to handle assets (model files, training sets, evalution movies...),
-downloads, and writing configuration files
+downloads, and writing configuration files.
 
 @author: jeanbaptiste
 """
@@ -40,7 +40,7 @@ def download_assets(
     config_level: Optional[Union[bool, str, Path]] = None,
 ) -> None:
     """
-    Download assets such as latest models, training sets etc
+    Download assets such as latest models, training sets etc.
 
     Parameters
     ----------
@@ -79,7 +79,6 @@ def download_assets(
     None.
 
     """
-
     # Should we download models?
     models_dir = Path(load_models) if isinstance(load_models, (str, Path)) else None
     load_models = (
@@ -204,7 +203,7 @@ def _download_models(
     model_ids: Dict[str, str] = LATEST_MODELS, models_dir: Optional[Path] = None
 ) -> Dict[str, Path]:
     """
-    Download models from gdrive
+    Download models from gdrive.
 
     Parameters
     ----------
@@ -221,7 +220,6 @@ def _download_models(
         dictionary of save paths for each model.
 
     """
-
     if models_dir is None:
         # Retrieve the path of the delta install folder:
         models_dir = _DELTA_DIR / "assets/models"

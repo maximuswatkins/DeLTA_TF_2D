@@ -61,7 +61,6 @@ def binarizerange(array: utils.Image, threshold: Optional[float] = None) -> util
            Binarized image.
 
     """
-
     if threshold is None:
         threshold = (np.amin(array) + np.amax(array)) / 2
     return np.array(array > threshold, dtype=array.dtype)
@@ -97,6 +96,7 @@ def readreshape(
         What to do if the image is smaller than the target size.
         In the "resize" mode, larger images will be resized too.
         The default is "resize".
+
     Raises
     ------
     ValueError
@@ -155,7 +155,6 @@ def postprocess(
         return (see numpy.squeeze doc)
 
     """
-
     # Expand dims if 2D:
     if images.ndim == 2:
         images = np.expand_dims(images, axis=0)
@@ -183,7 +182,7 @@ def data_augmentation(
     rng: Optional[npr.Generator] = None,
 ) -> List[npt.NDArray[Any]]:
     """
-    Data augmentation function
+    Data augmentation function.
 
     Parameters
     ----------
@@ -251,7 +250,6 @@ def data_augmentation(
         Augmented images array.
 
     """
-
     if rng is None:
         rng = npr.default_rng()
 
@@ -386,7 +384,6 @@ def zoomshift(
         Zoomed and shifted image of same size as input.
 
     """
-
     oldshape = I.shape
     I = trans.rescale(I, zoomlevel, mode="edge", multichannel=False, order=order)
     shiftX = shiftX * I.shape[0]
@@ -404,7 +401,7 @@ def shift(
     image: utils.Image, vector: Tuple[float, float], order: int = 0
 ) -> utils.Image:
     """
-    Image shifting function
+    Image shifting function.
 
     Parameters
     ----------
@@ -433,7 +430,7 @@ def histogram_voodoo(
     """
     This function kindly provided by Daniel Eaton from the Paulsson lab.
     It performs an elastic deformation on the image histogram to simulate
-    changes in illumination
+    changes in illumination.
 
     Parameters
     ----------
@@ -465,7 +462,7 @@ def illumination_voodoo(
 ) -> utils.Image:
     """
     This function inspired by the one above.
-    It simulates a variation in illumination along the length of the chamber
+    It simulates a variation in illumination along the length of the chamber.
 
     Parameters
     ----------
@@ -484,7 +481,6 @@ def illumination_voodoo(
         Modified image.
 
     """
-
     # Create a random curve along the length of the chamber:
     control_points = np.linspace(0, image.shape[0] - 1, num=num_control_points)
     random_points = rng.uniform(low=0.1, high=0.9, size=num_control_points)
@@ -560,7 +556,6 @@ def trainGenerator_seg(
         of the tensor are (batch_size, target_size[0], target_size[1], 2)
 
     """
-
     preload_mask = []
     preload_img = []
     preload_weight = []
@@ -676,7 +671,7 @@ def saveResult_seg(
     multipage: bool = False,
 ):
     """
-    Saves an array of segmentation output images to disk
+    Saves an array of segmentation output images to disk.
 
     Parameters
     ----------
@@ -699,7 +694,6 @@ def saveResult_seg(
     None.
 
     """
-
     for i, item in enumerate(npyfile):
         if item.ndim == 3:
             img = item[:, :, 0]
@@ -752,7 +746,6 @@ def predictGenerator_seg(
         size (1, target_size[0], target_size[1], 1).
 
     """
-
     files_list = files_list or sorted(list(files_path.iterdir()))
 
     def generator(
@@ -785,7 +778,7 @@ def seg_weights(
     """
     This function computes the weight map as described in the original U-Net
     paper to force the model to learn borders
-    (Slow, best to run this offline before training)
+    (Slow, best to run this offline before training).
 
     Parameters
     ----------
@@ -807,7 +800,6 @@ def seg_weights(
         Weights map image.
 
     """
-
     # Get cell labels mask
     lblnb, lblimg = cv2.connectedComponents(utils.to_integer_values(mask, np.uint8))
 
@@ -866,7 +858,7 @@ def make_weights(
 
 def kernel(n: int) -> utils.SegmentationMask:
     """
-    Get kernel for morphological operations
+    Get kernel for morphological operations.
 
     Parameters
     ----------
@@ -889,7 +881,7 @@ def estimate_seg2D_classweights(
     rng: Optional[npr.Generator] = None,
 ) -> Tuple[float, float]:
     """
-    Estimate the weights to assign each class in the weight maps
+    Estimate the weights to assign each class in the weight maps.
 
     Parameters
     ----------
@@ -958,7 +950,7 @@ def seg_weights_2D(
 ) -> npt.NDArray[np.float32]:
     """
     Compute custom weightmaps designed for bacterial images
-    where borders are difficult to distinguish
+    where borders are difficult to distinguish.
 
     Parameters
     ----------
@@ -1043,7 +1035,6 @@ def estimateClassweights(gene: Iterator, num_samples: int = 30) -> Tuple[float, 
         to 0.
 
     """
-
     sample = next(gene)
     if sample[1].shape[-1] == 1:
         class_counts = [0, 0]
@@ -1144,7 +1135,6 @@ def trainGenerator_track(
         of axis=3 contains 'background' masks, ie the part of the tracking
         output groundtruth that is not part of the mother or daughter masks
     """
-
     resize_method = "pad" if crop_windows else "resize"
 
     # Initialize variables and arrays:
@@ -1271,7 +1261,7 @@ def getfnfromprototype(
 ) -> Path:
     """
     Generate full filename for specific frame based on file path,
-    prototype, fileorder, and filenamesindexing
+    prototype, fileorder, and filenamesindexing.
 
     Parameters
     ----------
@@ -1367,7 +1357,6 @@ def predictCompilefromseg_track(
 
 
     """
-
     seg_name_list = []
 
     ind = 0
@@ -1505,7 +1494,7 @@ def tracking_weights(
     track: np.ndarray, segall: utils.SegmentationMask, halo_distance: int = 50
 ) -> npt.NDArray[np.float32]:
     """
-    Compute weights for tracking training sets
+    Compute weights for tracking training sets.
 
     Parameters
     ----------
@@ -1523,7 +1512,6 @@ def tracking_weights(
         Tracking weights map.
 
     """
-
     # Cell escaped / disappeared:
     if np.max(track) == 0:
         weights = ((segall > 0).astype(np.float32) * 20) + 1
@@ -1564,7 +1552,7 @@ def saveResult_track(
     files_list: Optional[List[Path]] = None,
 ):
     """
-    Save tracking output masks to disk
+    Save tracking output masks to disk.
 
     Parameters
     ----------
@@ -1582,7 +1570,6 @@ def saveResult_track(
     None.
 
     """
-
     mothers = npyfile[:, :, :, 0]
     for i, mother in enumerate(mothers):
         if files_list:
