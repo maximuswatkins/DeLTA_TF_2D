@@ -1260,7 +1260,7 @@ class ROI:
             boxes += [(cb, fb)]
 
             # Current image
-            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 0] = cb.crop(curr_img)
+            fb.patch(x[c, :, :, 0], cb.crop(curr_img))
 
             # Segmentation mask of one previous cell (seed)
             x[c, :, :, 1] = cv2.drawContours(
@@ -1273,10 +1273,10 @@ class ROI:
             )
 
             # Previous image
-            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 2] = cb.crop(prev_img)
+            fb.patch(x[c, :, :, 2], cb.crop(prev_img))
 
             # Segmentation of all current cells
-            x[c, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 3] = cb.crop(self.seg_stack[frame])
+            fb.patch(x[c, :, :, 3], cb.crop(self.seg_stack[frame]))
 
         # Return tracking inputs and crop and fill boxes:
         return x, boxes

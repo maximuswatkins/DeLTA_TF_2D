@@ -1406,8 +1406,8 @@ def trainGenerator_track(
 
             # Add into arrays:
 
-            X[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 1] = cb.crop(seg)
-            X[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 2] = cb.crop(previmg)
+            fb.patch(X[b, :, :, 1], cb.crop(seg))
+            fb.patch(X[b, :, :, 2], cb.crop(previmg))
 
             # Shift crop box for current frame inputs
             cb.xtl += shiftX
@@ -1415,11 +1415,11 @@ def trainGenerator_track(
             cb.ytl += shiftY
             cb.ybr += shiftY
 
-            X[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 0] = cb.crop(img)
-            X[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 3] = cb.crop(segall)
+            fb.patch(X[b, :, :, 0], cb.crop(img))
+            fb.patch(X[b, :, :, 3], cb.crop(segall))
 
-            Y[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 0] = cb.crop(track)
-            Y[b, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 1] = cb.crop(weights)
+            fb.patch(Y[b, :, :, 0], cb.crop(track))
+            fb.patch(Y[b, :, :, 1], cb.crop(weights))
 
         # Yield batch:
         yield X, Y
@@ -1627,14 +1627,15 @@ def predictCompilefromseg_track(
                 boxes += [(cb, fb)]
 
                 # Current image
-                x[lbl - 1, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 0] = cb.crop(img)
+                fb.patch(x[lbl - 1, :, :, 0], cb.crop(img))
 
-                x[lbl - 1, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 1] = cb.crop(seg)
+                fb.patch(x[lbl - 1, :, :, 1], cb.crop(seg))
+
                 # Previous image
-                x[lbl - 1, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 2] = cb.crop(previmg)
+                fb.patch(x[lbl - 1, :, :, 2], cb.crop(previmg))
 
                 # Segmentation of all current cells
-                x[lbl - 1, fb.ytl : fb.ybr, fb.xtl : fb.xbr, 3] = cb.crop(segall)
+                fb.patch(x[lbl - 1, :, :, 3], cb.crop(segall))
 
                 segfilename = getfnfromprototype(
                     prototype,

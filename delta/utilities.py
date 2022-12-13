@@ -78,13 +78,67 @@ class CroppingBox:
     xbr: int
     ybr: int
 
-    def crop(self, img: np.ndarray):
+    def crop(self, image: np.ndarray):
         """
         Crops an image according to the cropping box.
+
+        Pads with zeros if a part of the box falls outside of the image.
+
+        Arguments
+        ---------
+            image : np.ndarray
+                Image to crop.
+
+        Returns
+        -------
+            patch : np.ndarray
+                Patch cropped from the image.
         """
-        if img.ndim == 2:
-            return img[self.ytl:self.ybr, self.xtl:self.xbr]
-        raise ValueError("`img` must have 2 dimensions.")
+        if image.ndim != 2:
+            raise ValueError("`image` must have 2 dimensions.")
+        cropped = image[
+            max(self.ytl, 0):min(self.ybr, image.shape[0]),
+            max(self.xtl, 0):min(self.xbr, image.shape[1])
+        ]
+        padding = (
+            (max(-self.ytl, 0), max(self.ybr - image.shape[0], 0)),
+            (max(-self.xtl, 0), max(self.xbr - image.shape[1], 0))
+        )
+        return np.pad(cropped, padding)
+
+    def patch(self, image: np.ndarray, patch: np.ndarray):
+        """
+        Applies a patch on an image at the position specified by the box.
+
+        Parts of the box may fall outside of the image.
+
+        Arguments
+        ---------
+            image : np.ndarray
+                Image to patch.
+            patch : np.ndarray
+                Patch to apply.
+
+        Returns
+        -------
+            image : np.ndarray
+                The patched image.
+        """
+        if image.ndim != 2 or patch.ndim != 2:
+            raise ValueError("`image` and `patch` must have 2 dimensions.")
+        if patch.shape != (self.ybr - self.ytl, self.xbr - self.xtl):
+            raise ValueError("`patch` must have the same dimensions as the cropping box.")
+        if self.ybr <= 0 or image.shape[1] <= self.ytl or self.xbr <= 0 or image.shape[0] <= self.xtl:
+            raise ValueError("`box` must fall at least partially inside the image.")
+        image[
+            max(self.ytl, 0):min(self.ybr, image.shape[0]),
+            max(self.xtl, 0):min(self.xbr, image.shape[1])
+        ] = patch[
+            max(-self.ytl, 0):min(self.ybr, image.shape[0]) - self.ytl,
+            max(-self.xtl, 0):min(self.xbr, image.shape[1]) - self.xtl
+        ]
+        return image
+
 
 
 class Cell(Dict):

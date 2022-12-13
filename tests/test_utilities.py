@@ -16,6 +16,47 @@ from scipy.special import logit
 
 from delta import pipeline, utils
 
+
+@pytest.mark.parametrize("xtl", [-1, 0])
+@pytest.mark.parametrize("xbr", [20, 21])
+@pytest.mark.parametrize("ytl", [-1, 0])
+@pytest.mark.parametrize("ybr", [10, 11])
+def test_croppingbox_full_img_crop_patch(xtl, xbr, ytl, ybr):
+    rng = npr.default_rng(0)
+    img = rng.random((10, 20))
+    box = utils.CroppingBox(xtl=xtl, xbr=xbr, ytl=ytl, ybr=ybr)
+    patch = box.crop(img)
+    np.testing.assert_array_equal(patch.shape, (box.ybr - box.ytl, box.xbr - box.xtl))
+    patched_img = box.patch(np.zeros_like(img), patch)
+    np.testing.assert_array_equal(patched_img, img)
+
+
+@pytest.mark.parametrize("xtl, xbr, ytl, ybr",
+    [
+        # inside
+        (2, 16, 3, 7),
+        # corners
+        (-5, 4, -10, 2),
+        (5, 24, -10, 2),
+        (-5, 4, 6, 22),
+        (5, 24, 6, 22),
+        # edges
+        (-5, 24, -10, 2),
+        (-5, 24, 6, 22),
+        (-5, 4, -10, 22),
+        (5, 24, -10, 22),
+    ]
+)
+def test_croppingbox_partial_crop_patch(xtl, xbr, ytl, ybr):
+    rng = npr.default_rng(0)
+    img = rng.random((10, 20))
+    box = utils.CroppingBox(xtl=xtl, xbr=xbr, ytl=ytl, ybr=ybr)
+    patch = box.crop(img)
+    np.testing.assert_array_equal(patch.shape, (box.ybr - box.ytl, box.xbr - box.xtl))
+    patched_img = box.patch(np.array(img), patch)
+    np.testing.assert_array_equal(patched_img, img)
+
+
 #%% Test growth rate
 
 
