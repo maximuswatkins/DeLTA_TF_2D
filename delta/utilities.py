@@ -341,9 +341,9 @@ def create_windows(
     windows: 3D array
         Cropped out images to feed into U-Net. Dimensions are
         (nb_of_windows, *target_size).
-    loc_y : list
+    loc_y : array of shape (nsplits_y, 2)
         List of lower and upper bounds for windows over the y axis (columns).
-    loc_x : list
+    loc_x : array of shape (nsplits_x, 2)
         List of lower and upper bounds for windows over the x axis (rows).
 
     """
@@ -399,28 +399,15 @@ def stitch_pic(
 
     # Create an array to store segmentations into a format similar to how the image was cropped
     stitch = np.zeros((loc_y[-1][1], loc_x[-1][1]), dtype=results.dtype)
+
+    # Compute where patches meet
+    middles_y = [0, *((ly[1] + nly[0]) // 2 for ly, nly in zip(loc_y, loc_y[1:])), loc_y[-1][1]]
+    middles_x = [0, *((lx[1] + nlx[0]) // 2 for lx, nlx in zip(loc_x, loc_x[1:])), loc_x[-1][1]]
+
     index = 0
-    y_end = 0
-    for ily, ly in enumerate(loc_y):
-
-        # Compute y location of window:
-        y_start = y_end
-        if ily + 1 == len(loc_y):
-            y_end = ly[1]
-        else:
-            y_end = int((ly[1] + loc_y[ily + 1][0]) / 2)
-
-        x_end = 0
-        for ilx, lx in enumerate(loc_x):
-
-            # Compute x location of window:
-            x_start = x_end
-            if ilx + 1 == len(loc_x):
-                x_end = lx[1]
-            else:
-                x_end = int((lx[1] + loc_x[ilx + 1][0]) / 2)
-
-            # Add to array:
+    for ly, y_start, y_end in zip(loc_y, middles_y, middles_y[1:]):
+        for lx, x_start, x_end in zip(loc_x, middles_x, middles_x[1:]):
+            
             res_crop_y = -(ly[1] - y_end) if ly[1] - y_end > 0 else None
             res_crop_x = -(lx[1] - x_end) if lx[1] - x_end > 0 else None
             stitch[y_start:y_end, x_start:x_end] = results[
