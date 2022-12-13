@@ -1399,9 +1399,8 @@ def trainGenerator_track(
                 shape = cast(Tuple[int, int], seg.shape)  # for mypy
                 shiftY, shiftX = utils.getshiftvalues(shift_cropbox, shape, cb, rng)
             else:
-                cb = fb = utils.CroppingBox(
-                    ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1]
-                )
+                cb = utils.CroppingBox.full(seg)
+                fb = utils.CroppingBox.full(seg)
                 shiftY, shiftX = 0, 0
 
             # Add into arrays:
@@ -1623,7 +1622,8 @@ def predictCompilefromseg_track(
                     shape = cast(Tuple[int, int], img.shape)  # for mypy
                     cb, fb = utils.gettrackingboxes(seg, shape)
                 else:
-                    cb = fb = utils.CroppingBox(ytl=None, xtl=None, ybr=None, xbr=None)
+                    cb = utils.CroppingBox.full(img)
+                    fb = utils.CroppingBox.full(img)
                 boxes += [(cb, fb)]
 
                 # Current image

@@ -78,7 +78,7 @@ while unprocessed:
         _results = np.zeros_like(results, shape=(len(results),) + imsize + (1,))
         for r, mask in enumerate(results):
             cb, fb = boxes[r]
-            cb.patch(_results[r, :, :], fb.crop(results[r, :, :]))
+            cb.patch(_results[r, :, :, 0], fb.crop(results[r, :, :, 0]))
         results = _results
 
     # Save (use the filenames list from the data compiler)

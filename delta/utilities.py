@@ -78,6 +78,13 @@ class CroppingBox:
     xbr: int
     ybr: int
 
+    @staticmethod
+    def full(image: np.ndarray):
+        """
+        Returns a cropping box set to the full size of the image.
+        """
+        return CroppingBox(xtl=0, ytl=0, xbr=image.shape[1], ybr=image.shape[0])
+
     def crop(self, image: np.ndarray):
         """
         Crops an image according to the cropping box.

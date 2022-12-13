@@ -446,7 +446,7 @@ class Position:
                 ytl=0,
                 ybr=reference.shape[0]
                 if cfg.whole_frame_drift
-                else max(self.rois, key=lambda elem: elem.box.ytl).box.ytl,
+                else max(roi.box.ytl for roi in self.rois),
             )
 
         self._preprocessed = True
@@ -1255,7 +1255,8 @@ class ROI:
                 prev_img = cv2.resize(
                     self.img_stack[frame - 1], dsize=cfg.target_size_seg[::-1]
                 )
-                cb = fb = CroppingBox(ytl=None, xtl=None, ybr=None, xbr=None)
+                cb = CroppingBox.full(curr_img)
+                fb = CroppingBox.full(curr_img)
                 draw_offset = None
             boxes += [(cb, fb)]
 
