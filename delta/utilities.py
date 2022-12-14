@@ -320,7 +320,7 @@ def cropbox(img: npt.NDArray[Any], box: Optional[CroppingBox]) -> npt.NDArray[An
 
 
 def create_windows(
-    img: Image, target_size: Tuple[int, int] = (512, 512), min_overlap: int = 24
+    image: Image, target_size: Tuple[int, int] = (512, 512), min_overlap: int = 24
 ) -> Tuple[npt.NDArray[np.float32], List[Tuple[int, int]], List[Tuple[int, int]]]:
     """
     Crop input image into windows of set size.
@@ -330,11 +330,9 @@ def create_windows(
     img : 2D array
         Input image.
     target_size : tuple, optional
-        Dimensions of the windows to crop out.
-        The default is (512,512).
+        Dimensions of the windows to crop out. The default is (512, 512).
     min_overlap : int, optional
-        Minimum overlap between windows in pixels.
-        Defaul is 24.
+        Minimum overlap between windows in pixels. Default is 24.
 
 
     Returns
@@ -342,68 +340,36 @@ def create_windows(
 
     windows: 3D array
         Cropped out images to feed into U-Net. Dimensions are
-        (nb_of_windows, target_size[0], target_size[1])
-    loc_y : list
-        List of lower and upper bounds for windows over the y axis
-    loc_x : list
-        List of lower and upper bounds for windows over the x axis
+        (nb_of_windows, *target_size).
+    loc_y : array of shape (nsplits_y, 2)
+        List of lower and upper bounds for windows over the y axis (columns).
+    loc_x : array of shape (nsplits_x, 2)
+        List of lower and upper bounds for windows over the x axis (rows).
 
     """
-    # Make sure image is minimum shape (bigger than the target_size)
-    if img.shape[0] < target_size[0]:
-        img = np.concatenate(
-            (img, np.zeros((target_size[0] - img.shape[0], img.shape[1]))), axis=0
-        )
-    if img.shape[1] < target_size[1]:
-        img = np.concatenate(
-            (img, np.zeros((img.shape[0], target_size[1] - img.shape[1]))), axis=1
-        )
+    # Compute how many windows we will have
+    stride_x = target_size[1] - min_overlap
+    stride_y = target_size[0] - min_overlap
+    if stride_x <= 0 or stride_y <= 0:
+        raise ValueError("min_overlap must be strictly less than target_size")
+    nsplits_x = 1 + int(np.ceil((image.shape[1] - target_size[1]) / stride_x))
+    nsplits_y = 1 + int(np.ceil((image.shape[0] - target_size[0]) / stride_y))
 
-    # Decide how many images vertically the image is split into
-    ny = int(
-        1 + float(img.shape[0] - min_overlap) / float(target_size[0] - min_overlap)
-    )
-    nx = int(
-        1 + float(img.shape[1] - min_overlap) / float(target_size[1] - min_overlap)
-    )
-    # If image is 512 pixels or smaller, there is no need for anyoverlap
-    if img.shape[0] == target_size[0]:
-        ny = 1
-    if img.shape[1] == target_size[1]:
-        nx = 1
+    # Pad the image if smaller than the target size
+    pad_x = max(0, target_size[1] - image.shape[1])
+    pad_y = max(0, target_size[0] - image.shape[0])
+    padding = ((pad_y//2, pad_y - pad_y//2), (pad_x//2, pad_x - pad_x//2))
+    image = np.pad(image, padding)
 
-    # Compute y-axis indices:
-    ovlp_y = -(img.shape[0] - ny * target_size[0]) / (ny - 1) if ny > 1 else 0
-    loc_y = []
-    for n in range(ny - 1):
-        loc_y += [
-            (
-                int(target_size[0] * n - ovlp_y * n),
-                int(target_size[0] * (n + 1) - ovlp_y * n),
-            )
-        ]
-    loc_y += [(img.shape[0] - target_size[0], img.shape[0])]
+    # Compute offsets
+    starts_x = np.linspace(0, image.shape[1] - target_size[1], num=nsplits_x, endpoint=True, dtype=np.int32)
+    starts_y = np.linspace(0, image.shape[0] - target_size[0], num=nsplits_y, endpoint=True, dtype=np.int32)
 
-    # Compute x-axis indices:
-    ovlp_x = -(img.shape[1] - nx * target_size[1]) / (nx - 1) if nx > 1 else 0
-    loc_x = []
-    for n in range(nx - 1):
-        loc_x += [
-            (
-                int(target_size[1] * n - ovlp_x * n),
-                int(target_size[1] * (n + 1) - ovlp_x * n),
-            )
-        ]
-
-    loc_x += [(img.shape[1] - target_size[1], img.shape[1])]
-
-    # Store all cropped images into one numpy array called windows
-    windows = np.zeros((nx * ny, *target_size), dtype=img.dtype)
-    for ily, ly in enumerate(loc_y):
-        for ilx, lx in enumerate(loc_x):
-            windows[ily * len(loc_x) + ilx, :, :] = img[ly[0]:ly[1], lx[0]:lx[1]]
-
-    return windows, loc_y, loc_x
+    # Store the cropped images
+    tiles = np.array([image[sy:sy+target_size[0], sx:sx+target_size[1]] for sy in starts_y for sx in starts_x])
+    loc_x = np.vstack((starts_x, starts_x + target_size[1])) - pad_x//2
+    loc_y = np.vstack((starts_y, starts_y + target_size[0])) - pad_y//2
+    return tiles, loc_y.T, loc_x.T
 
 
 def stitch_pic(
@@ -433,28 +399,15 @@ def stitch_pic(
 
     # Create an array to store segmentations into a format similar to how the image was cropped
     stitch = np.zeros((loc_y[-1][1], loc_x[-1][1]), dtype=results.dtype)
+
+    # Compute where patches meet
+    middles_y = [0, *((ly[1] + nly[0]) // 2 for ly, nly in zip(loc_y, loc_y[1:])), loc_y[-1][1]]
+    middles_x = [0, *((lx[1] + nlx[0]) // 2 for lx, nlx in zip(loc_x, loc_x[1:])), loc_x[-1][1]]
+
     index = 0
-    y_end = 0
-    for ily, ly in enumerate(loc_y):
-
-        # Compute y location of window:
-        y_start = y_end
-        if ily + 1 == len(loc_y):
-            y_end = ly[1]
-        else:
-            y_end = int((ly[1] + loc_y[ily + 1][0]) / 2)
-
-        x_end = 0
-        for ilx, lx in enumerate(loc_x):
-
-            # Compute x location of window:
-            x_start = x_end
-            if ilx + 1 == len(loc_x):
-                x_end = lx[1]
-            else:
-                x_end = int((lx[1] + loc_x[ilx + 1][0]) / 2)
-
-            # Add to array:
+    for ly, y_start, y_end in zip(loc_y, middles_y, middles_y[1:]):
+        for lx, x_start, x_end in zip(loc_x, middles_x, middles_x[1:]):
+            
             res_crop_y = -(ly[1] - y_end) if ly[1] - y_end > 0 else None
             res_crop_x = -(lx[1] - x_end) if lx[1] - x_end > 0 else None
             stitch[y_start:y_end, x_start:x_end] = results[

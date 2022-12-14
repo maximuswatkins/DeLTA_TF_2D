@@ -141,30 +141,124 @@ def test_deskew(filename, angle0):
 #%% Eval create_windows
 
 
-def rand_img(image_size, seed):
-    rng = npr.default_rng(seed)
-    img = rng.random(image_size)
-    return img
-
-
 @pytest.mark.order(2)
-@pytest.mark.parametrize("seed", range(10))  # Run it 10 times
-@pytest.mark.parametrize("image_size, expected", [
+@pytest.mark.parametrize("image_size, nb_tiles", [
     ((512, 512), 1),
+    ((513, 512), 2),
+    ((1000, 512), 2),
+    ((1001, 512), 3),
     ((2048, 2048), 25),
     ((200, 200), 1),
-    ((200, 600), 2),
     ((600, 200), 2),
-    ((1000, 700), 6),
     ((696, 520), 4),
 ])
-def test_create_windows_base(image_size, expected, seed):
-    assert (
-        utils.create_windows(
-            rand_img(image_size, seed), target_size=(512, 512), min_overlap=24
-        )[0].shape[0]
-        == expected
-    )
+def test_create_windows_number(image_size, nb_tiles):
+    target_size = (512, 512)
+    img = np.zeros(image_size)
+    windows, _, _= utils.create_windows(img, target_size=target_size, min_overlap=24)
+    assert windows.shape == (nb_tiles, *target_size)
+    windows, _, _ = utils.create_windows(img.T, target_size=target_size, min_overlap=24)
+    assert windows.shape == (nb_tiles, *target_size)
+
+
+@pytest.mark.parametrize("image_size, target_size, min_overlap, nb_tiles",
+    [
+        (10, 1, 0, 10),
+
+        (10, 2, 0, 5), (10, 2, 1, 9),
+
+        (10, 3, 0, 4), (10, 3, 1, 5), (10, 3, 2, 8),
+
+        (10, 4, 0, 3), (10, 4, 1, 3), (10, 4, 2, 4), (10, 4, 3, 7),
+
+        (10, 5, 0, 2), (10, 5, 1, 3), (10, 5, 2, 3), (10, 5, 3, 4),
+        (10, 5, 4, 6),
+
+        (10, 6, 0, 2), (10, 6, 1, 2), (10, 6, 2, 2), (10, 6, 3, 3),
+        (10, 6, 4, 3), (10, 6, 5, 5),
+
+        (10, 7, 0, 2), (10, 7, 1, 2), (10, 7, 2, 2), (10, 7, 3, 2),
+        (10, 7, 4, 2), (10, 7, 5, 3), (10, 7, 6, 4),
+
+        (10, 8, 0, 2), (10, 8, 1, 2), (10, 8, 2, 2), (10, 8, 3, 2),
+        (10, 8, 4, 2), (10, 8, 5, 2), (10, 8, 6, 2), (10, 8, 7, 3),
+
+        (10, 9, 0, 2), (10, 9, 1, 2), (10, 9, 2, 2), (10, 9, 3, 2),
+        (10, 9, 4, 2), (10, 9, 5, 2), (10, 9, 6, 2), (10, 9, 7, 2),
+        (10, 9, 8, 2),
+
+        (10, 10, 0, 1), (10, 10, 1, 1), (10, 10, 2, 1), (10, 10, 3, 1),
+        (10, 10, 4, 1), (10, 10, 5, 1), (10, 10, 6, 1), (10, 10, 7, 1),
+        (10, 10, 8, 1), (10, 10, 9, 1),
+    ]
+)
+def test_create_windows_number_1d(image_size, target_size, min_overlap, nb_tiles):
+    other_dim = 20
+    image = np.zeros((other_dim, image_size))
+    windows, loc_y, loc_x = utils.create_windows(image, target_size=(other_dim, target_size), min_overlap=min_overlap)
+    assert len(windows) == nb_tiles
+    assert len(loc_x) == nb_tiles
+    np.testing.assert_array_equal(loc_y, [(0, other_dim)])
+    windows, loc_y, loc_x = utils.create_windows(image.T, target_size=(target_size, other_dim), min_overlap=min_overlap)
+    assert len(windows) == nb_tiles
+    assert len(loc_y) == nb_tiles
+    np.testing.assert_array_equal(loc_x, [(0, other_dim)])
+
+
+def test_create_windows():
+    image = np.arange(90).reshape((9, 10))
+    windows, loc_y, loc_x = utils.create_windows(image, target_size=(5, 3), min_overlap=1)
+    pattern = np.arange(3)[np.newaxis, :] + 10*np.arange(5)[:, np.newaxis]
+    truth = np.array([0, 1, 3, 5, 7, 40, 41, 43, 45, 47])[:, np.newaxis, np.newaxis] + pattern[np.newaxis, :, :]
+    np.testing.assert_array_equal(windows, truth)
+    np.testing.assert_array_equal(loc_y, [(i, i+5) for i in [0, 4]])
+    np.testing.assert_array_equal(loc_x, [(i, i+3) for i in [0, 1, 3, 5, 7]])
+
+
+def test_create_windows_pad():
+    image = np.arange(20).reshape((2, 10))
+    windows, loc_y, loc_x = utils.create_windows(image, target_size=(6, 10), min_overlap=1)
+    truth = np.array([[0] * 10, [0] * 10, image[0, :], image[1, :], [0] * 10, [0] * 10], dtype=np.uint32)
+    np.testing.assert_array_equal(windows, [truth])
+    np.testing.assert_array_equal(loc_y, [(-2, 4)])
+    np.testing.assert_array_equal(loc_x, [(0, 10)])
+
+
+@pytest.mark.parametrize("loc_y, loc_x, expected", [
+    (
+        [(0, 6), (4, 10), (8, 14)],
+        [(0, 6), (2, 8)],
+        [*[[1] * 4 + [2] * 4]*5, *[[3] * 4 + [4] * 4]*4, *[[5] * 4 + [6] * 4]*5],
+    ),
+])
+def test_stitch_pic(expected, loc_y, loc_x):
+    windows = np.zeros((len(loc_y) * len(loc_x), 6, 6), dtype=np.uint8)
+    for i in range(6):
+        windows[i, :, :] = i + 1
+    img = utils.stitch_pic(windows, loc_y, loc_x)
+    np.testing.assert_array_equal(img, expected)
+
+
+@pytest.mark.parametrize("image_shape",
+    [
+        (512, 512),
+        (513, 512),
+        (1000, 512),
+        (1001, 512),
+        (2048, 2048),
+        (200, 200),
+        (600, 200),
+        (696, 520),
+    ]
+)
+def test_create_windows_stitch_pic(image_shape):
+    rng = npr.default_rng(0)
+    image = rng.random(image_shape)
+    windows, loc_y, loc_x = utils.create_windows(image, target_size=(512, 512), min_overlap=24)
+    stitched_image = utils.stitch_pic(windows, loc_y, loc_x)
+    # Currently need this cropping when the image is smaller than the target size
+    stitched_image = stitched_image[0:image_shape[0], 0:image_shape[1]]
+    np.testing.assert_array_equal(stitched_image, image)
 
 
 def test_cell_perimeter():
