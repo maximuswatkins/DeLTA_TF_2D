@@ -69,6 +69,21 @@ class CroppingBox(Dict):
 class Cell(Dict):
     """
     Dictionary describing a cell, its lineage and pole information.
+    
+    Attributes
+    ----------
+        id : int
+            Cell ID number.
+        mother : Optional[int]
+           ID of mother cell. If None, the cell is an orphan.
+        frames : List[int]
+            List of frames / timepoints where the cell is present.
+        daughters : List[Optional[int]]
+            List of daughters over time. If None, no division occured.
+        new_pole : List[Optional[Pole]]
+            List of identified new Pole positions over time.
+        old_pole : List[Optional[Pole]]
+            List of identified old Pole positions over time.
     """
 
     id: int
