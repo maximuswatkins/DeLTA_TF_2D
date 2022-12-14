@@ -453,6 +453,10 @@ class Position:
         None.
 
         """
+
+        # Rescale pixel values between 0 and 1 for the old model
+        reference = (reference - reference.min()) / reference.ptp()
+
         # Predict
         roismask = self.models["rois"].predict(
             cv2.resize(reference, cfg.target_size_rois)[np.newaxis, :, :, np.newaxis],
@@ -1082,6 +1086,8 @@ class ROI:
         """
         # Crop and scale:
         i = utils.cropbox(img, self.box)
+        # Rescale pixel values between 0 and 1 for the old model
+        i = (i - i.min()) / i.ptp()
         # Append i as is to input images stack:
         self.img_stack.append(i)
 
