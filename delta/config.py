@@ -11,7 +11,6 @@ from typing import Optional, Tuple
 
 import tensorflow as tf
 
-
 _DELTA_DIR = _pathlib.Path(__file__).parent
 "DeLTA lib install directory"
 _LOADED = None

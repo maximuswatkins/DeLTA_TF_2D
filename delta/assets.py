@@ -12,7 +12,7 @@ from typing import Any, Dict, Union
 
 import requests
 
-from .config import _DEFAULTS_2D, _DELTA_DIR, _DEFAULTS_mothermachine
+from delta.config import _DEFAULTS_2D, _DELTA_DIR, _DEFAULTS_mothermachine
 
 LATEST_MODELS = {
     "unet_moma_seg": "1o4Ur0bQ7IvqCkfjeNFYdoEjpAsN7b2uK",
