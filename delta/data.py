@@ -38,7 +38,7 @@ if importlib.util.find_spec("elasticdeform") is None:
 else:
     import elasticdeform
 
-from . import utilities as utils
+from delta import utilities as utils
 
 #%% UTILITIES:
 

@@ -16,9 +16,9 @@ import numpy as np
 import numpy.typing as npt
 from scipy.io import savemat
 
-from . import utilities as utils
-from .data import binarizerange, postprocess
-from .utilities import cfg
+from delta import utilities as utils
+from delta.data import binarizerange, postprocess
+from delta.utilities import cfg
 
 
 class Pipeline:
