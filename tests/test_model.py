@@ -45,7 +45,9 @@ def test_pixelwise_weighted_binary_crossentropy_seg():
     tf_labels_weights = tf.constant(np.stack([labels, weights], axis=-1))
     tf_logits = tf.constant(logits[:, :, np.newaxis])
 
-    loss = delta.model.pixelwise_weighted_binary_crossentropy_seg(tf_labels_weights, tf_logits)
+    loss = delta.model.pixelwise_weighted_binary_crossentropy_seg(
+        tf_labels_weights, tf_logits
+    )
     loss_sum = loss.numpy().sum()
     assert np.allclose(loss_sum, 8053870.791163433)
 
@@ -59,7 +61,9 @@ def test_pixelwise_weighted_binary_crossentropy_track():
     tf_labels_weights = tf.constant(np.stack([labels, weights], axis=-1))
     tf_logits = tf.constant(logits[:, :, np.newaxis])
 
-    loss = delta.model.pixelwise_weighted_binary_crossentropy_track(tf_labels_weights, tf_logits)
+    loss = delta.model.pixelwise_weighted_binary_crossentropy_track(
+        tf_labels_weights, tf_logits
+    )
     loss_sum = loss.numpy().sum()
     assert np.allclose(loss_sum, 8053870.791163433)
 
@@ -69,6 +73,9 @@ def test_moma_segmentation_canary():
     models = delta.utils.loadmodels()
     path = Path(__file__).parent / "data/images"
     img = delta.utils.read_image(path / "moma_segmentation_canary.png")
-    seg = (models["segmentation"].predict(img[np.newaxis, :, :, np.newaxis])[0, :, :, 0] > 0).astype(np.uint8)
+    seg = (
+        models["segmentation"].predict(img[np.newaxis, :, :, np.newaxis])[0, :, :, 0]
+        > 0
+    ).astype(np.uint8)
     lblnb, _ = cv2.connectedComponents(seg)
     assert lblnb == 6

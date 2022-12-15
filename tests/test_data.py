@@ -1,5 +1,7 @@
 from pathlib import Path
+
 import numpy as np
+
 import delta
 
 # fmt: off
@@ -28,8 +30,10 @@ def test_seg_weights_simple():
     classweights = (0.3, 0.7)
     w0 = 12.0
     sigma = 2.0
-    weights = delta.data.seg_weights(MASK_1D, classweights=classweights, w0=w0, sigma=sigma)
-    target = w0 * np.exp(-DISTS_1D**2 / (2 * sigma**2))
+    weights = delta.data.seg_weights(
+        MASK_1D, classweights=classweights, w0=w0, sigma=sigma
+    )
+    target = w0 * np.exp(-(DISTS_1D**2) / (2 * sigma**2))
     target[DISTS_1D == 0] = classweights[1]
     target[DISTS_1D != 0] += classweights[0]
     assert np.allclose(weights, target)

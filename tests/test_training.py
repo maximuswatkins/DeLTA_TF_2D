@@ -157,7 +157,9 @@ def _train_track(presets):
 
     # Files:
     training_set = cfg.training_set_track
-    savefile = savefile = cfg._DELTA_DIR / f"assets/test_models/test_train_{presets}_track.hdf5"
+    savefile = savefile = (
+        cfg._DELTA_DIR / f"assets/test_models/test_train_{presets}_track.hdf5"
+    )
 
     # Training parameters:
     batch_size = 2

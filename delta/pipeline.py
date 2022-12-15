@@ -29,7 +29,7 @@ class Pipeline:
     def __init__(
         self,
         xpreader: utils.xpreader,
-        resfolder: Union[str, Path] = None,
+        resfolder: Optional[Union[str, Path]] = None,
         on_the_fly: bool = False,
         reload: bool = False,
         verbose: int = 1,
@@ -120,8 +120,8 @@ class Pipeline:
 
     def preprocess(
         self,
-        positions: List[int] = None,
-        references: np.ndarray = None,
+        positions: Optional[List[int]] = None,
+        references: Optional[np.ndarray] = None,
         ROIs: Optional[str] = "model",
     ):
         """
@@ -167,9 +167,9 @@ class Pipeline:
 
     def process(
         self,
-        positions: List[int] = None,
-        frames: List[int] = None,
-        features: Tuple[str, ...] = None,
+        positions: Optional[List[int]] = None,
+        frames: Optional[List[int]] = None,
+        features: Optional[Tuple[str, ...]] = None,
         clear: bool = True,
     ):
         """
@@ -369,7 +369,7 @@ class Position:
 
     def preprocess(
         self,
-        reference: utils.Image = None,
+        reference: Optional[utils.Image] = None,
         rotation_correction: Union[float, bool] = True,
     ):
         """
@@ -662,7 +662,9 @@ class Position:
                     for feature in ["length", "area"]:
                         try:
                             gr = roi.lineage.growthrate(icell, iframe, feature)
-                            roi.lineage.setvalue(icell, iframe, f"growthrate_{feature}", gr)
+                            roi.lineage.setvalue(
+                                icell, iframe, f"growthrate_{feature}", gr
+                            )
                         except KeyError:
                             warnings.warn(
                                 "An issue happened related to feature extraction: "
@@ -671,8 +673,8 @@ class Position:
 
     def save(
         self,
-        filename: Union[str, Path] = None,
-        frames: List[int] = None,
+        filename: Optional[Union[str, Path]] = None,
+        frames: Optional[List[int]] = None,
         save_format: Tuple[str, ...] = ("pickle", "movie"),
     ):
         """
@@ -842,9 +844,15 @@ class Position:
 
                 # Morphological features:
                 morpho_features = (
-                        "area","width","length","perimeter","old_pole",
-                        "new_pole","growthrate_length","growthrate_area",
-                        )
+                    "area",
+                    "width",
+                    "length",
+                    "perimeter",
+                    "old_pole",
+                    "new_pole",
+                    "growthrate_length",
+                    "growthrate_area",
+                )
                 for feat in morpho_features:
                     if feat in c:
                         lin[-1][feat] = np.array(c[feat], dtype=np.float32)
@@ -867,7 +875,7 @@ class Position:
         # Finally, save to disk:
         savemat(res_file, data)
 
-    def results_movie(self, frames: List[int] = None) -> Any:
+    def results_movie(self, frames: Optional[List[int]] = None) -> Any:
         """
         Generate movie illustrating segmentation and tracking
 
@@ -1111,8 +1119,8 @@ class ROI:
     def process_segmentation_outputs(
         self,
         y: npt.NDArray[np.uint8],
-        frame: int = None,
-        windows: Tuple[List, List] = None,
+        frame: Optional[int] = None,
+        windows: Optional[Tuple[List, List]] = None,
     ):
         """
         Process outputs after they have been segmented.
@@ -1156,7 +1164,7 @@ class ROI:
             self.seg_stack[frame] = y
 
     def get_tracking_inputs(
-        self, frame: int = None
+        self, frame: Optional[int] = None
     ) -> Union[
         Tuple[np.ndarray, List[Tuple[utils.CroppingBox, utils.CroppingBox]]],
         Tuple[None, None],
@@ -1275,8 +1283,8 @@ class ROI:
     def process_tracking_outputs(
         self,
         y: np.ndarray,
-        frame: int = None,
-        boxes: List[Tuple[utils.CroppingBox, utils.CroppingBox]] = None,
+        frame: Optional[int] = None,
+        boxes: Optional[List[Tuple[utils.CroppingBox, utils.CroppingBox]]] = None,
     ):
         """
         Process output from tracking U-Net
@@ -1333,8 +1341,8 @@ class ROI:
 
     def extract_features(
         self,
-        frame: int = None,
-        fluo_frames: np.ndarray = None,
+        frame: Optional[int] = None,
+        fluo_frames: Optional[np.ndarray] = None,
         features: Tuple[str, ...] = (
             "length",
             "width",

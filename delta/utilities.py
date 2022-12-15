@@ -17,7 +17,7 @@ import tkinter as tk
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union, cast
 
 import cv2
 import ffmpeg
@@ -25,11 +25,11 @@ import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
 import tensorflow as tf
-from tifffile import TiffFile
 from scipy.special import logit
 from skimage.morphology import skeletonize
 from skimage.transform import hough_line, hough_line_peaks
 from tensorflow.keras.callbacks import TensorBoard
+from tifffile import TiffFile
 
 from . import config as cfg
 
@@ -63,7 +63,7 @@ class Cell(Dict):
 #%% Image correction
 
 
-def to_integer_values(frame: Image, dtype: type) -> Image:
+def to_integer_values(frame: Image, dtype: Type[object]) -> Image:
     """
     Returns an image with integer-valued pixels of the given size.
 
@@ -247,7 +247,9 @@ def getDriftTemplate(
 
 
 def opencv_areafilt(
-    I: SegmentationMask, min_area: Optional[float] = 20, max_area: float = None
+    I: SegmentationMask,
+    min_area: Optional[float] = 20,
+    max_area: Optional[float] = None,
 ) -> SegmentationMask:
     """
     Area filtering using openCV instead of skimage
@@ -358,17 +360,27 @@ def create_windows(
     # Pad the image if smaller than the target size
     pad_x = max(0, target_size[1] - image.shape[1])
     pad_y = max(0, target_size[0] - image.shape[0])
-    padding = ((pad_y//2, pad_y - pad_y//2), (pad_x//2, pad_x - pad_x//2))
+    padding = ((pad_y // 2, pad_y - pad_y // 2), (pad_x // 2, pad_x - pad_x // 2))
     image = np.pad(image, padding)
 
     # Compute offsets
-    starts_x = np.linspace(0, image.shape[1] - target_size[1], num=nsplits_x, endpoint=True, dtype=np.int32)
-    starts_y = np.linspace(0, image.shape[0] - target_size[0], num=nsplits_y, endpoint=True, dtype=np.int32)
+    starts_x = np.linspace(
+        0, image.shape[1] - target_size[1], num=nsplits_x, endpoint=True, dtype=np.int32
+    )
+    starts_y = np.linspace(
+        0, image.shape[0] - target_size[0], num=nsplits_y, endpoint=True, dtype=np.int32
+    )
 
     # Store the cropped images
-    tiles = np.array([image[sy:sy+target_size[0], sx:sx+target_size[1]] for sy in starts_y for sx in starts_x])
-    loc_x = np.vstack((starts_x, starts_x + target_size[1])) - pad_x//2
-    loc_y = np.vstack((starts_y, starts_y + target_size[0])) - pad_y//2
+    tiles = np.array(
+        [
+            image[sy : sy + target_size[0], sx : sx + target_size[1]]
+            for sy in starts_y
+            for sx in starts_x
+        ]
+    )
+    loc_x = np.vstack((starts_x, starts_x + target_size[1])) - pad_x // 2
+    loc_y = np.vstack((starts_y, starts_y + target_size[0])) - pad_y // 2
     return tiles, loc_y.T, loc_x.T
 
 
@@ -401,19 +413,27 @@ def stitch_pic(
     stitch = np.zeros((loc_y[-1][1], loc_x[-1][1]), dtype=results.dtype)
 
     # Compute where patches meet
-    middles_y = [0, *((ly[1] + nly[0]) // 2 for ly, nly in zip(loc_y, loc_y[1:])), loc_y[-1][1]]
-    middles_x = [0, *((lx[1] + nlx[0]) // 2 for lx, nlx in zip(loc_x, loc_x[1:])), loc_x[-1][1]]
+    middles_y = [
+        0,
+        *((ly[1] + nly[0]) // 2 for ly, nly in zip(loc_y, loc_y[1:])),
+        loc_y[-1][1],
+    ]
+    middles_x = [
+        0,
+        *((lx[1] + nlx[0]) // 2 for lx, nlx in zip(loc_x, loc_x[1:])),
+        loc_x[-1][1],
+    ]
 
     index = 0
     for ly, y_start, y_end in zip(loc_y, middles_y, middles_y[1:]):
         for lx, x_start, x_end in zip(loc_x, middles_x, middles_x[1:]):
-            
+
             res_crop_y = -(ly[1] - y_end) if ly[1] - y_end > 0 else None
             res_crop_x = -(lx[1] - x_end) if lx[1] - x_end > 0 else None
             stitch[y_start:y_end, x_start:x_end] = results[
                 index,
-                y_start - ly[0]:res_crop_y,
-                x_start - lx[0]:res_crop_x,
+                y_start - ly[0] : res_crop_y,
+                x_start - lx[0] : res_crop_x,
             ]
 
             index += 1
@@ -423,8 +443,8 @@ def stitch_pic(
 
 def gettrackingboxes(
     cell: npt.NDArray[np.uint8],
-    frame_shape: Tuple[int, int] = None,
-    target_size: Tuple[int, int] = None,
+    frame_shape: Optional[Tuple[int, int]] = None,
+    target_size: Optional[Tuple[int, int]] = None,
 ) -> Tuple[CroppingBox, CroppingBox]:
     """
     Get a crop box and a fill box around a cell that fits the tracking target
@@ -587,7 +607,7 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
 
 def label_seg(
     seg: SegmentationMask,
-    cellnumbers: List[int] = None,
+    cellnumbers: Optional[List[int]] = None,
 ) -> Labels:
     """
     Label cells in segmentation mask
@@ -611,7 +631,7 @@ def label_seg(
     """
     contours = find_contours(seg)
     if not cellnumbers:
-        cellnumbers = range(1, len(contours) + 1)
+        cellnumbers = list(range(1, len(contours) + 1))
     if len(cellnumbers) != len(contours):
         raise ValueError("cellnumbers must have the same length as the number of cells")
     # Sorting according to the lowest point on the y (vertical) axis
@@ -718,7 +738,9 @@ def getcentroid(contour: np.ndarray) -> Tuple[int, int]:
 
 
 def getpoles(
-    seg: SegmentationMask, labels: Labels = None, scaling: Tuple[float, float] = None
+    seg: SegmentationMask,
+    labels: Optional[Labels] = None,
+    scaling: Optional[Tuple[float, float]] = None,
 ) -> List[Tuple[Pole, Pole]]:
     """
     Get cell poles
@@ -808,7 +830,7 @@ def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
 
 
 def extrema_poles(
-    cellmask: SegmentationMask, scaling: Tuple[float, float] = None
+    cellmask: SegmentationMask, scaling: Optional[Tuple[float, float]] = None
 ) -> Tuple[Pole, Pole]:
     """
     A slower and more rudimentary version of poles finding but that is
@@ -1036,7 +1058,7 @@ def division_poles(
 def getTrackingScores(
     labels: Labels,
     outputs: npt.NDArray[np.float32],
-    boxes: List[Tuple[CroppingBox, CroppingBox]] = None,
+    boxes: Optional[List[Tuple[CroppingBox, CroppingBox]]] = None,
 ) -> Optional[npt.NDArray[np.float32]]:
     """
     Get overlap scores between input/target cells and tracking outputs
@@ -1287,9 +1309,9 @@ class Lineage:
     def createcell(
         self,
         frame: int,
-        new_pole: Pole = None,
-        old_pole: Pole = None,
-        mother: int = None,
+        new_pole: Optional[Pole] = None,
+        old_pole: Optional[Pole] = None,
+        mother: Optional[int] = None,
     ) -> int:
         """
         Create cell to append to lineage list
@@ -1331,9 +1353,9 @@ class Lineage:
         self,
         cell: int,
         frame: int,
-        daughter: int = None,
-        new_pole: Pole = None,
-        old_pole: Pole = None,
+        daughter: Optional[int] = None,
+        new_pole: Optional[Pole] = None,
+        old_pole: Optional[Pole] = None,
     ) -> None:
         """
         Update cell lineage values
@@ -1441,7 +1463,9 @@ class Lineage:
         while value_ancestor is None:
             try:
                 # Did the current cell exist at the specified frame? If so, the search is over.
-                value_ancestor = self.getvalue(ancestor, frame=frame - df, feature=feature)
+                value_ancestor = self.getvalue(
+                    ancestor, frame=frame - df, feature=feature
+                )
             except ValueError:
                 # The cell did not exist at the specified frame, so we try with its mother.
                 ancestor = self.cells[ancestor]["mother"]
@@ -1565,7 +1589,12 @@ class Lineage:
         value_fm1 = self.getpastvalue(cell, frame, feature)
         value_f = self.getvalue(cell, frame, feature)
         value_fp1 = self.getfuturevalue(cell, frame, feature)
-        if value_fm1 is not None and value_fp1 is not None and value_fm1 > 0.0 and value_fp1 > 0.0:
+        if (
+            value_fm1 is not None
+            and value_fp1 is not None
+            and value_fm1 > 0.0
+            and value_fp1 > 0.0
+        ):
             return np.log(value_fp1 / value_fm1) / 2.0
         if value_fm1 is not None and value_fm1 > 0.0 and value_f > 0.0:
             return np.log(value_f / value_fm1)
@@ -1620,9 +1649,9 @@ class xpreader:
     def __init__(
         self,
         filename=None,
-        channelnames: Tuple[str] = None,
+        channelnames: Optional[Tuple[str]] = None,
         use_bioformats: bool = False,
-        prototype: str = None,
+        prototype: Optional[str] = None,
         fileorder: str = "pct",
         filenamesindexing: int = 1,
         watchfiles: bool = False,
@@ -1850,7 +1879,9 @@ class xpreader:
         if importlib.util.find_spec("bioformats"):
             import bioformats
 
-            self.use_bioformats = self.filename.suffix[1:] in bioformats.READABLE_FORMATS
+            self.use_bioformats = (
+                self.filename.suffix[1:] in bioformats.READABLE_FORMATS
+            )
         i = 2
         while i < len(cmdln_arguments):
             if cmdln_arguments[i] == "--bio-formats":
@@ -1989,7 +2020,7 @@ class xpreader:
         channels=None,
         frames=None,
         squeeze_dimensions: bool = True,
-        rotate: float = None,
+        rotate: Optional[float] = None,
     ) -> np.ndarray:
         """
         Get frames from experiment.
@@ -2092,7 +2123,8 @@ class xpreader:
 
         # Allocate memory:
         output = np.empty(
-            [len(positions), len(frames), len(channels), self.y, self.x], dtype=np.float32
+            [len(positions), len(frames), len(channels), self.y, self.x],
+            dtype=np.float32,
         )
 
         # Load images:
@@ -2189,7 +2221,7 @@ class files_watcher(Thread):
 #%% Saving & Loading results
 
 
-def loadmodels(toload: Tuple[str, ...] = None) -> Dict[str, Any]:
+def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
     """
     Load models (as specified in config.py)
 
@@ -2333,8 +2365,8 @@ def vidwrite(
 def roi_features(
     labels_frame: npt.NDArray[np.uint16],
     features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
-    fluo_frames: np.ndarray = None,
-    roi_box: CroppingBox = None,
+    fluo_frames: Optional[np.ndarray] = None,
+    roi_box: Optional[CroppingBox] = None,
 ) -> Tuple[List[int], List[Dict[str, Any]]]:
     """
     Extract single-cell morphological and fluorescence features
@@ -2393,8 +2425,8 @@ def singlecell_features(
     contour: Contour,
     mask: SegmentationMask,
     features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
-    fluo_frames: np.ndarray = None,
-    roi_box: CroppingBox = None,
+    fluo_frames: Optional[np.ndarray] = None,
+    roi_box: Optional[CroppingBox] = None,
 ) -> Dict[str, Any]:
     """
     Extract features for a single cell
@@ -2570,7 +2602,9 @@ def cell_perimeter(contour: Contour) -> float:
 
 
 def cell_fluo(
-    fluo_frames: np.ndarray, mask: SegmentationMask, roi_box: CroppingBox = None
+    fluo_frames: np.ndarray,
+    mask: SegmentationMask,
+    roi_box: Optional[CroppingBox] = None,
 ) -> List[float]:
     """
     Extract mean fluorescence level from mask
@@ -2612,6 +2646,7 @@ def cell_fluo(
 
 #%% Misc
 
+
 def read_image(filename: Path) -> np.ndarray:
     """
     Returns the image as a numpy array of np.float32 rescaled between 0 and 1.
@@ -2652,7 +2687,7 @@ def findfirst(mylist: List) -> Optional[int]:
     return next((i for i, x in enumerate(mylist) if x > 0), None)
 
 
-def listfiles(directory: Path, suffixes: Iterable[str]) -> [Path]:
+def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
     """
     Returns a sorted list of filenames in `directory` that have one of the
     specified extensions.
@@ -2675,9 +2710,15 @@ def listfiles(directory: Path, suffixes: Iterable[str]) -> [Path]:
 
 def tensorboard_callback():
     try:
-        branch = subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"]).rstrip().decode()
+        branch = (
+            subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"])
+            .rstrip()
+            .decode()
+        )
     except FileNotFoundError:
         branch = ""
-    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_" + branch
+    log_dir = (
+        "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_" + branch
+    )
     callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
     return callback

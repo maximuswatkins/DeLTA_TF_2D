@@ -3,13 +3,19 @@ Module for model definitions and loss/metrics functions definitions
 
 @author: jblugagne
 """
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import backend as K
-from tensorflow.keras.layers import (Concatenate, Conv2D, Dropout, Input,
-                                     MaxPool2D, UpSampling2D)
+from tensorflow.keras.layers import (
+    Concatenate,
+    Conv2D,
+    Dropout,
+    Input,
+    MaxPool2D,
+    UpSampling2D,
+)
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.python.ops import math_ops
@@ -83,7 +89,11 @@ def pixelwise_weighted_binary_crossentropy_track(
     seg = tf.expand_dims(seg, -1)
     weights = tf.expand_dims(weights, -1)
 
-    entropy = tf.nn.relu(logits) - logits * seg + math_ops.log1p(math_ops.exp(-tf.abs(logits)))
+    entropy = (
+        tf.nn.relu(logits)
+        - logits * seg
+        + math_ops.log1p(math_ops.exp(-tf.abs(logits)))
+    )
 
     loss = K.mean(weights * entropy, axis=-1)
 
@@ -199,11 +209,11 @@ def _unet(
 # Generic unet declaration:
 def unet(
     input_size: Tuple[int, int, int] = (256, 32, 1),
-    final_activation: str = None,
+    final_activation: Optional[str] = None,
     output_classes: int = 1,
     dropout: float = 0,
     levels: int = 5,
-    filters: List[int] = None,
+    filters: Optional[List[int]] = None,
 ) -> Model:
     """
     Generic U-Net declaration.
@@ -275,10 +285,10 @@ def unet(
 
 # Use the following model for segmentation:
 def unet_seg(
-    pretrained_weights: str = None,
+    pretrained_weights: Optional[str] = None,
     input_size: Tuple[int, int, int] = (256, 32, 1),
     levels: int = 5,
-    filters: List[int] = None,
+    filters: Optional[List[int]] = None,
 ) -> Model:
     """
     Cell segmentation U-Net definition function.
@@ -328,10 +338,10 @@ def unet_seg(
 
 # Use the following model for tracking and lineage reconstruction:
 def unet_track(
-    pretrained_weights: str = None,
+    pretrained_weights: Optional[str] = None,
     input_size: Tuple[int, int, int] = (256, 32, 4),
     levels: int = 5,
-    filters: List[int] = None,
+    filters: Optional[List[int]] = None,
 ) -> Model:
     """
     Tracking U-Net definition function.
@@ -381,7 +391,9 @@ def unet_track(
 
 # Use the following model for segmentation:
 def unet_rois(
-    input_size: Tuple[int, int, int] = (512, 512, 1), levels: int = 5, filters: List[int] = None,
+    input_size: Tuple[int, int, int] = (512, 512, 1),
+    levels: int = 5,
+    filters: Optional[List[int]] = None,
 ) -> Model:
     """
     ROIs segmentation U-Net.
