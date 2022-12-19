@@ -17,26 +17,20 @@ underlying :ref:`Lineage class <lineage>` objects can be used for data analysis.
 
 You can reload the pickle file for any position with the following::
 
-    pos = delta.pipeline.Position(None,None,None)
-    pos.load('/path/to/PositionXXXXXX.pkl')
-
-or::
-
-    pos = delta.pipeline.load_position('/path/to/PositionXXXXXX.pkl')
+    from delta.pipeline import Position
+    pos = Position.load('/path/to/PositionXXXXXX.pkl')
 
 Although this will not allow you to have access to the corresponding 
 experimental images and to run most processing operations. You can set the
 necessary attributes with e.g.::
 
-    reader = delta.utilities.xpreader('/path/to/file/or/folder')
-    pos = delta.pipeline.Position(
-        position_nb=5,
-        reader=reader,
-        models=delta.utils.load_models(),
-        drift_correction=delta.config.drift_correction,
-        crop_windows=delta.config.crop_windows
-        )
-    pos.load('/path/to/PositionXXXXXX.pkl')
+    from delta.pipeline import Position
+    pos = Position.load('/path/to/PositionXXXXXX.pkl')
+    pos.position_nb = 5
+    pos.reader = delta.utilities.xpreader('/path/to/file/or/folder')
+    pos.models = delta.utils.load_models()
+    pos.drift_correction = delta.config.drift_correction
+    pos.crop_windows = delta.config.crop_windows
 
 Alternatively, you can reload all positions in an experiment with::
 
@@ -55,7 +49,7 @@ avoid this problem can be::
     processor = delta.pipeline.Pipeline(reader)
     
     # Load single position:
-    processor.positions[6].load('/path/to/Position000006.pkl')
+    processor.positions[6] = Position.load('/path/to/Position000006.pkl')
     
     # Do something, for example:
     import matplotlib.pyplot as plt

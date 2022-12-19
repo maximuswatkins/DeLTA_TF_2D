@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The function `trainGenerator_seg` was removed.
 - The function `download_assets` was removed, because assets are now downloaded
   on the fly.
+- The `load_position` was removed in favor of `Position.load`.
 
 ## [2.0.5] - 2022-03-11
 ### Changed

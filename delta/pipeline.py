@@ -116,7 +116,7 @@ class Pipeline:
         # If reload flag, reload positions from pickle files:
         if reload:
             for p in range(self.reader.positions):
-                self.positions[p].load(self.resfolder / f"Position{p:06d}.pkl")
+                self.positions[p] = Position.load(self.resfolder / f"Position{p:06d}.pkl")
 
     def preprocess(
         self,
@@ -726,7 +726,8 @@ class Position:
             movie = self.results_movie(frames=frames)
             utils.vidwrite(movie, filename.with_suffix(".mp4"), verbose=False)
 
-    def load(self, filename: Union[str, Path]) -> None:
+    @staticmethod
+    def load(filename: Union[str, Path]):
         """
         Load position from pickle file.
 
@@ -737,14 +738,20 @@ class Position:
 
         Returns
         -------
-        None.
+        position : pipeline.Position object
+            Reloaded Position object. (without reader and models)
 
         """
-        p = load_position(filename)
 
-        for (k, v) in p.__dict__.items():
-            if k not in self._pickle_skip:
-                setattr(self, k, v)
+        with open(filename, "rb") as file:
+            position = pickle.load(file)
+
+        # Retrocompatibility with old format
+        for roi in position.rois:
+            if isinstance(roi.lineage.cells, list):
+                roi.lineage.cells = {cellid: cell for cellid, cell in enumerate(roi.lineage.cells)}
+
+        return position
 
     def clear(self) -> None:
         """
@@ -1001,32 +1008,6 @@ class Position:
             movie += [(frame * 255).astype(np.uint8)]
 
         return movie
-
-
-def load_position(filename: Union[str, Path]) -> Position:
-    """
-    Load position object from pickle file.
-
-    Parameters
-    ----------
-    filename : str or Path
-        Path to saved pickle file.
-
-    Returns
-    -------
-    p : pipeline.Position object
-        Reloaded Position object. (without reader and models)
-
-    """
-    with open(filename, "rb") as file:
-        p = pickle.load(file)
-
-    # Retrocompatibility with old format
-    for roi in p.rois:
-        if isinstance(roi.lineage.cells, list):
-            roi.lineage.cells = {cellid: cell for cellid, cell in enumerate(roi.lineage.cells)}
-
-    return p
 
 
 class ROI:
