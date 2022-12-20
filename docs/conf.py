@@ -12,7 +12,6 @@
 #
 import sys
 
-sys.path.insert(0, Path("..").resolve())
 # We import delta here because for some
 # reason it fails on readthedocs if we let
 # autosummary / autodoc try to load it

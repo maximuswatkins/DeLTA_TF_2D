@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Created on Tue Oct 19 15:01:05 2021
+Created on Tue Oct 19 15:01:05 2021.
 
 @author: ooconnor
 """
@@ -303,7 +303,7 @@ def test_cell_perimeter():
 
 
 def rand_mask(image_size, max_dots=100, max_radius=30, seed=None):
-    "Generate a random binary mask with random size dots"
+    """Generate a random binary mask with random size dots."""
     rng = npr.default_rng(seed)
     mask = np.zeros(image_size, dtype=np.uint8)
     num_dots = rng.integers(max_dots, endpoint=True)
@@ -324,8 +324,7 @@ def rand_mask(image_size, max_dots=100, max_radius=30, seed=None):
 
 
 def evaluate_contours(mask, contours, image_size):
-    "Reconstruct mask from contours and make it is the same as the original"
-
+    """Reconstruct mask from contours and make it is the same as the original."""
     new_mask = np.zeros(image_size, dtype=np.uint8)
     new_mask = cv2.drawContours(new_mask, contours, -1, 1, thickness=-1)
 

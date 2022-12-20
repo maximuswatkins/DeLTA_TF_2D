@@ -1,5 +1,5 @@
 """
-Module for model definitions and loss/metrics functions definitions
+Module for model definitions and loss/metrics functions definitions.
 
 @author: jblugagne
 """
@@ -29,7 +29,7 @@ def pixelwise_weighted_binary_crossentropy_seg(
     """
     Pixel-wise weighted binary cross-entropy loss.
     The code is adapted from the Keras TF backend.
-    (see their github)
+    (see their github).
 
     Parameters
     ----------
@@ -68,7 +68,7 @@ def pixelwise_weighted_binary_crossentropy_track(
     """
     Pixel-wise weighted binary cross-entropy loss.
     The code is adapted from the Keras TF backend.
-    (see their github)
+    (see their github).
 
     Parameters
     ----------
@@ -105,7 +105,7 @@ def pixelwise_weighted_binary_crossentropy_track(
 def unstack_acc(seg_weights: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
     """
     Unstacks the mask from the weights in the output tensor for
-    segmentation and computes binary accuracy
+    segmentation and computes binary accuracy.
 
     Parameters
     ----------
@@ -158,7 +158,6 @@ def _unet(
         Output layer of the U-Net (before final convolution).
 
     """
-
     name = f"Level{levels - len(filters)}"
 
     filters_here, *filters_next = filters
@@ -249,7 +248,6 @@ def unet(
         Defined U-Net model (not compiled yet).
 
     """
-
     # Default conv2d parameters
     conv2d_kwargs = {
         "activation": "relu",
@@ -315,7 +313,6 @@ def unet_seg(
         Segmentation U-Net (compiled).
 
     """
-
     model = unet(
         input_size=input_size,
         final_activation=None,
@@ -368,7 +365,6 @@ def unet_track(
         Tracking U-Net (compiled).
 
     """
-
     model = unet(
         input_size=input_size,
         final_activation=None,
@@ -417,7 +413,6 @@ def unet_rois(
         ROIs ID U-Net (compiled).
 
     """
-
     model = unet(
         input_size=input_size,
         final_activation=None,

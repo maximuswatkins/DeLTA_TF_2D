@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Created on Wed Apr  6 09:47:07 2022
+Created on Wed Apr  6 09:47:07 2022.
 
 @author: ooconnor
 """
@@ -77,8 +77,7 @@ def test_tracking_script(parameters):
 
 
 def _run_script(_scriptfile, _parameters):
-    "Read script & strip parameters code, set parameters, execute script"
-
+    """Read script & strip parameters code, set parameters, execute script."""
     # Read script, and remove parameters block:
     with open(_scriptfile) as reader:
         _script = _strip_parameters(reader)
@@ -92,8 +91,7 @@ def _run_script(_scriptfile, _parameters):
 
 
 def _strip_parameters(reader):
-    "This functions removes the Parameters /Parameters block from the script"
-
+    """Removes the Parameters /Parameters block from the script."""
     parameters = None
     code = ""
     for line in reader:

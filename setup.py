@@ -24,11 +24,11 @@ URL = "https://gitlab.com/dunloplab/delta"
 
 INSTALL_REQUIRES = [
     "scikit-image>=0.18",
-    "tifffile>=2020",
     "opencv-python>=4.5",
     "tensorflow>=2.7",
-    "ffmpeg-python",
+    "ffmpeg-python>=0.2",
     "requests",
+    "numpy>=1.21",
 ]
 
 setup(
@@ -43,7 +43,7 @@ setup(
     url=URL,
     install_requires=INSTALL_REQUIRES,
     packages=find_packages(include=["delta", "delta.*"]),
-    python_requires=">=3.7",
+    python_requires=">=3.7,<3.11",
     setup_requires=["pytest-order", "pytest-runner", "flake8"],
     tests_require=["pytest"],
     package_data={

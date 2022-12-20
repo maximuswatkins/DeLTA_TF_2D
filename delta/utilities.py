@@ -1,5 +1,5 @@
 """
-Module for utility functions and class definitions that are used in pipeline.py
+Module for utility functions and class definitions that are used in pipeline.py.
 
 A few functions are redundant from data.py, but we keep the files separate
 to minimize the risk of unforeseen bugs.
@@ -45,6 +45,21 @@ Pole = npt.NDArray[np.int16]
 
 # TODO: properly type this
 class CroppingBox(Dict):
+    """
+    Dictionary describing a box to cut out.
+
+    Attributes
+    ----------
+        xtl : Any
+            Top-left corner X coordinate.
+        ytl : Any
+            Top-left corner Y coordinate.
+        xbr : Any
+            Bottom-right corner X coordinate.
+        ybr : Any
+            Bottom-right corner Y coordinate.
+    """
+
     xtl: Any
     ytl: Any
     xbr: Any
@@ -52,6 +67,25 @@ class CroppingBox(Dict):
 
 
 class Cell(Dict):
+    """
+    Dictionary describing a cell, its lineage and pole information.
+    
+    Attributes
+    ----------
+        id : int
+            Cell ID number.
+        mother : Optional[int]
+           ID of mother cell. If None, the cell is an orphan.
+        frames : List[int]
+            List of frames / timepoints where the cell is present.
+        daughters : List[Optional[int]]
+            List of daughters over time. If None, no division occured.
+        new_pole : List[Optional[Pole]]
+            List of identified new Pole positions over time.
+        old_pole : List[Optional[Pole]]
+            List of identified old Pole positions over time.
+    """
+
     id: int
     mother: Optional[int]
     frames: List[int]
@@ -118,7 +152,7 @@ def deskew(image: Image) -> float:
 
 def imrotate(frame: npt.NDArray[Any], rotate: float) -> npt.NDArray[Any]:
     """
-    Rotate image
+    Rotate image.
 
     Parameters
     ----------
@@ -144,7 +178,7 @@ def imrotate(frame: npt.NDArray[Any], rotate: float) -> npt.NDArray[Any]:
 def driftcorr(img, template=None, box=None, drift=None):
     """
     Compute drift between current frame and the reference, and return corrected
-    image
+    image.
 
     Parameters
     ----------
@@ -168,7 +202,6 @@ def driftcorr(img, template=None, box=None, drift=None):
         Drift-corrected image and drift.
 
     """
-
     if len(img.shape) == 2:
         twoDflag = True
         img = np.expand_dims(img, axis=0)
@@ -207,7 +240,7 @@ def getDriftTemplate(
     chamberboxes: List[CroppingBox], img: Image, whole_frame: bool = False
 ) -> Optional[Image]:
     """
-    This function retrieves a region above the chambers to use as drift template
+    This function retrieves a region above the chambers to use as drift template.
 
     Parameters
     ----------
@@ -227,7 +260,6 @@ def getDriftTemplate(
         (see driftcorr()).
 
     """
-
     if len(chamberboxes) == 0 and not whole_frame:
         return None
     (y_cut, x_cut) = (
@@ -252,7 +284,7 @@ def opencv_areafilt(
     max_area: Optional[float] = None,
 ) -> SegmentationMask:
     """
-    Area filtering using openCV instead of skimage
+    Area filtering using openCV instead of skimage.
 
     Parameters
     ----------
@@ -271,7 +303,6 @@ def opencv_areafilt(
         Filtered mask.
 
     """
-
     # Get contours:
     contours = find_contours(I)
 
@@ -296,19 +327,14 @@ def opencv_areafilt(
 
 def cropbox(img: npt.NDArray[Any], box: Optional[CroppingBox]) -> npt.NDArray[Any]:
     """
-    Crop image
+    Crop image.
 
     Parameters
     ----------
     img : 2D numpy array
         Image to crop.
-    box : Dictionary or None
-        Dictionary describing the box to cut out, containing the following
-        elements:
-            - 'xtl': Top-left corner X coordinate.
-            - 'ytl': Top-left corner Y coordinate.
-            - 'xbr': Bottom-right corner X coordinate.
-            - 'ybr': Bottom-right corner Y coordinate.
+    box : Optional[CroppingBox]
+        Cropping box to crop the image with.
 
     Returns
     -------
@@ -339,7 +365,6 @@ def create_windows(
 
     Returns
     -------
-
     windows: 3D array
         Cropped out images to feed into U-Net. Dimensions are
         (nb_of_windows, *target_size).
@@ -390,7 +415,7 @@ def stitch_pic(
     loc_x: List[Tuple[int, int]],
 ) -> npt.NDArray[Any]:
     """
-    Stitch segmentation back together from the windows of create_windows()
+    Stitch segmentation back together from the windows of create_windows().
 
     Parameters
     ----------
@@ -408,7 +433,6 @@ def stitch_pic(
         Stitched image.
 
     """
-
     # Create an array to store segmentations into a format similar to how the image was cropped
     stitch = np.zeros((loc_y[-1][1], loc_x[-1][1]), dtype=results.dtype)
 
@@ -448,7 +472,7 @@ def gettrackingboxes(
 ) -> Tuple[CroppingBox, CroppingBox]:
     """
     Get a crop box and a fill box around a cell that fits the tracking target
-    size
+    size.
 
     Parameters
     ----------
@@ -473,7 +497,6 @@ def gettrackingboxes(
         the cropped out image.
 
     """
-
     if frame_shape is None:
         frame_shape = cast(Tuple[int, int], cell.shape)  # for mypy
 
@@ -516,7 +539,7 @@ def getshiftvalues(
         Crop box in the cropbox() input format.
         The crop box determines which part of the full-size frame to crop out.
     rng : npr.Generator
-        Pseudo-random number generator
+        Pseudo-random number generator.
 
     Returns
     -------
@@ -543,7 +566,7 @@ def getshiftvalues(
 def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
     """
     wrapper for CV2's findContours() because it
-    keeps changing signatures
+    keeps changing signatures.
 
     Parameters
     ----------
@@ -556,7 +579,6 @@ def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
         List of cv2 type contour arrays.
 
     """
-
     # Default use:
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -569,7 +591,7 @@ def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
 def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
     """
     Extract the bounding boxes of the chambers in the binary mask
-    produced by the chambers identification unet
+    produced by the chambers identification unet.
 
     Parameters
     ----------
@@ -610,7 +632,7 @@ def label_seg(
     cellnumbers: Optional[List[int]] = None,
 ) -> Labels:
     """
-    Label cells in segmentation mask
+    Label cells in segmentation mask.
 
     Parameters
     ----------
@@ -664,7 +686,7 @@ def getcellsinframe(
     labels: Labels, return_contours: bool = False, background: int = 0
 ) -> Union[List[int], Tuple[List[int], List[Contour]]]:
     """
-    Get numbers of cells present in frame, sorted along Y axis
+    Get numbers of cells present in frame, sorted along Y axis.
 
     Parameters
     ----------
@@ -681,7 +703,6 @@ def getcellsinframe(
         List of cv2 contours for each cell. Returned if return_contours==True.
 
     """
-
     cells, ind = np.unique(labels, return_index=True)
     cells = [
         cell - 1 for _, cell in sorted(zip(ind, cells))
@@ -702,7 +723,7 @@ def getcellsinframe(
 
 def getcentroid(contour: np.ndarray) -> Tuple[int, int]:
     """
-    Get centroid of cv2 contour
+    Get centroid of cv2 contour.
 
     Parameters
     ----------
@@ -717,7 +738,6 @@ def getcentroid(contour: np.ndarray) -> Tuple[int, int]:
         Y-axis coordinate of centroid.
 
     """
-
     if contour.shape[0] > 2:  # Looks like cv2.moments treats it as an image
         # Calculate moments for each contour
         M = cv2.moments(contour)
@@ -743,7 +763,7 @@ def getpoles(
     scaling: Optional[Tuple[float, float]] = None,
 ) -> List[Tuple[Pole, Pole]]:
     """
-    Get cell poles
+    Get cell poles.
 
     Parameters
     ----------
@@ -762,7 +782,6 @@ def getpoles(
         List of poles per cell. Each cell in the list has exactly 2 poles.
 
     """
-
     # No label provided:
     if labels is None:
         lbls = label_seg(seg)
@@ -801,7 +820,7 @@ def getpoles(
 def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
     """
     This function was adapted from stackoverflow
-    #https://stackoverflow.com/questions/26537313/how-can-i-find-endpoints-of-binary-skeleton-image-in-opencv
+    #https://stackoverflow.com/questions/26537313/how-can-i-find-endpoints-of-binary-skeleton-image-in-opencv.
 
     It uses a kernel to filter out the poles
 
@@ -834,7 +853,7 @@ def extrema_poles(
 ) -> Tuple[Pole, Pole]:
     """
     A slower and more rudimentary version of poles finding but that is
-    guaranteed to find exactly 2 poles
+    guaranteed to find exactly 2 poles.
 
     Parameters
     ----------
@@ -847,7 +866,6 @@ def extrema_poles(
         Two poles, each being a 2-element array of y-x coordinates.
 
     """
-
     scaling = scaling or (1, 1)
 
     y, x = cellmask.nonzero()
@@ -881,7 +899,6 @@ def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
         Two poles, each being a 2-element array of y-x coordinates.
 
     """
-
     dist = 0.0
     # Measure the distance from the first endpoint to all the other poles
     for ipole, pole in enumerate(poles):
@@ -904,7 +921,7 @@ def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
 
 def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> List[List[Pole]]:
     """
-    Extract poles per cell from ends image
+    Extract poles per cell from ends image.
 
     Parameters
     ----------
@@ -932,7 +949,7 @@ def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> List[List[P
 
 def eucl(p1: npt.NDArray[Any], p2: npt.NDArray[Any]) -> float:
     """
-    Euclidean point to point distance
+    Euclidean point to point distance.
 
     Parameters
     ----------
@@ -954,7 +971,7 @@ def track_poles(
     poles: Tuple[Pole, Pole], prev_old: Pole, prev_new: Pole
 ) -> Tuple[Pole, Pole]:
     """
-    Track poles of a cell to the previous old and new poles
+    Track poles of a cell to the previous old and new poles.
 
     Parameters
     ----------
@@ -973,7 +990,6 @@ def track_poles(
         Which of the two poles tracked to the previous new pole.
 
     """
-
     if (
         eucl(poles[0], prev_old) ** 2 + eucl(poles[1], prev_new) ** 2
         < eucl(poles[0], prev_new) ** 2 + eucl(poles[1], prev_old) ** 2
@@ -994,7 +1010,7 @@ def division_poles(
     prev_new: Pole,
 ) -> Tuple[Tuple[Pole, Pole], Tuple[Pole, Pole], bool]:
     """
-    Identify which poles belong to the mother and which to the daughter
+    Identify which poles belong to the mother and which to the daughter.
 
     Parameters
     ----------
@@ -1014,7 +1030,6 @@ def division_poles(
         flag that is True if cell1 is the mother, False if cell2 is the mother
 
     """
-
     # Find new new poles (2 closest of the poles of the new cells):
     min_dist = np.inf
     for c1 in range(2):
@@ -1061,7 +1076,7 @@ def getTrackingScores(
     boxes: Optional[List[Tuple[CroppingBox, CroppingBox]]] = None,
 ) -> Optional[npt.NDArray[np.float32]]:
     """
-    Get overlap scores between input/target cells and tracking outputs
+    Get overlap scores between input/target cells and tracking outputs.
 
     Parameters
     ----------
@@ -1081,7 +1096,6 @@ def getTrackingScores(
         segmentation mask for each new-old cell.
 
     """
-
     total_cell = np.max(labels)
     if total_cell == 0:
         return None
@@ -1138,7 +1152,7 @@ def getTrackingScores(
 
 def getAttributions(scores: npt.NDArray[np.float32]) -> npt.NDArray[np.bool_]:
     """
-    Get attribution matrix from tracking scores
+    Get attribution matrix from tracking scores.
 
     Parameters
     ----------
@@ -1153,7 +1167,6 @@ def getAttributions(scores: npt.NDArray[np.float32]) -> npt.NDArray[np.bool_]:
         or 2 new cells.
 
     """
-
     attrib = np.zeros(scores.shape, dtype=int)
 
     for n in range(scores.shape[1]):
@@ -1178,7 +1191,7 @@ def getAttributions(scores: npt.NDArray[np.float32]) -> npt.NDArray[np.bool_]:
 
 class Lineage:
     """
-    Class for cell lineages contained in each ROI
+    Class for cell lineages contained in each ROI.
     """
 
     def __init__(self):
@@ -1237,7 +1250,6 @@ class Lineage:
         None.
 
         """
-
         # Check cell numbers list:
         if len(self.cellnumbers) <= frame:
             self.cellnumbers += [
@@ -1314,7 +1326,7 @@ class Lineage:
         mother: Optional[int] = None,
     ) -> int:
         """
-        Create cell to append to lineage list
+        Create cell to append to lineage list.
 
         Parameters
         ----------
@@ -1334,7 +1346,6 @@ class Lineage:
             new cell number
 
         """
-
         new_cell = Cell(
             {
                 "id": len(self.cells),
@@ -1358,7 +1369,7 @@ class Lineage:
         old_pole: Optional[Pole] = None,
     ) -> None:
         """
-        Update cell lineage values
+        Update cell lineage values.
 
         Parameters
         ----------
@@ -1379,7 +1390,6 @@ class Lineage:
         None.
 
         """
-
         self.cells[cell]["frames"] += [frame]  # Update frame number list
         self.cells[cell]["daughters"] += [daughter]
         self.cells[cell]["old_pole"] += [old_pole]
@@ -1389,7 +1399,7 @@ class Lineage:
         self, cell: int, frame: int, feature: str, value: Union[int, float, str]
     ) -> None:
         """
-        Set feature value for specific cell and frame/timepoint
+        Set feature value for specific cell and frame/timepoint.
 
         Parameters
         ----------
@@ -1412,7 +1422,6 @@ class Lineage:
         None.
 
         """
-
         try:
             i = self.cells[cell]["frames"].index(frame)
         except ValueError as err:
@@ -1535,7 +1544,7 @@ class Lineage:
 
     def getvalue(self, cell: int, frame: int, feature: str) -> Union[int, float, str]:
         """
-        Get feature value for specific timepoint/frame
+        Get feature value for specific timepoint/frame.
 
         Parameters
         ----------
@@ -1557,7 +1566,6 @@ class Lineage:
             Value for feature at frame.
 
         """
-
         try:
             i = self.cells[cell]["frames"].index(frame)
         except ValueError as err:
@@ -1622,7 +1630,6 @@ def getxppathdialog(ask_folder: bool = False) -> str:
         Path to experiment file or folder.
 
     """
-
     root = tk.Tk()
     # root.withdraw() # For some reason this doesn't work with askdirectory?
     if ask_folder:
@@ -1643,7 +1650,7 @@ def getxppathdialog(ask_folder: bool = False) -> str:
 class xpreader:
     """
     Class to read experiment files from bioformats-compatible files or from
-    file sequences in folders
+    file sequences in folders.
     """
 
     def __init__(
@@ -1657,7 +1664,7 @@ class xpreader:
         watchfiles: bool = False,
     ):
         """
-        Initialize experiment reader
+        Initialize experiment reader.
 
         Parameters
         ----------
@@ -1671,9 +1678,9 @@ class xpreader:
             decimal representation of the position, channel and frame/timepoint
             number of each image file.
             Valid examples:
-                Pos01_Cha3_Fra0005.tif
-                p3c1t034.tif
-                xy 145 - fluo 029 - timepoint 005935 .TIFF
+            - Pos01_Cha3_Fra0005.tif
+            - p3c1t034.tif
+            - xy 145 - fluo 029 - timepoint 005935 .TIFF
         channelnames : List/tuple of strings or None, optional
             Names of the acquisition channels ('trans', 'gfp', ...).
             The default is None.
@@ -1713,7 +1720,6 @@ class xpreader:
         None.
 
         """
-
         # Set default parameters
         self.filename = filename
         "File or folder name for the experiment"
@@ -1861,7 +1867,7 @@ class xpreader:
 
     def _command_line_init(self, cmdln_arguments: List[str]) -> None:
         """
-        Initialization routine if command line arguments were passed
+        Initialization routine if command line arguments were passed.
 
         Parameters
         ----------
@@ -1873,7 +1879,6 @@ class xpreader:
         None.
 
         """
-
         self.filename = Path(cmdln_arguments[1])
 
         if importlib.util.find_spec("bioformats"):
@@ -1917,7 +1922,6 @@ class xpreader:
         None.
 
         """
-
         # Get xp settings:
         print(
             (
@@ -1989,7 +1993,7 @@ class xpreader:
     def getfilenamefromprototype(self, position: int, channel: int, frame: int) -> Path:
         """
         Generate full filename for specific frame based on file path,
-        prototype, fileorder, and filenamesindexing
+        prototype, fileorder, and filenamesindexing.
 
         Parameters
         ----------
@@ -2157,7 +2161,7 @@ class xpreader:
 
 class files_watcher(Thread):
     """
-    Daemon to watch experiment files and signal new ones (not functional yet)
+    Daemon to watch experiment files and signal new ones (not functional yet).
     """
 
     def __init__(self, reader):
@@ -2201,7 +2205,7 @@ class files_watcher(Thread):
 
     def newfiles(self):
         """
-        Get list of new files position and channel
+        Get list of new files position and channel.
 
         Returns
         -------
@@ -2209,7 +2213,6 @@ class files_watcher(Thread):
             List containing all new files position and channel.
 
         """
-
         newfiles = []
         for p, pos_old in enumerate(self.old):
             for c, latest_read in enumerate(pos_old):
@@ -2223,7 +2226,7 @@ class files_watcher(Thread):
 
 def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
     """
-    Load models (as specified in config.py)
+    Load models (as specified in config.py).
 
     Parameters
     ----------
@@ -2237,7 +2240,6 @@ def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
         Dictionary containing the models specified.
 
     """
-
     if toload is None:
         toload = cfg.models
 
@@ -2280,7 +2282,6 @@ def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, 
         List of RGB values (0-1 interval).
 
     """
-
     if num_colors == 0:
         return []
 
@@ -2320,7 +2321,6 @@ def vidwrite(
     None.
 
     """
-
     # Initialize ffmpeg parameters:
     height, width, _ = images[0].shape
     if height % 2 == 1:
@@ -2369,7 +2369,7 @@ def roi_features(
     roi_box: Optional[CroppingBox] = None,
 ) -> Tuple[List[int], List[Dict[str, Any]]]:
     """
-    Extract single-cell morphological and fluorescence features
+    Extract single-cell morphological and fluorescence features.
 
     Parameters
     ----------
@@ -2397,7 +2397,6 @@ def roi_features(
         List of dictionary with values for requested features.
 
     """
-
     # Cell numbers and contours:
     cell_nbs, contours = getcellsinframe(labels_frame, return_contours=True)
     assert isinstance(cell_nbs, list)  # needed for mypy on Python < 3.8
@@ -2429,7 +2428,7 @@ def singlecell_features(
     roi_box: Optional[CroppingBox] = None,
 ) -> Dict[str, Any]:
     """
-    Extract features for a single cell
+    Extract features for a single cell.
 
     Parameters
     ----------
@@ -2462,7 +2461,6 @@ def singlecell_features(
         Dictionary of requested features.
 
     """
-
     features_dict: Dict[str, Any] = {}
 
     # Morphological features:
@@ -2502,7 +2500,7 @@ def singlecell_features(
 
 def image_edges(contour: Contour, image: npt.NDArray[Any]) -> str:
     """
-    Identify if cell touches image borders
+    Identify if cell touches image borders.
 
     Parameters
     ----------
@@ -2518,7 +2516,6 @@ def image_edges(contour: Contour, image: npt.NDArray[Any]) -> str:
         the following strs: '-x', '+x', '-y', '+y'. Empty otherwise.
 
     """
-
     edge_str = ""
     if any(contour[:, 0, 0] == 0):
         edge_str += "-x"
@@ -2534,7 +2531,7 @@ def image_edges(contour: Contour, image: npt.NDArray[Any]) -> str:
 
 def cell_width_length(contour: Contour) -> Tuple[float, float]:
     """
-    Mesure width and length of single cell
+    Mesure width and length of single cell.
 
     Parameters
     ----------
@@ -2549,7 +2546,6 @@ def cell_width_length(contour: Contour) -> Tuple[float, float]:
         cell length.
 
     """
-
     # Get rotated bounding box:
     _, size, _ = cv2.minAreaRect(contour)
 
@@ -2561,7 +2557,7 @@ def cell_width_length(contour: Contour) -> Tuple[float, float]:
 
 def cell_area(contour: Contour) -> float:
     """
-    Area of a single cell
+    Area of a single cell.
 
     Parameters
     ----------
@@ -2574,7 +2570,6 @@ def cell_area(contour: Contour) -> float:
         Cell area
 
     """
-
     area = cv2.contourArea(contour)
 
     return area
@@ -2582,7 +2577,7 @@ def cell_area(contour: Contour) -> float:
 
 def cell_perimeter(contour: Contour) -> float:
     """
-    Get single cell perimeter
+    Get single cell perimeter.
 
     Parameters
     ----------
@@ -2595,7 +2590,6 @@ def cell_perimeter(contour: Contour) -> float:
         Cell perimeter
 
     """
-
     perimeter = cv2.arcLength(contour, closed=True)
 
     return perimeter
@@ -2607,7 +2601,7 @@ def cell_fluo(
     roi_box: Optional[CroppingBox] = None,
 ) -> List[float]:
     """
-    Extract mean fluorescence level from mask
+    Extract mean fluorescence level from mask.
 
     Parameters
     ----------
@@ -2627,7 +2621,6 @@ def cell_fluo(
         Mean value per cell for each fluo frame.
 
     """
-
     # Pixels where the cell is:
     pixels = np.where(mask)
     if roi_box is not None:
@@ -2671,7 +2664,7 @@ def read_image(filename: Path) -> np.ndarray:
 
 def findfirst(mylist: List) -> Optional[int]:
     """
-    Find first non-zero element of list
+    Find first non-zero element of list.
 
     Parameters
     ----------
@@ -2704,11 +2697,13 @@ def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
     [Path]
         List of matching filenames.
     """
-
     return sorted(p for p in directory.iterdir() if p.suffix in suffixes)
 
 
 def tensorboard_callback():
+    """
+    Returns a callback for TensorBoard logging.
+    """
     try:
         branch = (
             subprocess.check_output(["git", "symbolic-ref", "--short", "HEAD"])

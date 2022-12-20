@@ -262,7 +262,7 @@ or::
     (delta_env)$ conda install h5py==3.*
 
 You can also check which libraries have worked for us in the past  in the 
-:ref:`installed library lists below <recent_installs>`
+:ref:`installed library lists below <recent installations>`
 
 cuDNN (or other libraries) not loading
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -295,7 +295,7 @@ Another reason why this may happen is that the pipeline is trying to feed too
 many samples to the U-Nets at once. Try lowering pipeline_seg_batch and 
 pipeline_track_batch in your JSON config file.
 
-.. _recent_installs::
+.. _recent installations:
 
 Recent installations library versions
 -------------------------------------
@@ -304,7 +304,3 @@ Here is a list of installations that have worked for us on various systems
 in case you run into dependency issues:
 
 :doc:`Successful installations <installs_lists>`
-
-
-
-    
