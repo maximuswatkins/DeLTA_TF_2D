@@ -10,6 +10,7 @@ The images are processed by batches of 4096 to prevent memory issues.
 import numpy as np
 
 import delta.utilities as utils
+from delta.assets import loadmodels
 from delta.data import postprocess, predictGenerator_seg, readreshape, saveResult_seg
 from delta.model import unet_seg
 from delta.utilities import cfg, listfiles
@@ -33,8 +34,7 @@ outputs_folder.mkdir(exist_ok=True)
 unprocessed = listfiles(inputs_folder, {".tif", ".png"})
 
 # Load up model:
-model = unet_seg(input_size=cfg.target_size_seg + (1,))
-model.load_weights(cfg.model_file_seg)
+model = loadmodels()["segmentation"]
 
 # Process
 while unprocessed:

@@ -606,7 +606,7 @@ class Test_xpreader:
         sys.argv.append(str(Path(__file__).parent / "data" / "movie_2D_tif"))
 
         # Load configuration:
-        utils.cfg.load_config(presets="2D", config_level="global")
+        utils.cfg.load_config(presets="2D", config_level=None)
 
         # Init reader
         xpreader = utils.xpreader()
@@ -635,7 +635,7 @@ class Test_xpreader:
         sys.argv.append("Position%02dChanel%02dFrame%06d.tif")
 
         # Load configuration:
-        utils.cfg.load_config(presets="2D", config_level="global")
+        utils.cfg.load_config(presets="2D", config_level=None)
 
         # Init reader
         xpreader = utils.xpreader()
@@ -648,7 +648,7 @@ class Test_xpreader:
         sys.argv = [sys.argv[0]]
 
         # Load configuration:
-        utils.cfg.load_config(presets="2D", config_level="global")
+        utils.cfg.load_config(presets="2D", config_level=None)
 
         # Init reader
         xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
@@ -661,7 +661,7 @@ class Test_xpreader:
         sys.argv = [sys.argv[0]]
 
         # Load configuration:
-        utils.cfg.load_config(presets="2D", config_level="global")
+        utils.cfg.load_config(presets="2D", config_level=None)
 
         # Init reader
         xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
@@ -677,7 +677,7 @@ class Test_xpreader:
         sys.argv = [sys.argv[0]]
 
         # Load configuration:
-        utils.cfg.load_config(presets="2D", config_level="global")
+        utils.cfg.load_config(presets="2D", config_level=None)
 
         # Init reader
         xpreader = utils.xpreader(

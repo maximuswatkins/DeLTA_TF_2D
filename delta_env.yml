@@ -8,5 +8,5 @@ dependencies:
   - opencv>=4.5
   - tensorflow>=2.7
   - ffmpeg-python
-  - requests
   - numpy>=1.21
+  - pooch>=1.6

@@ -17,6 +17,7 @@ import numpy.typing as npt
 from scipy.io import savemat
 
 from delta import utilities as utils
+from delta.assets import loadmodels
 from delta.data import binarizerange, postprocess
 from delta.utilities import cfg
 
@@ -81,7 +82,7 @@ class Pipeline:
         "Run the pipeline as a daemon process (not functional yet)"
 
         # Load models:
-        self.models = utils.loadmodels()
+        self.models = loadmodels()
         "Dictionary of Tensorflow models"
 
         for arg_index, arg in enumerate(sys.argv):

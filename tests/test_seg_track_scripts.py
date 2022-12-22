@@ -21,7 +21,7 @@ def test_rois_script():
     inputs_folder = test_folder / "data/movie_mothermachine_tif"
 
     # Load global moma config:
-    delta.config.load_config(presets="mothermachine", config_level="global")
+    delta.config.load_config(presets="mothermachine", config_level=None)
 
     _run_script(
         test_folder.parent / "scripts/segmentation_rois.py",
@@ -47,7 +47,7 @@ def test_rois_script():
 def test_segmentation_script(parameters):
 
     # Load global config:
-    delta.config.load_config(presets=parameters["presets"], config_level="global")
+    delta.config.load_config(presets=parameters["presets"], config_level=None)
 
     _run_script(test_folder.parent / "scripts/segmentation.py", _parameters=parameters)
 
@@ -68,7 +68,7 @@ def test_segmentation_script(parameters):
 def test_tracking_script(parameters):
 
     # Load global config:
-    delta.config.load_config(presets=parameters["presets"], config_level="global")
+    delta.config.load_config(presets=parameters["presets"], config_level=None)
 
     # Adding segmentation folder to the parametrrs dict based on inputs folder:
     parameters["segmentation_folder"] = parameters["inputs_folder"] / "segmentation"

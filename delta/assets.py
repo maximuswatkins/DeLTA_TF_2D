@@ -6,120 +6,176 @@ downloads, and writing configuration files.
 @author: jeanbaptiste
 """
 import json
-import shutil
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
-import requests
+import pooch
+import tensorflow as tf
+
+import delta.config as cfg
 
 from delta.config import _DEFAULTS_2D, _DELTA_DIR, _DEFAULTS_mothermachine
 
-LATEST_MODELS = {
-    "unet_moma_seg": "1o4Ur0bQ7IvqCkfjeNFYdoEjpAsN7b2uK",
-    "unet_moma_track": "1IRzCcP0mjdRRZ4Xzj9qSw4QI958apdTS",
-    "unet_pads_seg": "1PSqYtEdJJNaxv7xwDmcZ7X2JomnlF-dP",
-    "unet_pads_track": "1EPRV-vF5Dv-UDOn0fdnpThIgjWxNZDio",
-    "unet_momachambers_seg": "13SFG0T73XG8NfVVwLyGRJ_smZdMiWLM_",
-}
+BASE_URL = "https://docs.google.com/uc?export=download&confirm=t&id="
 
-LATEST_TRAININGSETS = {
-    "2D": "1sWWkIDjIf77KwddHZgX64f8_LxV7hQx_",
-    "mothermachine": "1gzLWospgxqU8oqd8RqZE_WBtQb3N4UJu",
-}
+MODEL_REGISTRY = pooch.create(
+    path=pooch.os_cache("delta") / "models",
+    base_url="",
+    registry={
+        "unet_momachambers_seg.hdf5": "sha256:00156301fc0c8abd84efa64c18bd418acd57f12503ef17f1c4b7d0c7c2fcbe51",
+        "unet_moma_seg.hdf5": "sha256:b9e0985013df96bf6042226b0fe2c8313a4fa6623d166e12402563420ab36dad",
+        "unet_moma_track.hdf5": "sha256:ee7cc489bb2ea08e167f6f3c4a5d6b3791d0b080a2a8411b714f71428d8eb6ef",
+        "unet_pads_seg.hdf5": "sha256:7b011b1a0df760548a78a9d27202610f015d8d40730a095a0b6c4fe61e1c1eb2",
+        "unet_pads_track.hdf5": "sha256:9c93a068fb3f424146f15a539a823107f2932c710e294b92274827f5648bf946",
+    },
+    urls={
+        "unet_momachambers_seg.hdf5": BASE_URL + "13SFG0T73XG8NfVVwLyGRJ_smZdMiWLM_",
+        "unet_moma_seg.hdf5": BASE_URL + "1o4Ur0bQ7IvqCkfjeNFYdoEjpAsN7b2uK",
+        "unet_moma_track.hdf5": BASE_URL + "1IRzCcP0mjdRRZ4Xzj9qSw4QI958apdTS",
+        "unet_pads_seg.hdf5": BASE_URL + "1PSqYtEdJJNaxv7xwDmcZ7X2JomnlF-dP",
+        "unet_pads_track.hdf5": BASE_URL + "1EPRV-vF5Dv-UDOn0fdnpThIgjWxNZDio",
+    },
+    env="DELTA_ASSETS_CACHE",
+)
 
-EVAL_MOVIES = {
-    "2D": "1PpAGwKF5nQnVmwYg2ww5fXPLMLZecah_",
-    "mothermachine": "1cwCLceLucFrKG-YrZ9AjGSrq7Y8z-cHW",
-}
+TRAININGSETS_REGISTRY = pooch.create(
+    path=pooch.os_cache("delta") / "training_sets",
+    base_url="",
+    registry={
+        "2D.zip": "sha256:dade99b86ab039e842ea97f255003772997d560a1b4610cb969551056512aaf8",
+        "mothermachine.zip": "sha256:34dd37a6020049eb4e4db2075dd7dbc42673d3a0f3581d018af65d98c4009e65",
+    },
+    urls={
+        "2D.zip": BASE_URL + "1sWWkIDjIf77KwddHZgX64f8_LxV7hQx_",
+        "mothermachine.zip": BASE_URL + "1gzLWospgxqU8oqd8RqZE_WBtQb3N4UJu",
+    },
+    env="DELTA_ASSETS_CACHE",
+)
+
+DEMO_REGISTRY = pooch.create(
+    path=pooch.os_cache("delta") / "demo_movies",
+    base_url="",
+    registry={
+        "2D.zip": "sha256:4d14b1121b753e2fe06bd4a15a75fe2941513fc91cda228b60c8aacc028ddfd2",
+        "mothermachine.zip": "sha256:ecd0bc8b7e119146a77f3c703c945c9e080e0b7ebe0fcf3a457264888f739de1",
+    },
+    urls={
+        "2D.zip": BASE_URL + "1PpAGwKF5nQnVmwYg2ww5fXPLMLZecah_",
+        "mothermachine.zip": BASE_URL + "1cwCLceLucFrKG-YrZ9AjGSrq7Y8z-cHW",
+    },
+    env="DELTA_ASSETS_CACHE",
+)
 
 
-def download_assets(
-    load_models: Optional[Union[bool, str, Path]] = None,
-    load_sets: Optional[Union[bool, str, Path]] = None,
-    load_evals: Optional[Union[bool, str, Path]] = None,
-    config_level: Optional[Union[bool, str, Path]] = None,
-) -> None:
+def training_set_path(model: str) -> Path:
     """
-    Download assets such as latest models, training sets etc.
+    Returns the path of the training set for the currently loaded configuration.
+
+    Depending on the current value of cfg.presets ("2D" or "mothermachine") and
+    of the value of the argument `model` ("rois", "seg" or "track"), this
+    function returns the path of the corresponding training set.  If necessary,
+    it downloads it first and caches it under a directory that can be specified
+    by the environment variable `DELTA_ASSETS_CACHE`.
 
     Parameters
     ----------
-    load_models : bool, str, or None, optional
-        If True, the models will be downloaded from
-        https://drive.google.com/drive/u/0/folders/14EvBCMJIk2LpBCQL-jvsuEwUHNYamyyN
-        into an assets folder in the library install path. If a path str is provided,
-        the models will be downloaded to the folder it points to. If None, an
-        interactive prompt will be used.
-        The default is None.
-    load_sets : bool, str, or None, optional
-        If True, the models will be downloaded and extracted from
-        https://drive.google.com/drive/u/0/folders/1f2t71M-dkxKzdl-xfzHo195SnKAuisMl
-        into an assets folder in the library install path. If a path str is provided,
-        the models will be downloaded to the folder it points to. If None, an
-        interactive prompt will be used.
-        The default is None.
-    load_evals : bool, str, or None, optional
-        If True, the models will be downloaded and extracted from
-        https://drive.google.com/drive/u/0/folders/1f2t71M-dkxKzdl-xfzHo195SnKAuisMl
-        into an assets folder in the library install path. If a path str is provided,
-        the models will be downloaded to the folder it points to. If None, an
-        interactive prompt will be used.
-        The default is None.
-    config_level : bool, str, or None, optional
-        If False, no config file is written. If True, same as 'local'
-        If 'local', new config files will be written under the user's local
-        config folder, ~/.delta. If 'global', the config files will be written
-        to the install folder, to be shared among all users. If a specific dir
-        path is provided, the config files will be written there.
-        If None, and interactive prompt will let the user pick.
+    model : str
+        Type of training set: `rois`, `seg` or `track`.
+
+    Returns
+    -------
+    path : Path
+        Path of the training set.
+
+    """
+    config_path = getattr(cfg, f"training_set_{model}", None)
+    if config_path:
+        return Path(config_path)
+    TRAININGSETS_REGISTRY.fetch(f"{cfg.presets}.zip", processor=pooch.Unzip(extract_dir=cfg.presets))
+    path = {
+        ("mothermachine", "rois"): "chambers_seg_set/train",
+        ("mothermachine", "seg"): "segmentation_set/train_multisets",
+        ("mothermachine", "track"): "tracking_set/train_multisets",
+        ("2D", "seg"): "segmentation_set",
+        ("2D", "track"): "tracking_set",
+    }[cfg.presets, model]
+    return TRAININGSETS_REGISTRY.path / cfg.presets / "training" / path
+
+
+def demo_movie_path() -> Path:
+    """
+    Returns the path of the demo movie for the currently loaded configuration.
+
+    If necessary, it downloads it first and caches it under a directory that
+    can be specified by the environment variable `DELTA_ASSETS_CACHE`.
+
+    Returns
+    -------
+    path : Path
+        Path of the demo movie.
+    """
+
+    if cfg.eval_movie:
+        return Path(cfg.eval_movie)
+    DEMO_REGISTRY.fetch(f"{cfg.presets}.zip", processor=pooch.Unzip(extract_dir=cfg.presets))
+    return DEMO_REGISTRY.path / cfg.presets
+
+
+def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
+    """
+    Load models (as specified in config.py)
+
+    If necessary, it downloads it first and caches it under a directory that
+    can be specified by the environment variable `DELTA_ASSETS_CACHE`.
+
+    Parameters
+    ----------
+    toload : tuple of str, or None, optional
+        Which of the 3 models to load. If None, cfg.models will be used.
         The default is None.
 
     Returns
     -------
-    None.
+    models : dict
+        Dictionary containing the models specified.
 
     """
-    # Should we download models?
-    models_dir = Path(load_models) if isinstance(load_models, (str, Path)) else None
-    load_models = (
-        _ask("Download latest models?") if load_models is None else bool(load_models)
-    )
-    model_files = _download_models(models_dir=models_dir) if load_models else {}
 
-    # Should we download training sets?
-    sets_dir = Path(load_sets) if isinstance(load_sets, (str, Path)) else None
-    load_sets = (
-        _ask("Download latest training sets?") if load_sets is None else bool(load_sets)
-    )
-    sets_files = _download_training_sets(sets_dir=sets_dir) if load_sets else {}
+    if toload is None:
+        toload = cfg.models
 
-    # Should we download evaluation movies?
-    movies_dir = Path(load_evals) if isinstance(load_evals, (str, Path)) else None
-    load_evals = (
-        _ask("Download evaluation movies?") if load_evals is None else bool(load_evals)
-    )
-    eval_files = _download_eval_movies(movies_dir=movies_dir) if load_evals else {}
+    models = {}
 
-    # Should we write a new config file?
-    if isinstance(config_level, bool):
-        if config_level:
-            config_level = "local"
+    if "rois" in toload:
+        if cfg.model_file_rois:
+            model_file_rois = cfg.model_file_rois
         else:
-            config_level = None
-    elif config_level is None:
-        config_level = _ask(
-            "Write new config_.json files pointing to these new assets?",
-            options={"local": "local", "global": "global", "no": None},
-        )
-    assert isinstance(config_level, str) or config_level is None  # for mypy
+            model_file_rois = MODEL_REGISTRY.fetch(
+                cfg.model_file_rois if cfg.model_file_rois else "unet_momachambers_seg.hdf5"
+            )
+        models["rois"] = tf.keras.models.load_model(model_file_rois, compile=False)
 
-    if config_level is not None:
-        _write_default_configs(
-            model_files=model_files,
-            sets_files=sets_files,
-            eval_files=eval_files,
-            config_level=config_level,
-        )
+    if "segmentation" in toload:
+        if cfg.model_file_seg:
+            model_file_seg = cfg.model_file_seg
+        else:
+            term = {"mothermachine": "moma", "2D": "pads"}[cfg.presets]
+            model_file_seg = MODEL_REGISTRY.fetch(f"unet_{term}_seg.hdf5")
+        models["segmentation"] = tf.keras.models.load_model(model_file_seg, compile=False)
+
+    if "tracking" in toload:
+        if cfg.model_file_track:
+            model_file_track = cfg.model_file_track
+        else:
+            term = {"mothermachine": "moma", "2D": "pads"}[cfg.presets]
+            model_file_track = MODEL_REGISTRY.fetch(f"unet_{term}_track.hdf5")
+        models["tracking"] = tf.keras.models.load_model(model_file_track, compile=False)
+
+    # In order to be able to use the old models that had a sigmoid as final activation
+    for model in models.values():
+        model.layers[-1].activation = None
+
+    return models
 
 
 def _write_json(obj: Any, path: Path) -> None:
@@ -198,129 +254,3 @@ def _write_default_configs(
 
     print(f"Config files written to {config_dir}")
 
-
-def _download_models(
-    model_ids: Dict[str, str] = LATEST_MODELS, models_dir: Optional[Path] = None
-) -> Dict[str, Path]:
-    """
-    Download models from gdrive.
-
-    Parameters
-    ----------
-    model_ids : dict, optional
-        Dictionary of the filename:google_id for all necessary model files.
-        The default is LATEST_MODELS.
-    models_dir : Path, optional
-        path to save folder. If None, the delta install folder will be used.
-        The default is None.
-
-    Returns
-    -------
-    model_files : dict
-        dictionary of save paths for each model.
-
-    """
-    if models_dir is None:
-        # Retrieve the path of the delta install folder:
-        models_dir = _DELTA_DIR / "assets/models"
-    models_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Models will be downloaded to {models_dir}")
-
-    model_files = {}
-    for filename, google_id in model_ids.items():
-        print(f"Downloading model: {filename}...", end="", flush=True)
-        model_files[filename] = models_dir / f"{filename}.hdf5"
-        _download_file_from_google_drive(google_id, model_files[filename])
-        print(" Done")
-    return model_files
-
-
-def _download_training_sets(
-    sets_ids: Dict[str, str] = LATEST_TRAININGSETS, sets_dir: Optional[Path] = None
-) -> Dict[str, Path]:
-
-    if sets_dir is None:
-        # Retrieve the path of the delta install folder:
-        sets_dir = _DELTA_DIR / "assets/trainingsets"
-    sets_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Training sets will be downloaded and unzipped to {sets_dir}")
-
-    sets_files = {}
-    for filename, google_id in sets_ids.items():
-        # Download files:
-        sets_files[filename] = sets_dir / filename
-        zip_file = sets_dir / f"{filename}.zip"
-        _download_and_unzip(
-            google_id, zip_file, sets_files[filename], remove_previous=True
-        )
-
-    return sets_files
-
-
-def _download_eval_movies(
-    movie_ids: Dict[str, str] = EVAL_MOVIES, movies_dir: Optional[Path] = None
-) -> Dict[str, Path]:
-
-    if movies_dir is None:
-        # Retrieve the path of the delta install folder:
-        movies_dir = _DELTA_DIR / "assets/eval_movies"
-    movies_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Evaluation movies will be downloaded and unzipped to {movies_dir}")
-
-    movie_files = {}
-    for filename, google_id in movie_ids.items():
-        # Download files:
-        movie_files[filename] = movies_dir / filename
-        zip_file = movies_dir / f"{filename}.zip"
-        _download_and_unzip(
-            google_id, zip_file, movie_files[filename], remove_previous=True
-        )
-
-    return movie_files
-
-
-def _download_and_unzip(
-    google_id: str, zip_file: Path, folder: Path, remove_previous: bool = False
-) -> None:
-
-    print(f"Downloading zip: {zip_file}...", end="", flush=True)
-    _download_file_from_google_drive(google_id, zip_file)
-    print(" Done")
-
-    if remove_previous and folder.exists():
-        print("Removing previous extraction...", end="", flush=True)
-        shutil.rmtree(folder)
-        print(" Done")
-
-    print(f"Extracting to {folder}...", end="", flush=True)
-    folder.mkdir(parents=True, exist_ok=True)
-    shutil.unpack_archive(zip_file, folder)
-    print(" Done")
-
-    print("Deleting archive...", end="", flush=True)
-    zip_file.unlink()
-    print(" Done")
-
-
-def _download_file_from_google_drive(google_id: str, destination: Path) -> None:
-    # https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
-    # Note from JB: the above answer is outdated, google changed the API such
-    # that you only need to pass a "t" to confirm, not a token. See merge
-    # request 58 for more information
-
-    URL = "https://docs.google.com/uc?export=download"
-
-    session = requests.Session()
-
-    response = session.get(URL, params={"id": google_id, "confirm": "t"}, stream=True)
-
-    _save_response_content(response, destination)
-
-
-def _save_response_content(response: requests.Response, destination: Path) -> None:
-    CHUNK_SIZE = 32768
-
-    with open(destination, "wb") as file:
-        for chunk in response.iter_content(CHUNK_SIZE):
-            if chunk:  # filter out keep-alive new chunks
-                file.write(chunk)

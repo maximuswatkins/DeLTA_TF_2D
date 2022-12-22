@@ -20,7 +20,7 @@ def test_pipeline_mothermachine():
     sys.argv.append(str(xpfolder))
 
     # Load configuration:
-    delta.utils.cfg.load_config(presets="mothermachine", config_level="global")
+    delta.utils.cfg.load_config(presets="mothermachine", config_level=None)
 
     xpreader = delta.utils.xpreader()
 

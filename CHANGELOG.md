@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   more.
 - The function `load_training_dataset_seg` loads training datasets and allows
   to specify validation and test splits.
+- DeLTA assets (models, training sets, evaluation movies) are downloaded
+  automatically and cached, thanks to the python package `pooch`.
 ### Changed
 - Fixed bug in the computation of cell perimeters
 - Fixed training reproducibility bugs
@@ -23,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upgraded OpenCV dependency to version 4.5
 ### Removed
 - The function `trainGenerator_seg` was removed.
+- The function `download_assets` was removed, because assets are now downloaded
+  on the fly.
 
 ## [2.0.5] - 2022-03-11
 ### Changed

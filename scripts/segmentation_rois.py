@@ -7,6 +7,7 @@ preprocessing section of pipeline.py and getROIboxes() in utilities.py
 @author: jblugagne
 """
 
+from delta.assets import demo_movie_path, loadmodels
 from delta.data import postprocess, predictGenerator_seg, saveResult_seg
 from delta.model import unet_rois
 from delta.utilities import cfg, listfiles
@@ -17,7 +18,7 @@ from delta.utilities import cfg, listfiles
 cfg.load_config(presets="mothermachine")
 
 # Images sequence: (replace with your own)
-inputs_folder = cfg.eval_movie
+inputs_folder = demo_movie_path()
 
 ### /Parameters
 
@@ -30,8 +31,7 @@ outputs_folder.mkdir(exist_ok=True)
 input_files = listfiles(inputs_folder, {".tif", ".png"})
 
 # Load up model:
-model = unet_rois(input_size=cfg.target_size_rois + (1,))
-model.load_weights(cfg.model_file_rois)
+model = loadmodels()["rois"]
 
 # Inputs data generator:
 predGene = predictGenerator_seg(

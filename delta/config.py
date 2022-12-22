@@ -74,16 +74,16 @@ this value. You can also try to increase it to improve speed"""
 _DEFAULTS_2D = dict(
     presets="2D",  # Type of analysis. Can be '2D', 'mothermachine', or your own custom name for presets
     models=("segmentation", "tracking"),  # Which models will be run
-    model_file_rois="",  # Model file for ROIs segmentation (None for 2D)
-    model_file_seg="D:/DeLTA_data/agar_pads/unet_pads_seg.hdf5",  # Model file for cell segmentation (placeholder)
-    model_file_track="D:/DeLTA_data/agar_pads/unet_pads_track.hdf5",  # Model file for cell tracking(placeholder)
+    model_file_rois=None,  # Model file for ROIs segmentation (None for 2D)
+    model_file_seg=None,  # Model file for cell segmentation (placeholder)
+    model_file_track=None,  # Model file for cell tracking(placeholder)
     target_size_rois=(512, 512),  # ROI U-Net target/input image size
     target_size_seg=(512, 512),  # segmentation U-Net target/input image size
     target_size_track=(256, 256),  # tracking U-Net target/input image size
-    training_set_rois="",  # Path to ROIs U-Net training set (None for 2D)
-    training_set_seg="D:/DeLTA_data/agar_pads/train/seg/",  # Path to segmentation training set (placeholder)
-    training_set_track="D:/DeLTA_data/agar_pads/train/track/",  # Path to tracking training set (placeholder)
-    eval_movie="D:/DeLTA_data/agar_pads/eval_movie/tifs/",  # Path to evaluation movie / image sequence
+    training_set_rois=None,  # Path to ROIs U-Net training set (None for 2D)
+    training_set_seg=None,  # Path to segmentation training set (placeholder)
+    training_set_track=None,  # Path to tracking training set (placeholder)
+    eval_movie=None,  # Path to evaluation movie / image sequence
     rotation_correction=False,  # Flag to try to automatically correct image rotation (for microfluidic devices)
     drift_correction=False,  # Flag to correct drift over time (for microfluidic devices / ROIs)
     crop_windows=True,  # Flag to crop input image into windows of size target_size_seg for segmentation, otherwise resize them
@@ -100,16 +100,16 @@ _DEFAULTS_2D = dict(
 _DEFAULTS_mothermachine = dict(
     presets="mothermachine",  # Type of analysis. Can be '2D', 'mothermachine', or your own custom name for presets
     models=("rois", "segmentation", "tracking"),  # Which models will be run
-    model_file_rois="D:/DeLTA_data/mother_machine/models/chambers_id_tessiechamp.hdf5",  # Model file for ROIs segmentation (placeholder)
-    model_file_seg="D:/DeLTA_data/mother_machine/models/unet_moma_seg_multisets.hdf5",  # Model file for cell segmentation (placeholder)
-    model_file_track="D:/DeLTA_data/mother_machine/models/unet_moma_track_v2.hdf5",  # Model file for cell tracking(placeholder)
+    model_file_rois=None,  # Model file for ROIs segmentation (placeholder)
+    model_file_seg=None,  # Model file for cell segmentation (placeholder)
+    model_file_track=None,  # Model file for cell tracking(placeholder)
     target_size_rois=(512, 512),  # ROI U-Net target/input image size
     target_size_seg=(256, 32),  # segmentation U-Net target/input image size
     target_size_track=(256, 32),  # tracking U-Net target/input image size
-    training_set_rois="D:/DeLTA_data/mother_machine/training/chambers_seg_set/train",  # Path to ROIs U-Net training set (None for 2D)
-    training_set_seg="D:/DeLTA_data/mother_machine/training/segmentation_set/train_multisets/",  # Path to segmentation training set (placeholder)
-    training_set_track="D:/DeLTA_data/mother_machine/training/tracking_set/train_multisets",  # Path to tracking training set (placeholder)
-    eval_movie="D:/DeLTA_data/mother_machine/eval_movie/tifs/",  # Path to evaluation movie / image sequence
+    training_set_rois=None,  # Path to ROIs U-Net training set (None for 2D)
+    training_set_seg=None,  # Path to segmentation training set (placeholder)
+    training_set_track=None,  # Path to tracking training set (placeholder)
+    eval_movie=None,  # Path to evaluation movie / image sequence
     rotation_correction=True,  # Flag to try to automatically correct image rotation (for microfluidic devices)
     drift_correction=True,  # Flag to correct drift over time (for microfluidic devices / ROIs)
     crop_windows=False,  # Flag to crop input image into windows of size target_size_seg for segmentation, otherwise resize them
@@ -147,7 +147,7 @@ def load_config(
     config_level : str or None, optional
         If 'local', look for preset config file in the local user folder under
         ~/.delta. If 'global', look in the delta install folder under
-        assets/config. If None, look under local first and then global.
+        assets/config. If None, load defaults.
         The default is None.
 
     Returns
@@ -168,29 +168,17 @@ def load_config(
         )
 
     if json_file is None:
-        # Is there a local/user config file for this preset?
-        _json_file = _pathlib.Path.home() / f".delta/config_{presets}.json"
-        if _json_file.exists() and config_level in [None, "local"]:
-            json_file = _json_file
-
-        # Is there a global config file for this preset?
-        _json_file = _DELTA_DIR / f"assets/config/config_{presets}.json"
-        if (
-            json_file is None
-            and _json_file.exists()
-            and config_level in [None, "global"]
-        ):
-            json_file = _json_file
-
-        # If no file was found, raise error:
-        if json_file is None:
-            raise ValueError(
-                f"""Could not find a local or global config file for presets '{presets}'.
-                Either use delta.assets.download_assets() or provide a json_file path
-                """
-            )
-
-    variables = _read_json(_pathlib.Path(json_file))
+        _local_path = _pathlib.Path.home() / f".delta/config_{presets}.json"
+        _global_path = _DELTA_DIR / f".delta/config_{presets}.json"
+        if config_level == "local":
+            json_file = _local_path
+        elif config_level == "global":
+            json_file = _global_path
+    
+    if json_file is None:
+        variables = defaults
+    else:
+        variables = _read_json(_pathlib.Path(json_file))
 
     # Check if it has the same parameters set as defaults:
     if set(variables.keys()) != set(defaults.keys()):

@@ -16,6 +16,7 @@ If there are no chambers, then images will be cropped as done for DeLTA 2D
 
 import numpy as np
 
+from delta.assets import loadmodels
 from delta.data import predictCompilefromseg_track, saveResult_track
 from delta.model import unet_track
 from delta.utilities import cfg, listfiles, read_image
@@ -42,8 +43,7 @@ unprocessed = listfiles(inputs_folder, {".png", ".tif"})
 imsize = read_image(unprocessed[0]).shape
 
 # Load up model:
-model = unet_track(input_size=cfg.target_size_track + (4,))
-model.load_weights(cfg.model_file_track)
+model = loadmodels()["tracking"]
 
 # Process
 while unprocessed:
