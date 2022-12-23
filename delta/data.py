@@ -8,6 +8,7 @@ import copy
 import importlib
 import re
 import warnings
+from collections import Counter
 from pathlib import Path
 from typing import (
     Any,
@@ -28,6 +29,7 @@ import numpy.random as npr
 import numpy.typing as npt
 import skimage.morphology as morph
 import skimage.transform as trans
+import tensorflow as tf
 from scipy import interpolate
 from skimage import io
 from skimage.measure import label
@@ -504,164 +506,324 @@ def illumination_voodoo(
 
 #%% SEGMENTATION FUNCTIONS:
 
+class SegmentationDataset(tf.keras.utils.Sequence):
+    def __init__(
+        self,
+        dataset: List[Tuple[utils.Image, utils.SegmentationMask, utils.Image]],
+        target_size: Tuple[int, int],
+        mode: str,
+        kw_data_aug: Dict[str, Any],
+        crop: bool,
+        rng: npr.Generator,
+        stack=False,
+    ):
+        """
+        Creates a new SegmentationDataset.
 
-def trainGenerator_seg(
-    batch_size: int,
-    img_path: Path,
-    mask_path: Path,
-    weight_path: Optional[Path],
-    target_size: Tuple[int, int] = (256, 32),
-    augment_params: Dict[str, Any] = {},
-    preload: bool = False,
+        Parameters
+        ----------
+        dataset : List[Tuple[utils.Image, utils.SegmentationMask, utils.Image]]
+            Iterable on (image, segmentation mask, weights) tuples.
+        target_size : (int, int)
+            Target size of the images (input size of the neural network).
+        mode : str, "training" or "evaluation"
+            In "training" mode, data augmentation is applied.  In "evaluation"
+            mode it is not.
+        kw_data_aug : Dict[str, Any]
+            Parameters for the data augmentation function (see `data_augmentation`).
+        crop : bool
+            If `True`, the images are cropped (randomly in training mode and
+            with overlapping tiles in evaluation mode).  If `False`, the images
+            are simply resized to the target size.
+        rng : npr.Generator
+            Random number generator.
+        """
+        if mode not in ["training", "evaluation"]:
+            raise ValueError('`mode` can only be `"training"` or `"evaluation"`')
+        if kw_data_aug and mode == "evaluation":
+            raise ValueError("No data augmentation is supported in evaluation mode.")
+        images, masks, weights = dataset
+        if crop:
+            if mode == "training":
+                self.images = images
+                self.masks = masks
+                self.weights = weights
+            else:
+                images = [utils.create_windows(img, target_size)[0] for img in images]
+                masks = [utils.create_windows(seg, target_size)[0] for seg in masks]
+                weights = [utils.create_windows(wei, target_size)[0] for wei in weights]
+                self.images = np.concatenate(images)
+                self.masks = np.concatenate(masks)
+                self.weights = np.concatenate(weights)
+        else:
+            self.images = [cv2.resize(img, target_size[::-1], cv2.INTER_LINEAR) for img in images]
+            self.masks = [cv2.resize(seg, target_size[::-1], cv2.INTER_NEAREST) for seg in masks]
+            self.weights = [cv2.resize(wei, target_size[::-1], cv2.INTER_LINEAR) for wei in weights]
+        self.order = np.arange(len(self.images))
+        self.target_size = target_size
+        self.mode = mode
+        self.kw_data_aug = kw_data_aug
+        self.crop = crop
+        self.rng = rng
+        self.stack = stack
+        print(f"{mode} dataset with {len(self)} samples.")
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        idx = self.order[idx]
+        image, mask, weights = self.images[idx], self.masks[idx], self.weights[idx]
+        if self.mode == "evaluation":
+            if self.stack:
+                return (
+                    image[np.newaxis, :, :, np.newaxis],
+                    np.dstack([mask, weights])[np.newaxis, :, :, :],
+                )
+            return (
+                image[np.newaxis, :, :, np.newaxis],
+                mask[np.newaxis, :, :, np.newaxis],
+                weights[np.newaxis, :, :, np.newaxis],
+            )
+        if self.crop:
+            image, mask, weights = random_crop(image, mask, weights, self.target_size, self.rng)
+        image, mask, weights = data_augmentation(
+            [image, mask, weights],
+            aug_par=self.kw_data_aug,
+            order=[1, 0, 1],
+            rng=self.rng,
+        )
+        if self.stack:
+            return (
+                image[np.newaxis, :, :, np.newaxis],
+                np.dstack([mask, weights])[np.newaxis, :, :, :],
+            )
+        return (
+            image[np.newaxis, :, :, np.newaxis],
+            mask[np.newaxis, :, :, np.newaxis],
+            weights[np.newaxis, :, :, np.newaxis],
+        )
+
+    def on_epoch_end(self):
+        """
+        Method executed after each epoch.
+        """
+        if self.mode == "training":
+            self.rng.shuffle(self.order)
+
+
+def load_training_dataset_seg(
+    dataset_path: Path,
+    target_size: Tuple[int, int],
+    crop: bool,
+    kw_data_aug: Dict[str, Any],
+    validation_split: float = 0,
+    test_split: float = 0,
     seed: int = 1,
-    crop_windows: bool = False,
-) -> Iterator[Tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]]:
+    stack: bool = False,
+) -> Union[
+    SegmentationDataset,
+    Tuple[SegmentationDataset, SegmentationDataset],
+    Tuple[SegmentationDataset, SegmentationDataset, SegmentationDataset]
+]:
     """
-    Generator for training the segmentation U-Net.
+    Creates new segmentation datasets.
 
     Parameters
     ----------
-    batch_size : int
-        Batch size, number of training samples to concatenate together.
-    img_path : Path
-        Path to folder containing training input images.
-    mask_path : Path
-        Path to folder containing training segmentation groundtruth.
-    weight_path : Path, optional
-        Path to folder containing weight map images.
-    target_size : tuple of 2 ints, optional
-        Input and output image size.
-        The default is (256,32).
-    augment_params : dict, optional
-        Data augmentation parameters. See data_augmentation() doc for more info
-        The default is {}.
-    preload : bool, optional
-        Flag to load all training inputs in memory during intialization of the
-        generator.
-        The default is False.
+    dataset_path : Path
+        Path of the folder that contains `img`, `seg` and optionally `wei`.
+    target_size : (int, int)
+        Target size of the images (input size of the neural network).
+    crop : bool
+        If `True`, the images are cropped to the target size, if `False`, they
+        are resized.  Typically we resize mother machine images and crop 2D pad
+        images.
+    kw_data_aug : Dict[str, Any]
+        Parameters for the data augmentation function (see `data_augmentation`).
+    validation_split : float, optional
+        Proportion (between 0 and 1) of the input images used for the validation set.
+        The default is 0.
+    test_split : float, optional
+        Proportion (between 0 and 1) of the input images used for the test set.
+        The default is 0.
     seed : int, optional
         Seed for the random number generator.
         The default is 1.
-    crop_windows : bool, optional
-        TODO
-        The default is False.
+    stack : bool, optional
+        Whether to stack the labels and weights.  This is a technicality that
+        should be removed soon.  For now, specify `True` for cell segmentation
+        and `False` for RoI segmentation (follow the example scripts).
 
-    Yields
-    ------
-    image_arr : 4D numpy array of floats
-        Input images for the U-Net training routine. Dimensions of the tensor
-        are (batch_size, target_size[0], target_size[1], 1)
-    mask_wei_arr : 4D numpy array of floats
-        Output masks and weight maps for the U-Net training routine. Dimensions
-        of the tensor are (batch_size, target_size[0], target_size[1], 2)
-
+    Returns
+    -------
+    train_ds : SegmentationDataset,
+    validation_ds : SegmentationDataset, (optional)
+    test_ds : SegmentationDataset, (optional)
     """
-    preload_mask = []
-    preload_img = []
-    preload_weight = []
 
-    resize_method = "pad" if crop_windows else "resize"
-
-    # Get training image files list:
-    image_names = utils.listfiles(img_path, {".png", ".tif"})
-
-    # If preloading, load the images and compute weight maps:
-    if preload:
-        for filename in image_names:
-            preload_img.append(
-                readreshape(
-                    filename, target_size=target_size, order=1, method=resize_method
-                )
-            )
-            preload_mask.append(
-                readreshape(
-                    mask_path / filename.name,
-                    target_size=target_size,
-                    binarize=True,
-                    order=0,
-                    method=resize_method,
-                )
-            )
-            if weight_path is not None:
-                preload_weight.append(
-                    readreshape(
-                        weight_path / filename.name,
-                        target_size=target_size,
-                        order=0,
-                        method=resize_method,
-                    ),
-                )
-
-    # Create a seeded PRNG
     rng = npr.default_rng(seed)
 
-    image_arr = np.empty((batch_size,) + target_size + (1,), dtype=np.float32)
-    if weight_path is None:
-        mask_wei_arr = np.empty((batch_size,) + target_size + (1,), dtype=np.float32)
+    datasets = _load_images_seg(dataset_path, validation_split, test_split, rng)
+
+    train_imgs = datasets[0] if validation_split or test_split else datasets
+
+    train_ds = SegmentationDataset(
+        train_imgs,
+        target_size,
+        mode="training",
+        kw_data_aug=kw_data_aug,
+        crop=crop,
+        rng=rng,
+        stack=stack,
+    )
+
+    if not validation_split and not test_split:
+        return train_ds
+
+    other_dss = [
+        SegmentationDataset(
+            other_imgs,
+            target_size,
+            mode="evaluation",
+            kw_data_aug=None,
+            crop=crop,
+            rng=None,
+            stack=stack,
+        )
+        for other_imgs in datasets[1:]
+    ]
+    return [train_ds, *other_dss]
+
+
+def _load_images_seg(
+    dataset_path: Path,
+    validation_split: float,
+    test_split: float,
+    rng: npr.Generator,
+) -> Iterable[Tuple[utils.Image, utils.SegmentationMask, Union[int, utils.Image]]]:
+    """
+    Loads the training dataset for ROI segmentation, and splits them randomly
+    into non-overlapping splits (training, validation, etc.).
+
+    Parameters
+    ----------
+    dataset_path: Path
+        Path of the training dataset, containing `img` (input images) and `seg`
+        (segmentation weights).
+
+    Returns
+    -------
+    datasets: Iterable[Tuple[utils.Image, utils.SegmentationMask, utils.Image]]
+        The same number of datasets as requested splits.  Each dataset is a
+        tuple of (original image, segmentation mask, sample weights).
+    """
+    with_weights = (dataset_path / "wei").is_dir()
+
+    counter = Counter()
+    images = []
+    masks = []
+    if with_weights:
+        weights = []
+    for img_path in sorted((dataset_path / "img").iterdir()):
+        if img_path.name == "Sample000245.png":
+            continue
+        image = utils.read_image(img_path)
+        counter[tuple(image.flatten())] += 1
+        if counter[tuple(image.flatten())] > 1:
+            continue
+        images.append(image)
+        mask = utils.read_image(dataset_path / "seg" / img_path.name)
+        if mask.shape != image.shape:
+            raise RuntimeError(
+                "Check the dataset. Image and mask don't have the same "
+                f"shape for {img_path.name}."
+            )
+        masks.append(mask.astype(np.uint8))
+        if with_weights:
+            weight = utils.read_image(dataset_path / "wei" / img_path.name)
+            if weight.shape != image.shape:
+                raise RuntimeError(
+                    "Check the dataset. Image and weights don't have the same "
+                    f"shape for {img_path.name}."
+                )
+            weights.append(weight)
+
+    if any(count > 1 for count in counter.values()):
+        warnings.warn("You have duplicate training images. Is this intentional?")
+
+    # Create an array of indices, each of them with a frequency given by its
+    # respective split, then shuffle it.
+    splits = np.array([0, 1 - validation_split - test_split, 1 - test_split, 1])
+    nsplits = np.diff(np.round(splits * len(images)))
+    indices = np.concatenate([[i] * int(n) for i, n in enumerate(nsplits)])
+    rng.shuffle(indices)
+
+    if with_weights:
+        weights = [counter[tuple(image.flatten())] * weight for image, weight in zip(images, weights)]
     else:
-        mask_wei_arr = np.empty((batch_size,) + target_size + (2,), dtype=np.float32)
+        weights = [counter[tuple(image.flatten())] * np.ones_like(image) for image in images]
 
-    while True:
-        # Reset image arrays:
+    flags = [True, validation_split > 0, test_split > 0]
+    datasets = [
+        (
+            [image for index, image in zip(indices, images) if index == i],
+            [mask for index, mask in zip(indices, masks) if index == i],
+            [weight for index, weight in zip(indices, weights) if index == i],
+        )
+        for i, flag in enumerate(flags) if flag
+    ]
+    return datasets[0] if len(datasets) == 1 else datasets
 
-        for b in range(batch_size):
-            # Pick random image index:
-            index = rng.integers(len(image_names))
 
-            if preload:
-                # Get from preloaded arrays:
-                img = preload_img[index]
-                mask = preload_mask[index]
-                weight = preload_weight[index]
-            else:
-                # Read images:
-                filename = image_names[index]
-                img = readreshape(
-                    filename, target_size=target_size, order=1, method=resize_method
-                )
-                mask = readreshape(
-                    mask_path / filename.name,
-                    target_size=target_size,
-                    binarize=True,
-                    order=0,
-                    method=resize_method,
-                )
-                if weight_path is not None:
-                    weight = readreshape(
-                        weight_path / filename.name,
-                        target_size=target_size,
-                        order=0,
-                        method=resize_method,
-                    )
+def random_crop(
+    img: utils.Image,
+    seg: utils.SegmentationMask,
+    wei: utils.Image,
+    target_size: Tuple[int, int],
+    rng: npr.Generator,
+) -> Tuple[utils.Image, utils.SegmentationMask, utils.Image]:
+    """
+    Returns a tuple of (image, segmentation mask, weight map) randomly cropped
+    and padded with zeros if necessary.
 
-            if crop_windows:
-                y0 = rng.integers(img.shape[0] - (target_size[0] - 1))
-                y1 = y0 + target_size[0]
-                x0 = rng.integers(img.shape[1] - (target_size[1] - 1))
-                x1 = x0 + target_size[1]
+    Parameters
+    ----------
+    img: utils.Image
+        Input image.
+    seg: utils.SegmentationMask
+        Segmentation mask (binary image with 0 for background and 1 for cells).
+    wei: utils.Image
+        Pixel-wise weights.
+    target_size: Tuple[int, int]
+        Target size for the resizing.
+    rng: npr.Generator
+        Random number generator.
 
-                img = img[y0:y1, x0:x1]
-                mask = mask[y0:y1, x0:x1]
-                if weight_path is not None:
-                    weight = weight[y0:y1, x0:x1]
+    Returns
+    -------
+    img, seg, wei: Tuple[utils.Image, utils.SegmentationMask, utils.Image]
+        Resized training sample.
+    """
+    if img.shape == target_size:
+        return (img, seg, wei)
 
-            # Data augmentation:
-            if weight_path is not None:
-                [img, mask, weight] = data_augmentation(
-                    [img, mask, weight], augment_params, order=[1, 0, 0], rng=rng
-                )
-            else:
-                [img, mask] = data_augmentation(
-                    [img, mask], augment_params, order=[1, 0], rng=rng
-                )
+    start_y = rng.integers(max(0, img.shape[0] - target_size[0]) + 1)
+    start_x = rng.integers(max(0, img.shape[1] - target_size[1]) + 1)
+    end_y = min(start_y + target_size[0], img.shape[0])
+    end_x = min(start_x + target_size[1], img.shape[1])
+    pad_y = target_size[0] - (end_y - start_y)
+    pad_x = target_size[1] - (end_x - start_x)
+    padding = ((pad_y//2, pad_y - pad_y//2), (pad_x//2, pad_x - pad_x//2))
 
-            # Compile into output arrays:
-            image_arr[b, :, :, 0] = img
-            mask_wei_arr[b, :, :, 0] = mask
-            if weight_path is not None:
-                mask_wei_arr[b, :, :, 1] = weight
+    img = np.pad(img[start_y:end_y, start_x:end_x], padding)
+    seg = np.pad(seg[start_y:end_y, start_x:end_x], padding)
+    wei = np.pad(wei[start_y:end_y, start_x:end_x], padding)
 
-        yield (image_arr, mask_wei_arr)
+    assert img.shape == target_size, f"{img.shape}"
+    assert seg.shape == target_size, f"{seg.shape}"
+    assert wei.shape == target_size, f"{wei.shape}"
+    return (img, seg, wei)
 
 
 def saveResult_seg(
