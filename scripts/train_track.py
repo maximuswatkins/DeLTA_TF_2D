@@ -3,23 +3,27 @@ This script trains the tracking U-Net.
 
 @author: jblugagne
 """
+from pathlib import Path
+
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
+import delta
 from delta.data import trainGenerator_track
 from delta.model import unet_track
-from delta.utilities import cfg
 
 # Set tensorflow's random seed to make the training reproducible
 # (only on CPU: not reproducible on GPU yet)
 tf.keras.utils.set_random_seed(1)
 
-# Load config:
-cfg.load_config(presets="2D")
+# Default config
+config = delta.config.DEFAULT_CONFIG_2D
+# Uncomment if you already have a config file
+# config = delta.config.Config.read("/path/to/your/config.yml")
 
 # Files:
-training_set = cfg.training_set_track
-savefile = cfg.model_file_track
+training_set = config.training_set_path("tracking")
+savefile = Path("new_tracking_model.hdf5")
 
 # Training parameters:
 batch_size = 2
@@ -46,14 +50,14 @@ myGene = trainGenerator_track(
     training_set / "mot_dau",
     training_set / "wei",
     data_gen_args,
-    target_size=cfg.target_size_track,
-    crop_windows=cfg.crop_windows,
+    target_size=config.target_size_track,
+    crop_windows=config.crop_windows,
     shift_cropbox=5,
 )
 
 
 # Define model:
-model = unet_track(input_size=cfg.target_size_track + (4,))
+model = unet_track(input_size=config.target_size_track + (4,))
 model.summary()
 
 # Callbacks:

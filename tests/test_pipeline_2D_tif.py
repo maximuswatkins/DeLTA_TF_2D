@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 import delta
+from delta.config import DEFAULT_CONFIG_2D
 
 
 @pytest.mark.order(2)
@@ -22,14 +23,11 @@ def test_pipeline_tif_stack():
     xpfolder = Path(__file__).parent / "data/movie_2D_tif"
     sys.argv.append(str(xpfolder))
 
-    # Load configuration:
-    delta.utils.cfg.load_config(presets="2D", config_level=None)
-
     # Init reader
     xpreader = delta.utils.xpreader()
 
     # Init pipeline:
-    xp = delta.pipeline.Pipeline(xpreader)
+    xp = delta.pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
     xp.process(frames=[0, 1, 2, 3], clear=False)
 
@@ -61,7 +59,7 @@ def test_pipeline_tif_stack():
 
     # Load up processor:
     new_xp = delta.pipeline.Pipeline(
-        new_xpreader, reload=True, resfolder=xpfolder / "delta_results"
+        new_xpreader, DEFAULT_CONFIG_2D, reload=True, resfolder=xpfolder / "delta_results"
     )
 
     assert len(xp.positions) == len(new_xp.positions)

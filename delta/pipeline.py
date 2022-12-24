@@ -14,12 +14,13 @@ from typing import Any, Dict, List, Optional, Tuple, Union, cast
 import cv2
 import numpy as np
 import numpy.typing as npt
+import tensorflow as tf
 from scipy.io import savemat
 
 from delta import utilities as utils
-from delta.assets import loadmodels
+from delta.config import Config
 from delta.data import binarizerange, postprocess
-from delta.utilities import cfg, CroppingBox
+from delta.utilities import CroppingBox
 
 
 class Pipeline:
@@ -30,10 +31,9 @@ class Pipeline:
     def __init__(
         self,
         xpreader: utils.xpreader,
+        config: Config,
         resfolder: Optional[Union[str, Path]] = None,
-        on_the_fly: bool = False,
         reload: bool = False,
-        verbose: int = 1,
     ) -> None:
         """
         Initialize Pipeline.
@@ -45,45 +45,21 @@ class Pipeline:
         resfolder : str or Path, optional
             Path to folder to save results to.
             The default is None.
-        on_the_fly : bool, optional
-            TODO
         reload : bool, optional
             Flag to reload previous position files from resfolder.
             The default is False.
-        verbose : int, optional
-            Verbosity flag. The default is 1.
 
         Returns
         -------
         None.
 
         """
-        super().__init__()
-
-        if cfg._LOADED is None:
-            warnings.warn(
-                """You do not seem to have loaded a configuration file yet.
-                This will most likely cause errors."""
-            )
 
         self.reader: utils.xpreader = xpreader
-        "Experiment reader object"
         self.positions: List[Position] = []
-        "List of Position objects under current experiment"
-        self.rotation_correction = cfg.rotation_correction
-        "Flag to perform rotation correction"
-        self.drift_correction = cfg.drift_correction
-        "Flag to perform XY drift correction"
-        self.crop_windows = cfg.crop_windows
-        "Flag to crop overlapping windows for segmentation"
-        self.save_format = cfg.save_format
-        "List of file save formats"
-        self.daemon = True
-        "Run the pipeline as a daemon process (not functional yet)"
+        self.config = config
 
-        # Load models:
-        self.models = loadmodels()
-        "Dictionary of Tensorflow models"
+        self.models = {model: config.model(model) for model in config.models}
 
         for arg_index, arg in enumerate(sys.argv):
             if sys.argv[arg_index] == "--resfolder":
@@ -108,8 +84,7 @@ class Pipeline:
                     p,
                     self.reader,
                     self.models,
-                    drift_correction=self.drift_correction,
-                    crop_windows=self.crop_windows,
+                    config=self.config,
                 )
             ]
 
@@ -143,7 +118,7 @@ class Pipeline:
         None.
 
         """
-        # TODO implement ROIs mode selection here instead of cfg
+        # TODO implement ROIs mode selection here instead of config
 
         # Process positions to run:
         if positions is None:
@@ -155,7 +130,7 @@ class Pipeline:
         for p in positions_torun:
             self.positions[p].preprocess(
                 reference=references[p] if isinstance(references, np.ndarray) else None,
-                rotation_correction=self.rotation_correction,
+                rotation_correction=self.config.rotation_correction,
             )
 
     def process(
@@ -207,7 +182,7 @@ class Pipeline:
             # Preprocess is not done already:
             if not self.positions[p]._preprocessed:
                 self.positions[p].preprocess(
-                    rotation_correction=self.rotation_correction
+                    rotation_correction=self.config.rotation_correction
                 )
 
             # Segment all frames:
@@ -223,7 +198,7 @@ class Pipeline:
             self.positions[p].save(
                 filename=self.resfolder / f"Position{p:06d}",
                 frames=frames,
-                save_format=self.save_format,
+                save_format=self.config.save_format,
             )
 
             if clear:
@@ -283,9 +258,8 @@ class Position:
         self,
         position_nb: int,
         reader: utils.xpreader,
-        models: Dict,
-        drift_correction: bool = True,
-        crop_windows: bool = False,
+        models: Dict[str, tf.keras.Model],
+        config: Config,
     ) -> None:
         """
         Initialize Position.
@@ -296,8 +270,8 @@ class Position:
             Position index.
         reader : object
             utilities xpreader object.
-        models : dict
-            U-Net models as loaded by utilities loadmodels().
+        models : Dict[str, tf.keras.Model]
+            U-Net models.
         drift_correction : bool, optional
             Flag to perform drift correction. The default is True.
         crop_windows : bool, optional
@@ -318,10 +292,7 @@ class Position:
         "List of ROI objects under position"
         self.drift_values: List = [[], []]
         "XY drift correction values over time"
-        self.drift_correction = drift_correction
-        "Flag to perform drift correction"
-        self.crop_windows: bool = crop_windows
-        "Flag to crop overlapping windows for segmentation"
+        self.config = config
         self.verbose: int = 1
         "Console output verbosity"
         self._preprocessed: bool = False
@@ -331,16 +302,12 @@ class Position:
         eq_position_nb = self.position_nb == other.position_nb
         eq_rois = self.rois == other.rois
         eq_drift_values = np.array_equal(self.drift_values, other.drift_values)
-        eq_drift_correction = self.drift_correction == other.drift_correction
-        eq_crop_windows = self.crop_windows == other.crop_windows
         eq_verbose = self.verbose == other.verbose
         eq__preprocessed = self._preprocessed == other._preprocessed
         eqs = [
             eq_position_nb,
             eq_rois,
             eq_drift_values,
-            eq_drift_correction,
-            eq_crop_windows,
             eq_verbose,
             eq__preprocessed,
         ]
@@ -431,21 +398,23 @@ class Position:
                     box=CroppingBox(
                         xtl=0, ytl=0, xbr=reference.shape[1], ybr=reference.shape[0]
                     ),
-                    crop_windows=self.crop_windows,
+                    config=self.config,
                 )
             ]
 
         # Get drift correction template and box
-        if self.drift_correction:
+        if self.config.drift_correction:
             self.drifttemplate = utils.getDriftTemplate(
-                [r.box for r in self.rois], reference, whole_frame=cfg.whole_frame_drift
+                [r.box for r in self.rois],
+                reference,
+                whole_frame=self.config.whole_frame_drift,
             )
             self.driftcorbox = CroppingBox(
                 xtl=0,
                 xbr=reference.shape[1],
                 ytl=0,
                 ybr=reference.shape[0]
-                if cfg.whole_frame_drift
+                if self.config.whole_frame_drift
                 else max(roi.box.ytl for roi in self.rois),
             )
 
@@ -471,14 +440,14 @@ class Position:
 
         # Predict
         rois_pred = self.models["rois"].predict(
-            cv2.resize(reference, cfg.target_size_rois)[np.newaxis, :, :, np.newaxis],
+            cv2.resize(reference, self.config.target_size_rois)[np.newaxis, :, :, np.newaxis],
             verbose=0,
         )
 
         # Clean up:
         self.roismask = postprocess(
             cv2.resize(np.squeeze(rois_pred), reference.shape[::-1]),
-            min_size=cfg.min_roi_area,
+            min_size=self.config.min_roi_area,
         )
 
         # Get boxes
@@ -486,7 +455,7 @@ class Position:
 
         # Instantiate ROIs:
         for b, box in enumerate(roisboxes):
-            self.rois += [ROI(roi_nb=b, box=box, crop_windows=self.crop_windows)]
+            self.rois += [ROI(roi_nb=b, box=box, config=self.config)]
 
     def segment(self, frames: List[int]) -> None:
         """
@@ -518,7 +487,7 @@ class Position:
             trans_frames = trans_frames[np.newaxis, :, :]
 
         # Correct drift:
-        if self.drift_correction:
+        if self.config.drift_correction:
             trans_frames, self.drift_values = utils.driftcorr(
                 trans_frames, template=self.drifttemplate, box=self.driftcorbox
             )
@@ -535,9 +504,9 @@ class Position:
 
         # Run segmentation model:
         y = np.empty_like(x)
-        for i in range(0, len(x), cfg.pipeline_seg_batch):
+        for i in range(0, len(x), self.config.pipeline_seg_batch):
             self._msg(f"Segmentation - ROI ({i}/{len(x)})")
-            j = min((len(x), i + cfg.pipeline_seg_batch))
+            j = min((len(x), i + self.config.pipeline_seg_batch))
             y[i:j] = self.models["segmentation"].predict(x[i:j], batch_size=1)
 
         # Dispatch segmentation outputs to rois:
@@ -576,10 +545,14 @@ class Position:
                 references.append((iroi, len(inputs), boxes))
 
             # Predict:
-            x = np.concatenate(x) if x else np.empty((0, *cfg.target_size_track, 4))
+            x = (
+                np.concatenate(x)
+                if x
+                else np.empty((0, *self.config.target_size_track, 4))
+            )
             y = np.empty(shape=(*x.shape[:3], 1))
-            for i in range(0, len(x), cfg.pipeline_track_batch):
-                j = min(len(x), i + cfg.pipeline_track_batch)
+            for i in range(0, len(x), self.config.pipeline_track_batch):
+                j = min(len(x), i + self.config.pipeline_track_batch)
                 y[i:j] = self.models["tracking"].predict(
                     x[i:j],
                     batch_size=1,
@@ -639,7 +612,7 @@ class Position:
                 rotate=self.rotate,
             )
             # Apply drift correction
-            if self.drift_correction:
+            if self.config.drift_correction:
                 for f in range(fluo_frames.shape[1]):
                     fluo_frames[:, f, :, :], _ = utils.driftcorr(
                         fluo_frames[:, f, :, :], drift=self.drift_values
@@ -904,7 +877,7 @@ class Position:
         )
         trans_frames = trans_frames[:, 0]
 
-        if self.drift_correction:
+        if self.config.drift_correction:
             trans_frames, _ = utils.driftcorr(trans_frames, drift=self.drift_values)
         movie = []
 
@@ -1007,9 +980,7 @@ class ROI:
     ROI processor object.
     """
 
-    def __init__(
-        self, roi_nb: int, box: CroppingBox, crop_windows: bool = False
-    ) -> None:
+    def __init__(self, roi_nb: int, box: CroppingBox, config: Config) -> None:
         """
         Initialize ROI.
 
@@ -1019,9 +990,7 @@ class ROI:
             ROI index.
         box : CroppingBox
             CroppingBox for ROI.
-        crop_windows : bool, optional
-            Flag to crop and stitch back windows for segmentation and tracking.
-            The default is False.
+        config : Config
 
         Returns
         -------
@@ -1040,33 +1009,21 @@ class ROI:
         "Lineage object for ROI"
         self.label_stack: List[utils.Labels] = []
         "Labelled images stack"
-        self.crop_windows: bool = crop_windows
-        "Flag to crop overlapping windows for segmentation"
-        self.verbose: int = 1
-        "Console outputs verbosity"
+        self.config = config
 
-        if crop_windows:
+        if config.crop_windows:
             self.scaling = None
         else:
             self.scaling = (
-                (box.ybr - box.ytl) / cfg.target_size_seg[0],
-                (box.xbr - box.xtl) / cfg.target_size_seg[1],
+                (box.ybr - box.ytl) / self.config.target_size_seg[0],
+                (box.xbr - box.xtl) / self.config.target_size_seg[1],
             )
 
     def __eq__(self, other) -> bool:
         print(f"ROI {self.roi_nb}")
-        eq_keys = self.__dict__.keys() == other.__dict__.keys()
-        if not eq_keys:
-            print("ROIs differ by arguments")
-        eq_verbose = self.verbose == other.verbose
-        if not eq_verbose:
-            print("ROIs differ by verbose")
         eq_roi_nb = self.roi_nb == other.roi_nb
         if not eq_roi_nb:
             print("ROIs differ by roi_nb")
-        eq_crop_windows = self.crop_windows == other.crop_windows
-        if not eq_crop_windows:
-            print("ROIs differ by crop_windows")
         eq_box = self.box == other.box
         if not eq_box:
             print("ROIs differ by box")
@@ -1093,15 +1050,12 @@ class ROI:
         if not eq_lineage:
             print("ROIs differ by lineage")
         eqs = [
-            eq_keys,
             eq_lineage,
             eq_roi_nb,
             eq_box,
             eq_img_stack,
             eq_seg_stack,
             eq_label_stack,
-            eq_crop_windows,
-            eq_verbose,
         ]
         return all(eqs)
 
@@ -1120,7 +1074,7 @@ class ROI:
         -------
         x : 4D array
             Segmentation input array. Dimensions are
-            (windows, *cfg.target_size_seg, 1).
+            (windows, *self.config.target_size_seg, 1).
         windows : tuple of 2 lists
             y and x coordinates of crop windows if any, or None.
 
@@ -1132,17 +1086,17 @@ class ROI:
         # Append i as is to input images stack:
         self.img_stack.append(i)
 
-        if self.crop_windows:
+        if self.config.crop_windows:
             # Crop out windows:
             x, windows_y, windows_x = utils.create_windows(
-                i, target_size=cfg.target_size_seg
+                i, target_size=self.config.target_size_seg
             )
             windows = (windows_y, windows_x)
             # Shape x to expected format:
             x = x[:, :, :, np.newaxis]
             return x, windows
         # Resize to unet input size (cv2 wants the reverse size)
-        x = cv2.resize(i, dsize=cfg.target_size_seg[::-1])
+        x = cv2.resize(i, dsize=self.config.target_size_seg[::-1])
         # Shape x to expected format:
         x = x[np.newaxis, :, :, np.newaxis]
         return x, None
@@ -1160,7 +1114,7 @@ class ROI:
         ----------
         y : 4D array
             Segmentation output array. Dimensions are
-            (windows, *cfg.target_size_seg, 1).
+            (windows, *self.config.target_size_seg, 1).
         frame : int or None, optional
             Frame index. If None, this is considered the latest frame's output.
             The default is None.
@@ -1181,10 +1135,10 @@ class ROI:
         # Binarize:
         y = binarizerange(y, threshold=0).astype(np.uint8)
         # Crop out segmentation if image was smaller than target_size
-        if self.crop_windows:
+        if self.config.crop_windows:
             y = y[: self.img_stack[0].shape[0], : self.img_stack[0].shape[1]]
         # Area filtering:
-        y = utils.opencv_areafilt(y, min_area=cfg.min_cell_area)
+        y = utils.opencv_areafilt(y, min_area=self.config.min_cell_area)
 
         # Append to segmentation results stack:
         if frame is None or frame == len(self.seg_stack):
@@ -1213,7 +1167,7 @@ class ROI:
         -------
         x : 4D array or None
             Tracking input array. Dimensions are
-            (previous_cells, *cfg.target_size_track, 4).
+            (previous_cells, *self.config.target_size_track, 4).
         boxes : List of tuples of 2 dicts or None
             Crop and fill boxes to re-place outputs in the ROI
 
@@ -1233,26 +1187,26 @@ class ROI:
         prev_cell_contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))
 
         # Allocate empty tracking inputs array:
-        x = np.empty((len(prev_cell_contours), *cfg.target_size_track, 4), dtype=np.float32)
+        x = np.empty((len(prev_cell_contours), *self.config.target_size_track, 4), dtype=np.float32)
 
         # Run through contours and compile inputs:
         boxes = []
         for c, cell in enumerate(prev_cell_contours):
 
             draw_offset: Optional[Tuple[float, float]]
-            if self.crop_windows:
+            if self.config.crop_windows:
                 curr_img = self.img_stack[frame]
                 prev_img = self.img_stack[frame - 1]
                 # Cell-centered crop boxes:
                 shape = cast(Tuple[int, int], curr_img.shape)  # for mypy
-                cb, fb = utils.gettrackingboxes(cell, shape)
+                cb, fb = utils.gettrackingboxes(cell, shape, self.config.target_size_track)
                 draw_offset = (-cb.xtl + fb.xtl, -cb.ytl + fb.ytl)
             else:
                 curr_img = cv2.resize(
-                    self.img_stack[frame], dsize=cfg.target_size_seg[::-1]
+                    self.img_stack[frame], dsize=self.config.target_size_seg[::-1]
                 )
                 prev_img = cv2.resize(
-                    self.img_stack[frame - 1], dsize=cfg.target_size_seg[::-1]
+                    self.img_stack[frame - 1], dsize=self.config.target_size_seg[::-1]
                 )
                 cb = CroppingBox.full(curr_img)
                 fb = CroppingBox.full(curr_img)
@@ -1264,7 +1218,7 @@ class ROI:
 
             # Segmentation mask of one previous cell (seed)
             x[c, :, :, 1] = cv2.drawContours(
-                np.zeros(cfg.target_size_track, dtype=np.float32),
+                np.zeros(self.config.target_size_track, dtype=np.float32),
                 [cell],
                 0,
                 offset=draw_offset,
@@ -1296,7 +1250,7 @@ class ROI:
         ----------
         y : 4D array
             Tracking output array. Dimensions are
-            (previous_cells, *cfg.target_size_track, 1).
+            (previous_cells, *self.config.target_size_track, 1).
         frame : int
             The frame to process for.
         boxes : List of tuples of 2 dicts or None
@@ -1313,7 +1267,7 @@ class ROI:
         labels = utils.label_seg(self.seg_stack[frame])
         assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
         scores = utils.getTrackingScores(
-            labels, y[:, :, :, 0], boxes=boxes if self.crop_windows else None
+            labels, y[:, :, :, 0], boxes=boxes if self.config.crop_windows else None
         )
 
         attributions = utils.getAttributions(scores)
@@ -1344,7 +1298,7 @@ class ROI:
             cell_nbs = [c + 1 for c in self.lineage.cellnumbers[frame]]
         labels = utils.label_seg(self.seg_stack[frame], cell_nbs)
 
-        if not self.crop_windows:
+        if not self.config.crop_windows:
             resize = (
                 self.box.xbr - self.box.xtl,
                 self.box.ybr - self.box.ytl,

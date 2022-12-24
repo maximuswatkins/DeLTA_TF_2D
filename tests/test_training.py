@@ -7,23 +7,21 @@ Created on Tue Nov  9 16:40:02 2021.
 import pytest
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
-from delta.assets import training_set_path
+from delta.config import (_DELTA_DIR, DEFAULT_CONFIG_2D,
+                          DEFAULT_CONFIG_MOTHERMACHINE)
 from delta.data import load_training_dataset_seg, trainGenerator_track
 from delta.model import unet_rois, unet_seg, unet_track
-from delta.utilities import cfg
 
 
 @pytest.mark.order(3)
 def test_train_moma_rois():
-    # Load config:
-    cfg.load_config(presets="mothermachine", config_level=None)
-
-    # Files:
-    training_set = training_set_path("rois")
-    savefile = cfg._DELTA_DIR / "assets/test_models/test_train_mothermachine_rois.hdf5"
+    # Load config
+    config = DEFAULT_CONFIG_MOTHERMACHINE
+    # Files
+    training_set = config.training_set_path("rois")
+    savefile = _DELTA_DIR / "assets/test_models/test_train_mothermachine_rois.hdf5"
 
     # Parameters:
-    batch_size = 1
     epochs = 3
     steps_per_epoch = 30
     patience = 50
@@ -45,14 +43,14 @@ def test_train_moma_rois():
     # Generator init:
     ds_train, ds_val = load_training_dataset_seg(
         dataset_path=training_set,
-        target_size=cfg.target_size_rois,
+        target_size=config.target_size_rois,
         crop=False,
         kw_data_aug=data_gen_args,
         validation_split=0.05,
     )
 
     # Define model:
-    model = unet_rois(input_size=cfg.target_size_rois + (1,))
+    model = unet_rois(input_size=config.target_size_rois + (1,))
     model.summary()
 
     # Callbacks:
@@ -73,24 +71,17 @@ def test_train_moma_rois():
     )
 
 
-@pytest.mark.order(2)
-def test_train_seg_moma():
-    _train_seg("mothermachine", batch_size=3)
+@pytest.mark.parametrize("presets, batch_size", [("2D", 1), ("mothermachine", 3)])
+def test_train_seg(presets, batch_size):
 
-
-@pytest.mark.order(2)
-def test_train_seg_2D():
-    _train_seg("2D")
-
-
-def _train_seg(presets, batch_size=1):
-
-    # Load config:
-    cfg.load_config(presets=presets, config_level=None)
-
-    # Files:
-    training_set = training_set_path("seg")
-    savefile = cfg._DELTA_DIR / f"assets/test_models/test_train_{presets}_seg.hdf5"
+    # Load config
+    if presets == "2D":
+        config = DEFAULT_CONFIG_2D
+    else:
+        config = DEFAULT_CONFIG_MOTHERMACHINE
+    # Files
+    training_set = config.training_set_path("seg")
+    savefile = _DELTA_DIR / f"assets/test_models/test_train_{presets}_seg.hdf5"
 
     # Training parameters:
     # batch_size = 2
@@ -113,7 +104,7 @@ def _train_seg(presets, batch_size=1):
     # Generator init:
     ds_train, ds_val = load_training_dataset_seg(
         dataset_path=training_set,
-        target_size=cfg.target_size_seg,
+        target_size=config.target_size_seg,
         crop=presets == "2D",
         kw_data_aug=data_gen_args,
         validation_split=0.05,
@@ -121,7 +112,7 @@ def _train_seg(presets, batch_size=1):
     )
 
     # Define model:
-    model = unet_seg(input_size=cfg.target_size_seg + (1,))
+    model = unet_seg(input_size=config.target_size_seg + (1,))
     model.summary()
 
     # Callbacks:
@@ -142,24 +133,17 @@ def _train_seg(presets, batch_size=1):
     )
 
 
-@pytest.mark.order(2)
-def test_train_track_moma():
-    _train_track("mothermachine")
-
-
-@pytest.mark.order(2)
-def test_train_track_2D():
-    _train_track("2D")
-
-
-def _train_track(presets):
-    # Load config:
-    cfg.load_config(presets="2D", config_level=None)
-
-    # Files:
-    training_set = training_set_path("track")
+@pytest.mark.parametrize("presets", ["2D", "mothermachine"])
+def test_train_track(presets):
+    # Load config
+    if presets == "2D":
+        config = DEFAULT_CONFIG_2D
+    else:
+        config = DEFAULT_CONFIG_MOTHERMACHINE
+    # Files
+    training_set = config.training_set_path("track")
     savefile = savefile = (
-        cfg._DELTA_DIR / f"assets/test_models/test_train_{presets}_track.hdf5"
+        _DELTA_DIR / f"assets/test_models/test_train_{presets}_track.hdf5"
     )
 
     # Training parameters:
@@ -187,13 +171,13 @@ def _train_track(presets):
         training_set / "mot_dau",
         training_set / "wei",
         data_gen_args,
-        target_size=cfg.target_size_track,
-        crop_windows=cfg.crop_windows,
+        target_size=config.target_size_track,
+        crop_windows=config.crop_windows,
         shift_cropbox=5,
     )
 
     # Define model:
-    model = unet_track(input_size=cfg.target_size_track + (4,))
+    model = unet_track(input_size=config.target_size_track + (4,))
     model.summary()
 
     # Callbacks:

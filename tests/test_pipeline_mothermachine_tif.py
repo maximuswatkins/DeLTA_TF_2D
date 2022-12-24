@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 import delta
+from delta.config import DEFAULT_CONFIG_MOTHERMACHINE
 
 
 @pytest.mark.order(2)
@@ -19,12 +20,9 @@ def test_pipeline_mothermachine():
     xpfolder = Path(__file__).parent / "data/movie_mothermachine_tif"
     sys.argv.append(str(xpfolder))
 
-    # Load configuration:
-    delta.utils.cfg.load_config(presets="mothermachine", config_level=None)
-
     xpreader = delta.utils.xpreader()
 
-    xp = delta.pipeline.Pipeline(xpreader)
+    xp = delta.pipeline.Pipeline(xpreader, DEFAULT_CONFIG_MOTHERMACHINE)
 
     xp.process(clear=False)
 
@@ -40,7 +38,7 @@ def test_pipeline_mothermachine():
 
     # Load up processor:
     new_xp = delta.pipeline.Pipeline(
-        new_xpreader, reload=True, resfolder=xpfolder / "delta_results"
+        new_xpreader, DEFAULT_CONFIG_MOTHERMACHINE, reload=True, resfolder=xpfolder / "delta_results"
     )
 
     assert len(xp.positions) == len(new_xp.positions)

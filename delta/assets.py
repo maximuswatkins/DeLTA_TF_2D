@@ -5,17 +5,16 @@ downloads, and writing configuration files.
 
 @author: jeanbaptiste
 """
-import sys
+import copy
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Union
 
 import pooch
 import tensorflow as tf
 
-import delta.config as cfg
-
-from delta.config import _DEFAULTS_2D, _DELTA_DIR, _DEFAULTS_mothermachine
+import delta
+from delta.config import _DELTA_DIR, DEFAULT_CONFIG_2D, DEFAULT_CONFIG_MOTHERMACHINE
 
 BASE_URL = "https://docs.google.com/uc?export=download&confirm=t&id="
 
@@ -68,11 +67,11 @@ DEMO_REGISTRY = pooch.create(
 )
 
 
-def training_set_path(model: str) -> Path:
+def download_training_set(presets: str, model: str) -> Path:
     """
     Returns the path of the training set for the currently loaded configuration.
 
-    Depending on the current value of cfg.presets ("2D" or "mothermachine") and
+    Depending on the current value of presets ("2D" or "mothermachine") and
     of the value of the argument `model` ("rois", "seg" or "track"), this
     function returns the path of the corresponding training set.  If necessary,
     it downloads it first and caches it under a directory that can be specified
@@ -80,6 +79,8 @@ def training_set_path(model: str) -> Path:
 
     Parameters
     ----------
+    presets : str
+        2D or mothermachine
     model : str
         Type of training set: `rois`, `seg` or `track`.
 
@@ -89,12 +90,9 @@ def training_set_path(model: str) -> Path:
         Path of the training set.
 
     """
-    config_path = getattr(cfg, f"training_set_{model}", None)
-    if config_path:
-        return Path(config_path)
     TRAININGSETS_REGISTRY.fetch(
-        f"{cfg.presets}.zip",
-        processor=pooch.Unzip(extract_dir=cfg.presets),
+        f"{presets}.zip",
+        processor=pooch.Unzip(extract_dir=presets),
         progressbar=True
     )
     path = {
@@ -103,16 +101,21 @@ def training_set_path(model: str) -> Path:
         ("mothermachine", "track"): "tracking_set/train_multisets",
         ("2D", "seg"): "segmentation_set",
         ("2D", "track"): "tracking_set",
-    }[cfg.presets, model]
-    return TRAININGSETS_REGISTRY.path / cfg.presets / "training" / path
+    }[presets, model]
+    return TRAININGSETS_REGISTRY.path / presets / "training" / path
 
 
-def demo_movie_path() -> Path:
+def download_demo_movie(presets: str) -> Path:
     """
     Returns the path of the demo movie for the currently loaded configuration.
 
     If necessary, it downloads it first and caches it under a directory that
     can be specified by the environment variable `DELTA_ASSETS_CACHE`.
+
+    Parameters
+    ----------
+    presets : str
+        2D or mothermachine
 
     Returns
     -------
@@ -120,80 +123,23 @@ def demo_movie_path() -> Path:
         Path of the demo movie.
     """
 
-    if cfg.eval_movie:
-        return Path(cfg.eval_movie)
     DEMO_REGISTRY.fetch(
-        f"{cfg.presets}.zip",
-        processor=pooch.Unzip(extract_dir=cfg.presets),
-        progressbar=True
+        f"{presets}.zip",
+        processor=pooch.Unzip(extract_dir=presets),
+        progressbar=True,
     )
-    return DEMO_REGISTRY.path / cfg.presets
+    return DEMO_REGISTRY.path / presets
 
 
-def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
-    """
-    Load models (as specified in config.py)
-
-    If necessary, it downloads it first and caches it under a directory that
-    can be specified by the environment variable `DELTA_ASSETS_CACHE`.
-
-    Parameters
-    ----------
-    toload : tuple of str, or None, optional
-        Which of the 3 models to load. If None, cfg.models will be used.
-        The default is None.
-
-    Returns
-    -------
-    models : dict
-        Dictionary containing the models specified.
-
-    """
-
-    if toload is None:
-        toload = cfg.models
-
-    models = {}
-
-    if "rois" in toload:
-        if cfg.model_file_rois:
-            model_file_rois = cfg.model_file_rois
-        else:
-            model_file_rois = MODEL_REGISTRY.fetch(
-                cfg.model_file_rois
-                if cfg.model_file_rois
-                else "unet_momachambers_seg.hdf5",
-                progressbar=True
-            )
-        models["rois"] = tf.keras.models.load_model(model_file_rois, compile=False)
-
-    if "segmentation" in toload:
-        if cfg.model_file_seg:
-            model_file_seg = cfg.model_file_seg
-        else:
-            term = {"mothermachine": "moma", "2D": "pads"}[cfg.presets]
-            model_file_seg = MODEL_REGISTRY.fetch(
-                f"unet_{term}_seg.hdf5", progressbar=True
-                )
-        models["segmentation"] = tf.keras.models.load_model(
-            model_file_seg, compile=False
-        )
-
-    if "tracking" in toload:
-        if cfg.model_file_track:
-            model_file_track = cfg.model_file_track
-        else:
-            term = {"mothermachine": "moma", "2D": "pads"}[cfg.presets]
-            model_file_track = MODEL_REGISTRY.fetch(
-                f"unet_{term}_track.hdf5", progressbar=True
-                )
-        models["tracking"] = tf.keras.models.load_model(model_file_track, compile=False)
-
-    # In order to be able to use the old models that had a sigmoid as final activation
-    for model in models.values():
-        model.layers[-1].activation = None
-
-    return models
+def download_model(presets: str, model: str) -> Path:
+    filename = {
+        ("2D", "seg"): "unet_pads_seg.hdf5",
+        ("2D", "track"): "unet_pads_track.hdf5",
+        ("mothermachine", "rois"): "unet_momachambers_seg.hdf5",
+        ("mothermachine", "seg"): "unet_moma_seg.hdf5",
+        ("mothermachine", "track"): "unet_moma_track.hdf5",
+    }[presets, model]
+    return MODEL_REGISTRY.fetch(filename, progressbar=True)
 
 
 def _write_json(obj: Any, path: Path) -> None:
@@ -239,35 +185,35 @@ def _write_default_configs(
     config_dir.mkdir(parents=True, exist_ok=True)
 
     # Write 2D config:
-    config = _DEFAULTS_2D.copy()
+    config = copy.deepcopy(delta.config.DEFAULT_CONFIG_2D)
     if len(model_files) > 0:
-        config["model_file_seg"] = model_files["unet_pads_seg"]
-        config["model_file_track"] = model_files["unet_pads_track"]
+        config.model_file_seg = model_files["unet_pads_seg"]
+        config.model_file_track = model_files["unet_pads_track"]
     if len(sets_files) > 0:
-        config["training_set_seg"] = sets_files["2D"] / "training/segmentation_set"
-        config["training_set_track"] = sets_files["2D"] / "training/tracking_set"
+        config.training_set_seg = sets_files["2D"] / "training/segmentation_set"
+        config.training_set_track = sets_files["2D"] / "training/tracking_set"
     if len(eval_files) > 0:
-        config["eval_movie"] = eval_files["2D"] / "movie_tifs"
+        config.eval_movie = eval_files["2D"] / "movie_tifs"
     _write_json(config, config_dir / "config_2D.json")
 
     # Write mothermachine config:
-    config = _DEFAULTS_mothermachine.copy()
+    config = copy.deepcopy(delta.config.DEFAULT_CONFIG_MOTHERMACHINE)
     if len(model_files) > 0:
-        config["model_file_rois"] = model_files["unet_momachambers_seg"]
-        config["model_file_seg"] = model_files["unet_moma_seg"]
-        config["model_file_track"] = model_files["unet_moma_track"]
+        config.model_file_rois = model_files["unet_momachambers_seg"]
+        config.model_file_seg = model_files["unet_moma_seg"]
+        config.model_file_track = model_files["unet_moma_track"]
     if len(sets_files) > 0:
-        config["training_set_rois"] = (
+        config.training_set_rois = (
             sets_files["mothermachine"] / "training/chambers_seg_set/train"
         )
-        config["training_set_seg"] = (
+        config.training_set_seg = (
             sets_files["mothermachine"] / "training/segmentation_set/train_multisets"
         )
-        config["training_set_track"] = (
+        config.training_set_track = (
             sets_files["mothermachine"] / "training/tracking_set/train_multisets"
         )
     if len(eval_files) > 0:
-        config["eval_movie"] = eval_files["mothermachine"] / "movie_tifs"
+        config.eval_movie = eval_files["mothermachine"] / "movie_tifs"
     _write_json(config, config_dir / "config_mothermachine.json")
 
     print(f"Config files written to {config_dir}")

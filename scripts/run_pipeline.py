@@ -11,12 +11,13 @@ In order to use on bioformats-compatible files such .nd2, .czi, .oib, ome-tiff
 """
 
 import delta
+from delta.assets import demo_movie_path
 
 # Load config ('2D' or 'mothermachine'):
-delta.config.load_config(presets="2D")
+delta.config._DEFAULT_CONFIG_2D.load()
 
 # Use eval movie as example (or replace by None for interactive selection):
-file_path = delta.config.eval_movie
+file_path = demo_movie_path()
 
 # Init reader (use bioformats=True if working with nd2, czi, ome-tiff etc):
 xpreader = delta.utils.xpreader(file_path)

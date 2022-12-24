@@ -19,32 +19,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-    cast,
-)
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import cv2
 import ffmpeg
 import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
-import tensorflow as tf
 from scipy.special import logit
 from skimage.morphology import skeletonize
 from skimage.transform import hough_line, hough_line_peaks
 from tensorflow.keras.callbacks import TensorBoard
 from tifffile import TiffFile
-
-from delta import config as cfg
 
 Image = npt.NDArray[np.float32]
 
@@ -557,8 +543,8 @@ def stitch_pic(
 
 def gettrackingboxes(
     cell: npt.NDArray[np.uint8],
-    frame_shape: Optional[Tuple[int, int]] = None,
-    target_size: Optional[Tuple[int, int]] = None,
+    frame_shape: Tuple[int, int],
+    target_size: Tuple[int, int],
 ) -> Tuple[CroppingBox, CroppingBox]:
     """
     Get a crop box and a fill box around a cell that fits the tracking target
@@ -568,13 +554,10 @@ def gettrackingboxes(
     ----------
     cell : 2D array of uint8
         Mask of the cell to track.
-    frame_shape : tuple of 2 ints or None, optional
-        Original dimensions of the  image. If None, cell.shape is used.
-        The default is None.
-    target_size : tuple of 2 ints or None, optional
-        Target dimensions of the cropped image. If None, cfg.target_size_track
-        will be used.
-        The default is None.
+    frame_shape : tuple of 2 ints
+        Original dimensions of the image.
+    target_size : tuple of 2 ints
+        Target dimensions of the cropped image.
 
     Returns
     -------
@@ -585,11 +568,6 @@ def gettrackingboxes(
         the cropped out image.
 
     """
-    if frame_shape is None:
-        frame_shape = cast(Tuple[int, int], cell.shape)  # for mypy
-
-    if target_size is None:
-        target_size = cfg.target_size_track
 
     cx, cy = getcentroid(cell)
 

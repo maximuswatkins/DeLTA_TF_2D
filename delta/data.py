@@ -1318,7 +1318,7 @@ def trainGenerator_track(
             )
 
             if crop_windows:
-                cb, fb = utils.gettrackingboxes(seg)
+                cb, fb = utils.gettrackingboxes(seg, seg.shape, target_size)
                 shape = cast(Tuple[int, int], seg.shape)  # for mypy
                 shiftY, shiftX = utils.getshiftvalues(shift_cropbox, shape, cb, rng)
             else:
@@ -1543,7 +1543,7 @@ def predictCompilefromseg_track(
                 # Cell-centered crop boxes:
                 if crop_windows:
                     shape = cast(Tuple[int, int], img.shape)  # for mypy
-                    cb, fb = utils.gettrackingboxes(seg, shape)
+                    cb, fb = utils.gettrackingboxes(seg, shape, target_size)
                 else:
                     cb = utils.CroppingBox.full(img)
                     fb = utils.CroppingBox.full(img)

@@ -15,6 +15,7 @@ from scipy.ndimage import binary_fill_holes
 from scipy.special import logit
 
 from delta import pipeline, utils
+from delta.config import DEFAULT_CONFIG_2D
 
 
 @pytest.mark.parametrize("xtl", [-1, 0])
@@ -701,14 +702,11 @@ class Test_xpreader:
         sys.argv = [sys.argv[0]]
         sys.argv.append(str(Path(__file__).parent / "data" / "movie_2D_tif"))
 
-        # Load configuration:
-        utils.cfg.load_config(presets="2D", config_level=None)
-
         # Init reader
         xpreader = utils.xpreader()
 
         # Init pipeline:
-        pipeline.Pipeline(xpreader)
+        pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
     def test_2D_tif_cmdln_allargs(self):
         # 'Pretend' arguments were passed to the cmd line:
@@ -730,34 +728,25 @@ class Test_xpreader:
         # Currently there is a typo where it is chanel not channel
         sys.argv.append("Position%02dChanel%02dFrame%06d.tif")
 
-        # Load configuration:
-        utils.cfg.load_config(presets="2D", config_level=None)
-
         # Init reader
         xpreader = utils.xpreader()
 
         # Init pipeline:
-        pipeline.Pipeline(xpreader)
+        pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
     def test_2D_tif_xpreader_filename_noresfolder(self):
 
         sys.argv = [sys.argv[0]]
 
-        # Load configuration:
-        utils.cfg.load_config(presets="2D", config_level=None)
-
         # Init reader
         xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
 
         # Init pipeline:
-        pipeline.Pipeline(xpreader)
+        pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
     def test_2D_tif_xpreader_filename_and_resfolder(self):
 
         sys.argv = [sys.argv[0]]
-
-        # Load configuration:
-        utils.cfg.load_config(presets="2D", config_level=None)
 
         # Init reader
         xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
@@ -765,6 +754,7 @@ class Test_xpreader:
         # Init pipeline:
         pipeline.Pipeline(
             xpreader,
+            DEFAULT_CONFIG_2D,
             resfolder=Path(__file__).parent / "data" / "movie_2D_tif" / "results",
         )
 
@@ -772,16 +762,13 @@ class Test_xpreader:
 
         sys.argv = [sys.argv[0]]
 
-        # Load configuration:
-        utils.cfg.load_config(presets="2D", config_level=None)
-
         # Init reader
         xpreader = utils.xpreader(
             Path(__file__).parent / "data" / "movie_mothermachine_tif"
         )
 
         # Init pipeline:
-        pipeline.Pipeline(xpreader)
+        pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
 
 UNTRACKED_LABELS = np.array(

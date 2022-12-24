@@ -9,19 +9,22 @@ The images are processed by batches of 4096 to prevent memory issues.
 """
 import numpy as np
 
+import delta
 import delta.utilities as utils
-from delta.assets import loadmodels
-from delta.data import postprocess, predictGenerator_seg, readreshape, saveResult_seg
+from delta.data import (postprocess, predictGenerator_seg, readreshape,
+                        saveResult_seg)
 from delta.model import unet_seg
-from delta.utilities import cfg, listfiles
+from delta.utilities import listfiles
 
 ### Parameters:
 
-# Configuration presets: ("2D" or "mothermachine")
-cfg.load_config(presets="2D")
+# Default config ("2D" or "MOTHERMACHINE")
+config = delta.config.DEFAULT_CONFIG_2D
+# Uncomment if you already have a config file
+# config = delta.config.Config.read("/path/to/your/config.yml")
 
 # Image sequence to segment: (replace with your own)
-inputs_folder = cfg.eval_movie  # or cfg.eval_movie + "/cropped_rois" for mother machine
+inputs_folder = delta.config._DELTA_DIR.parent / "tests/data/movie_2D_tif/"
 
 ### /Parameters
 
@@ -34,7 +37,7 @@ outputs_folder.mkdir(exist_ok=True)
 unprocessed = listfiles(inputs_folder, {".tif", ".png"})
 
 # Load up model:
-model = loadmodels()["segmentation"]
+model = config.model("segmentation")
 
 # Process
 while unprocessed:
@@ -47,12 +50,12 @@ while unprocessed:
     predGene = predictGenerator_seg(
         inputs_folder,
         files_list=to_process,
-        target_size=cfg.target_size_seg,
-        crop_windows=cfg.crop_windows,
+        target_size=config.target_size_seg,
+        crop_windows=config.crop_windows,
     )
 
     # mother machine: Don't crop images into windows
-    if not cfg.crop_windows:
+    if not config.crop_windows:
         # Predictions:
         results = model.predict(predGene, verbose=1)[:, :, :, 0]
 
@@ -60,7 +63,7 @@ while unprocessed:
     else:
         img = readreshape(
             inputs_folder / to_process[0],
-            target_size=cfg.target_size_seg,
+            target_size=config.target_size_seg,
             method="pad",
         )
         # Create array to store predictions
@@ -69,7 +72,7 @@ while unprocessed:
         for i in range(len(to_process)):
             # Crop each frame into overlapping windows:
             windows, loc_y, loc_x = utils.create_windows(
-                next(predGene)[0, :, :], target_size=cfg.target_size_seg
+                next(predGene)[0, :, :], target_size=config.target_size_seg
             )
             # We have to play around with tensor dimensions to conform to
             # tensorflow's functions:
@@ -83,7 +86,7 @@ while unprocessed:
             results[i] = pred
 
     # Post process results (binarize + light morphology-based cleaning):
-    results = postprocess(results, crop=cfg.crop_windows)
+    results = postprocess(results, crop=config.crop_windows)
 
     # Save to disk:
     saveResult_seg(outputs_folder, results, files_list=to_process)

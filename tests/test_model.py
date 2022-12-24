@@ -70,13 +70,10 @@ def test_pixelwise_weighted_binary_crossentropy_track():
 
 
 def test_moma_segmentation_canary():
-    delta.config.load_config(presets="mothermachine")
-    models = delta.assets.loadmodels()
+    config = delta.config.DEFAULT_CONFIG_MOTHERMACHINE
+    model = config.model("segmentation")
     path = Path(__file__).parent / "data/images"
     img = delta.utils.read_image(path / "moma_segmentation_canary.png")
-    seg = (
-        models["segmentation"].predict(img[np.newaxis, :, :, np.newaxis])[0, :, :, 0]
-        > 0
-    ).astype(np.uint8)
+    seg = (model.predict(img[np.newaxis, :, :, np.newaxis])[0, :, :, 0] > 0).astype(np.uint8)
     lblnb, _ = cv2.connectedComponents(seg)
     assert lblnb == 6
