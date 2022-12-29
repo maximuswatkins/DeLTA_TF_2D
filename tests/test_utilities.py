@@ -362,7 +362,7 @@ def test_skeleton_poles():
             [0, 0, 0, 0, 1, 1],
             [0, 0, 0, 1, 0, 0],
         ],
-        dtype=np.bool_,
+        dtype=bool,
     )
     mask_poles = utils.skeleton_poles(skel)
     solution = np.array(
@@ -374,7 +374,28 @@ def test_skeleton_poles():
             [0, 0, 0, 0, 0, 0],
             [0, 0, 0, 1, 0, 0],
         ],
-        dtype=np.bool_,
+        dtype=bool,
+    )
+    assert np.array_equal(mask_poles, solution)
+
+
+def test_skeleton_poles_singular():
+    skel = np.array(
+        [
+            [0, 0, 0],
+            [0, 1, 0],
+            [0, 0, 0],
+        ],
+        dtype=bool,
+    )
+    mask_poles = utils.skeleton_poles(skel)
+    solution = np.array(
+        [
+            [0, 0, 0],
+            [0, 1, 0],
+            [0, 0, 0],
+        ],
+        dtype=bool,
     )
     assert np.array_equal(mask_poles, solution)
 
