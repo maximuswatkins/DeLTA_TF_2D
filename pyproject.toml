@@ -1,6 +1,43 @@
 [build-system]
-requires = ["setuptools", "wheel", "oldest-supported-numpy", "setuptools-git-versioning<2"]
+requires = ["setuptools", "wheel", "oldest-supported-numpy", "setuptools-git-versioning"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "delta2"
+dynamic = ["version"]
+description = "Segments and tracks bacteria"
+readme = "README.md"
+requires-python = ">=3.7,<3.11"
+authors = [
+    { name = "Jean-Baptiste Lugagne", email = "jblugagne@bu.edu" },
+    { name = "Owen OConnor", email = "ooconnor@bu.edu" },
+    { name = "Virgile Andreani", email = "andreani@bu.edu" },
+]
+dependencies = [
+    "ffmpeg-python>=0.2",
+    "numpy>=1.21",
+    "opencv-python>=4.5",
+    "requests",
+    "scikit-image>=0.18",
+    "tensorflow>=2.7",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-order",
+]
+
+[project.license]
+text = "MIT License"
+files = ["LICENSE"]
+
+[project.urls]
+repository = "https://gitlab.com/dunloplab/delta"
+documentation = "https://delta.readthedocs.io"
+
+[tool.setuptools]
+packages = ["delta"]
 
 [tool.setuptools-git-versioning]
 enabled = true
