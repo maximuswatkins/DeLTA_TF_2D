@@ -20,7 +20,7 @@ def test_rois_script():
     # Test images folder:
     inputs_folder = test_folder / "data/movie_mothermachine_tif"
 
-    # Load gloabl moma config:
+    # Load global moma config:
     delta.config.load_config(presets="mothermachine", config_level="global")
 
     _run_script(

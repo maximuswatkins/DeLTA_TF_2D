@@ -105,7 +105,7 @@ is to maintain a list of dictionaries under the `cells` attribute that represent
 the lineage information 
 and the extracted features data of each single cell within an :doc:`ROI <pipeline_desc>`.
 
-A single-cell dictionnary will look like this::
+A single-cell dictionary will look like this::
 
     {
         'area': [159.5, 171.5, 186.0, 207.5, 239.5, 285.5, 149.0, 177.0, 196.5, 205.5, 218.0, 239.0],
@@ -129,9 +129,9 @@ With the following *lineage-related* keys:
 * `id`: The cell number in the lineage list (0-based indexing)
 * `mother`: The cell that spawned this cell (None if unknown)
 * `new_pole`: The position of the new pole of the cell over time. This is 
-  the pole that was closer to the septum when division occured
+  the pole that was closer to the septum when division occurred
 * `old_pole`: The position of the old pole of the cell over time. This is 
-  the pole that was further from the septum when division occured
+  the pole that was further from the septum when division occurred
 
 And the following *extracted feature* keys:
 

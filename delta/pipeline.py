@@ -467,7 +467,7 @@ class Position:
         # Get boxes
         roisboxes = utils.getROIBoxes(roismask)
 
-        # Instanciate ROIs:
+        # Instantiate ROIs:
         self.roismask = roismask
         for b, box in enumerate(roisboxes):
             self.rois += [ROI(roi_nb=b, box=box, crop_windows=self.crop_windows)]

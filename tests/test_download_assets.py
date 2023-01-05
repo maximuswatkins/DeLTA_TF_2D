@@ -35,7 +35,7 @@ def test_download_assets():
     # Check that all movies have been downloaded to the assets folder:
     for eval_name in delta.assets.EVAL_MOVIES:
         filename = assets_dir / "eval_movies" / eval_name
-        assert filename.exists(), f"Extracted evalution movie not found: {filename}"
+        assert filename.exists(), f"Extracted evaluation movie not found: {filename}"
         zipfile = filename.with_suffix(".zip")
         assert not zipfile.exists(), f"Zip file was not deleted: {zipfile}"
 

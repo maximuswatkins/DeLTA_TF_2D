@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.2] - 2022-01-17
 ### Changed
-- Rewrote utilties.getrandomcolors to be dependent on cv2 instead of matplotlib
+- Rewrote utilities.getrandomcolors to be dependent on cv2 instead of matplotlib
 
 ## [2.0.1] - 2022-01-12
 ### Added

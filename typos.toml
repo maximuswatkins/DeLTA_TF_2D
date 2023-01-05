@@ -1,0 +1,8 @@
+# Configuration file for the `typos` spell-checker
+# https://github.com/crate-ci/typos
+
+[default.extend-words]
+nd = "nd"   # for .nd2 files
+
+[files]
+extend-exclude = ["installs_lists.rst"]

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Module to handle assets (model files, training sets, evalution movies...),
+Module to handle assets (model files, training sets, evaluation movies...),
 downloads, and writing configuration files.
 
 @author: jeanbaptiste

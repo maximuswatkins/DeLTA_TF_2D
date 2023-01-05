@@ -93,7 +93,7 @@ The pipeline module uses 3 main classes of objects
 
 * The higher level object is the :doc:`Pipeline class <../_generated/delta.pipeline.Pipeline>`. 
   Typically only one is 
-  instanciated per analysis. Its main purpose is to create and initialize the
+  instantiated per analysis. Its main purpose is to create and initialize the
   `Position` class processor objects (under the `Pipeline.positions` list)
   and to provide a simple interface to process an entire multi-position experiment
 * The :doc:`Position class <../_generated/delta.pipeline.Position>` class objects 
