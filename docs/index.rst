@@ -38,7 +38,7 @@ Our pipeline is centered around two U-Net neural networks that are used sequenti
 * To perform semantic binary segmentation of our cells as in the original U-Net paper.
 * To track cells from one movie frame to the next, and to identify cell divisions and mother/daughter cells.
 
-A third U-Net can be used to identify regions of interest in the image before perfoming segmentation. This is used with mother machine movies to identify single chambers, but by default only 1 ROI covering the entire field-of-view is used in the 2D version.
+A third U-Net can be used to identify regions of interest in the image before performing segmentation. This is used with mother machine movies to identify single chambers, but by default only 1 ROI covering the entire field-of-view is used in the 2D version.
 The U-Nets are implemented in Tensorflow 2 via the Keras API.
 
 Getting started
@@ -53,7 +53,7 @@ To get started on your own system, check out the
 download our :doc:`latest models <usage/assets_desc>`, and run the 
 :doc:`pipeline <usage/pipeline_desc>` on our data or your own.
 
-See also our :doc:`example scritps <usage/scripts>` and 
+See also our :doc:`example scripts <usage/scripts>` and
 :doc:`results analysis examples <usage/analysis>`
 
 Contents

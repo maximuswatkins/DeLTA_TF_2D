@@ -163,7 +163,7 @@ def load_config(
         raise ValueError(
             """Valid presets are '2D' and 'mothermachine'.
             If you implemented very different presets, please provide
-            a config file to load_config() directely
+            a config file to load_config() directly
             """
         )
 

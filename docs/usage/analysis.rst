@@ -137,7 +137,7 @@ Here we load the MAT file with scipy::
 
     reloaded = loadmat('Position000002.mat',simplify_cells=True)
 
-Then we can plot the fluorescence for the mother cell and its daugthers
+Then we can plot the fluorescence for the mother cell and its daughters
 in the sixth chamber::
 
     import matplotlib.pyplot as plt

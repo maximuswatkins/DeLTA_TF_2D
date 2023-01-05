@@ -46,7 +46,7 @@ For segmentation, the structure of the training sets is:
     with :doc:`seg_weights() <../_generated/delta.data.seg_weights>` and
     :doc:`seg_weights_2D() <../_generated/delta.data.seg_weights_2D>`
 
-For tracking, the stucture is:
+For tracking, the structure is:
 
 * `previmg` folder [Input]: movie frames at previous time point
     Microscopy images to use as training inputs for the

@@ -79,7 +79,7 @@ class Cell(Dict):
         frames : List[int]
             List of frames / timepoints where the cell is present.
         daughters : List[Optional[int]]
-            List of daughters over time. If None, no division occured.
+            List of daughters over time. If None, no division occurred.
         new_pole : List[Optional[Pole]]
             List of identified new Pole positions over time.
         old_pole : List[Optional[Pole]]
@@ -264,7 +264,7 @@ def getDriftTemplate(
         return None
     (y_cut, x_cut) = (
         round(i * 0.025) for i in img.shape
-    )  # Cutting out 2.5% of the image on eahc side as drift margin
+    )  # Cutting out 2.5% of the image on each side as drift margin
 
     box = CroppingBox(
         xtl=x_cut,
@@ -890,7 +890,7 @@ def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
     ----------
     poles : list
         Coordinates for the mother/daughter poles for a single cell
-        Dimension is (#_of_poles, [y_coordiante, x_coordinate])
+        Dimension is (#_of_poles, [y_coordinate, x_coordinate])
 
 
     Returns
@@ -1851,7 +1851,7 @@ class xpreader:
                 self.dtype = img.dtype
 
         elif file_extension.lower() == ".tif" or file_extension.lower() == ".tiff":
-            # Works with single-series tif & mutli-series ome.tif
+            # Works with single-series tif & multi-series ome.tif
             self.filetype = "tif"
 
             self.filehandle = TiffFile(str(self.filename))
@@ -2101,7 +2101,7 @@ class xpreader:
         elif not isinstance(channels, (list, tuple)):
             channels = [channels]
 
-        if frames is None:  # No frames specfied: load all
+        if frames is None:  # No frames specified: load all
             frames = list(range(self.timepoints))
         elif not isinstance(frames, (list, tuple)):
             if frames == -1:  # Read new frames from files watcher:
@@ -2531,7 +2531,7 @@ def image_edges(contour: Contour, image: npt.NDArray[Any]) -> str:
 
 def cell_width_length(contour: Contour) -> Tuple[float, float]:
     """
-    Mesure width and length of single cell.
+    Measure width and length of single cell.
 
     Parameters
     ----------

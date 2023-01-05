@@ -235,7 +235,7 @@ def data_augmentation(
     order : int or list/tuple of ints, optional
         Interpolation order to use for each image in the input stack. If order
         is a scalar, the same order is applied to all images. If a list of
-        orders is provided, each image in the stack will have its own operaiton
+        orders is provided, each image in the stack will have its own operation
         order. See skimage.transform.wrap doc.
         Note that the histogram voodoo operation is only applied to images with
         a non-zero order.
@@ -1030,7 +1030,7 @@ def kernel(n: int) -> utils.SegmentationMask:
     Returns
     -------
     kernel : Array of unit8
-        Returns a kernal with size of n.
+        Returns a kernel with size of n.
 
     """
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (n, n))
@@ -1050,7 +1050,7 @@ def estimate_seg2D_classweights(
     mask_path : str
         Path to folder containing segmentations.
     sample_size : int, optional
-        Determines the size of the training set that will be used to calcualte class weights.
+        Determines the size of the training set that will be used to calculate class weights.
         The default is None.
     rng : npr.Generator, optional
         Pseudo-random number generator used to subsample the dataset if needed.
@@ -1218,7 +1218,7 @@ def estimateClassweights(gene: Iterator, num_samples: int = 30) -> Tuple[float, 
     # (Where there are only empty daughter images in the training set)
     # Try changing the num_samples value if this is a problem
 
-    # Normalize by nb of samples and invert to get weigths, unless x == 0 to
+    # Normalize by nb of samples and invert to get weights, unless x == 0 to
     # avoid Infinite weights or errors
     class_weights = tuple(num_samples / x if x != 0 else 0 for x in class_counts)
 
