@@ -289,6 +289,39 @@ def test_create_windows_stitch_pic(image_shape):
     np.testing.assert_array_equal(stitched_image, image)
 
 
+def test_label_seg():
+    mask = np.array(
+        [
+            [1, 1, 1, 0, 1, 1],
+            [1, 1, 1, 0, 0, 1],
+            [0, 0, 0, 0, 1, 1],
+            [1, 1, 0, 0, 0, 0],
+            [1, 1, 0, 1, 1, 0],
+            [0, 0, 0, 0, 1, 0],
+            [0, 1, 1, 0, 1, 1],
+            [0, 0, 0, 0, 0, 1],
+        ]
+    )
+    solution = np.array(
+        [
+            [1, 1, 1, 0, 2, 2],
+            [1, 1, 1, 0, 0, 2],
+            [0, 0, 0, 0, 2, 2],
+            [3, 3, 0, 0, 0, 0],
+            [3, 3, 0, 5, 5, 0],
+            [0, 0, 0, 0, 5, 0],
+            [0, 4, 4, 0, 5, 5],
+            [0, 0, 0, 0, 0, 5],
+        ],
+        dtype=np.uint16
+    )
+    assert np.array_equal(utils.label_seg(mask), solution)
+    labels = [18, 93, 21, 9, 7]
+    for oldlabel, newlabel in enumerate(labels):
+        solution[solution == oldlabel + 1] = newlabel
+    assert np.array_equal(utils.label_seg(mask, cellnumbers=labels), solution)
+
+
 def test_cell_perimeter():
     mask = np.array(
         [[0, 1, 1], [1, 1, 0], [0, 1, 0]],
