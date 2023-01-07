@@ -34,7 +34,7 @@ class Pipeline:
         on_the_fly: bool = False,
         reload: bool = False,
         verbose: int = 1,
-    ):
+    ) -> None:
         """
         Initialize Pipeline.
 
@@ -123,7 +123,7 @@ class Pipeline:
         positions: Optional[List[int]] = None,
         references: Optional[np.ndarray] = None,
         ROIs: Optional[str] = "model",
-    ):
+    ) -> None:
         """
         Pre-process positions (Rotation correction, identify ROIs,
         initialize drift correction).
@@ -171,7 +171,7 @@ class Pipeline:
         frames: Optional[List[int]] = None,
         features: Optional[Tuple[str, ...]] = None,
         clear: bool = True,
-    ):
+    ) -> None:
         """
         Run pipeline.
 
@@ -236,7 +236,7 @@ class Pipeline:
             if clear:
                 self.positions[p].clear()
 
-    def run(self):
+    def run(self) -> None:
         """
         On-the-fly processor (not functional yet).
 
@@ -293,7 +293,7 @@ class Position:
         models: Dict,
         drift_correction: bool = True,
         crop_windows: bool = False,
-    ):
+    ) -> None:
         """
         Initialize Position.
 
@@ -349,10 +349,9 @@ class Position:
             eq_drift_correction,
             eq_crop_windows,
             eq_verbose,
-            eq__preprocessed
+            eq__preprocessed,
         ]
         return all(eqs)
-
 
     def __getstate__(self) -> Dict[str, Any]:
         """
@@ -366,7 +365,7 @@ class Position:
         """
         return {k: v for k, v in self.__dict__.items() if k not in self._pickle_skip}
 
-    def _msg(self, string: str):
+    def _msg(self, string: str) -> None:
         """
         Print timestamped messages.
 
@@ -387,7 +386,7 @@ class Position:
         self,
         reference: Optional[utils.Image] = None,
         rotation_correction: Union[float, bool] = True,
-    ):
+    ) -> None:
         """
         Pre-process position (Rotation correction, identify ROIs,
         initialize drift correction).
@@ -459,7 +458,7 @@ class Position:
 
         self._preprocessed = True
 
-    def detect_rois(self, reference: utils.Image):
+    def detect_rois(self, reference: utils.Image) -> None:
         """
         Use U-Net to detect ROIs (chambers etc...).
 
@@ -497,7 +496,7 @@ class Position:
         for b, box in enumerate(roisboxes):
             self.rois += [ROI(roi_nb=b, box=box, crop_windows=self.crop_windows)]
 
-    def segment(self, frames: List[int]):
+    def segment(self, frames: List[int]) -> None:
         """
         Segment cells in all ROIs in position.
 
@@ -557,7 +556,7 @@ class Position:
             )
             i += ref[1]
 
-    def track(self, frames: List[int]):
+    def track(self, frames: List[int]) -> None:
         """
         Track cells in all ROIs in frames.
 
@@ -590,15 +589,12 @@ class Position:
             y = np.empty(shape=(*x.shape[:3], 1))
             for i in range(0, len(x), cfg.pipeline_track_batch):
                 j = min(len(x), i + cfg.pipeline_track_batch)
-                y[i:j] = (
-                    self.models["tracking"]
-                    .predict(
-                        x[i:j],
-                        batch_size=1,
-                        workers=1,
-                        use_multiprocessing=False,
-                        verbose=0,
-                    )
+                y[i:j] = self.models["tracking"].predict(
+                    x[i:j],
+                    batch_size=1,
+                    workers=1,
+                    use_multiprocessing=False,
+                    verbose=0,
                 )
 
             # Dispatch tracking outputs to rois:
@@ -619,7 +615,7 @@ class Position:
             "perimeter",
             "edges",
         ),
-    ):
+    ) -> None:
         """
         Extract features for all ROIs in frames.
 
@@ -692,7 +688,7 @@ class Position:
         filename: Optional[Union[str, Path]] = None,
         frames: Optional[List[int]] = None,
         save_format: Tuple[str, ...] = ("pickle", "movie"),
-    ):
+    ) -> None:
         """
         Save to disk.
 
@@ -733,7 +729,7 @@ class Position:
             movie = self.results_movie(frames=frames)
             utils.vidwrite(movie, filename.with_suffix(".mp4"), verbose=False)
 
-    def load(self, filename: Union[str, Path]):
+    def load(self, filename: Union[str, Path]) -> None:
         """
         Load position from pickle file.
 
@@ -753,7 +749,7 @@ class Position:
             if k not in self._pickle_skip:
                 setattr(self, k, v)
 
-    def clear(self):
+    def clear(self) -> None:
         """
         Clear Position-specific variables from memory (can be loaded back with
         load()).
@@ -764,7 +760,7 @@ class Position:
 
         """
         self._msg("Clearing variables from memory")
-        for k in self.__dict__.keys():
+        for k in self.__dict__:
             if k not in self._pickle_skip:
                 setattr(self, k, None)
 
@@ -1036,7 +1032,9 @@ class ROI:
     ROI processor object.
     """
 
-    def __init__(self, roi_nb: int, box: utils.CroppingBox, crop_windows: bool = False):
+    def __init__(
+        self, roi_nb: int, box: utils.CroppingBox, crop_windows: bool = False
+    ) -> None:
         """
         Initialize ROI.
 
@@ -1129,7 +1127,7 @@ class ROI:
             eq_seg_stack,
             eq_label_stack,
             eq_crop_windows,
-            eq_verbose
+            eq_verbose,
         ]
         return all(eqs)
 
@@ -1180,7 +1178,7 @@ class ROI:
         y: npt.NDArray[np.uint8],
         frame: Optional[int] = None,
         windows: Optional[Tuple[List, List]] = None,
-    ):
+    ) -> None:
         """
         Process outputs after they have been segmented.
 
@@ -1342,7 +1340,7 @@ class ROI:
         y: np.ndarray,
         frame: Optional[int] = None,
         boxes: Optional[List[Tuple[utils.CroppingBox, utils.CroppingBox]]] = None,
-    ):
+    ) -> None:
         """
         Process output from tracking U-Net.
 
@@ -1406,7 +1404,7 @@ class ROI:
             "perimeter",
             "edges",
         ),
-    ):
+    ) -> None:
         """
         Extract single cell features.
 

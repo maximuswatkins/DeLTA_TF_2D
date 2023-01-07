@@ -165,13 +165,13 @@ def postprocess(
     selem = morph.square(square_size)
 
     # Go through stack:
-    for index, I in enumerate(images):
-        I = binarizerange(I, threshold=0)
+    for index, image in enumerate(images):
+        image = binarizerange(image, threshold=0)
         if not crop:
-            I = morph.binary_opening(I, selem=selem)
+            image = morph.binary_opening(image, selem=selem)
         if min_size is not None:
-            I = morph.remove_small_objects(I, min_size=min_size)
-        images[index, :, :] = I
+            image = morph.remove_small_objects(image, min_size=min_size)
+        images[index, :, :] = image
 
     return np.squeeze(images)
 
@@ -362,7 +362,7 @@ def data_augmentation(
 
 
 def zoomshift(
-    I: utils.Image, zoomlevel: float, shiftX: float, shiftY: float, order: int = 0
+    image: utils.Image, zoomlevel: float, shiftX: float, shiftY: float, order: int = 0
 ) -> utils.Image:
     """
     This function zooms and shifts images.
@@ -386,17 +386,19 @@ def zoomshift(
         Zoomed and shifted image of same size as input.
 
     """
-    oldshape = I.shape
-    I = trans.rescale(I, zoomlevel, mode="edge", multichannel=False, order=order)
-    shiftX = shiftX * I.shape[0]
-    shiftY = shiftY * I.shape[1]
-    I = shift(I, (shiftY, shiftX), order=order)
-    i0 = (
-        round(I.shape[0] / 2 - oldshape[0] / 2),
-        round(I.shape[1] / 2 - oldshape[1] / 2),
+    oldshape = image.shape
+    image = trans.rescale(
+        image, zoomlevel, mode="edge", multichannel=False, order=order
     )
-    I = I[i0[0] : (i0[0] + oldshape[0]), i0[1] : (i0[1] + oldshape[1])]
-    return I
+    shiftX = shiftX * image.shape[0]
+    shiftY = shiftY * image.shape[1]
+    image = shift(image, (shiftY, shiftX), order=order)
+    i0 = (
+        round(image.shape[0] / 2 - oldshape[0] / 2),
+        round(image.shape[1] / 2 - oldshape[1] / 2),
+    )
+    image = image[i0[0] : (i0[0] + oldshape[0]), i0[1] : (i0[1] + oldshape[1])]
+    return image
 
 
 def shift(
@@ -506,7 +508,10 @@ def illumination_voodoo(
 
 #%% SEGMENTATION FUNCTIONS:
 
+
 class SegmentationDataset(tf.keras.utils.Sequence):
+    """Dataset used to train the segmentation model."""
+
     def __init__(
         self,
         dataset: List[Tuple[utils.Image, utils.SegmentationMask, utils.Image]],
@@ -515,8 +520,8 @@ class SegmentationDataset(tf.keras.utils.Sequence):
         kw_data_aug: Dict[str, Any],
         crop: bool,
         rng: npr.Generator,
-        stack=False,
-    ):
+        stack: bool = False,
+    ) -> None:
         """
         Creates a new SegmentationDataset.
 
@@ -556,9 +561,15 @@ class SegmentationDataset(tf.keras.utils.Sequence):
                 self.masks = np.concatenate(masks)
                 self.weights = np.concatenate(weights)
         else:
-            self.images = [cv2.resize(img, target_size[::-1], cv2.INTER_LINEAR) for img in images]
-            self.masks = [cv2.resize(seg, target_size[::-1], cv2.INTER_NEAREST) for seg in masks]
-            self.weights = [cv2.resize(wei, target_size[::-1], cv2.INTER_LINEAR) for wei in weights]
+            self.images = [
+                cv2.resize(img, target_size[::-1], cv2.INTER_LINEAR) for img in images
+            ]
+            self.masks = [
+                cv2.resize(seg, target_size[::-1], cv2.INTER_NEAREST) for seg in masks
+            ]
+            self.weights = [
+                cv2.resize(wei, target_size[::-1], cv2.INTER_LINEAR) for wei in weights
+            ]
         self.order = np.arange(len(self.images))
         self.target_size = target_size
         self.mode = mode
@@ -568,10 +579,16 @@ class SegmentationDataset(tf.keras.utils.Sequence):
         self.stack = stack
         print(f"{mode} dataset with {len(self)} samples.")
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Length of the dataset.
+        """
         return len(self.images)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
+        """
+        Access a given training sample.
+        """
         idx = self.order[idx]
         image, mask, weights = self.images[idx], self.masks[idx], self.weights[idx]
         if self.mode == "evaluation":
@@ -586,7 +603,9 @@ class SegmentationDataset(tf.keras.utils.Sequence):
                 weights[np.newaxis, :, :, np.newaxis],
             )
         if self.crop:
-            image, mask, weights = random_crop(image, mask, weights, self.target_size, self.rng)
+            image, mask, weights = random_crop(
+                image, mask, weights, self.target_size, self.rng
+            )
         image, mask, weights = data_augmentation(
             [image, mask, weights],
             aug_par=self.kw_data_aug,
@@ -604,7 +623,7 @@ class SegmentationDataset(tf.keras.utils.Sequence):
             weights[np.newaxis, :, :, np.newaxis],
         )
 
-    def on_epoch_end(self):
+    def on_epoch_end(self) -> None:
         """
         Method executed after each epoch.
         """
@@ -624,7 +643,7 @@ def load_training_dataset_seg(
 ) -> Union[
     SegmentationDataset,
     Tuple[SegmentationDataset, SegmentationDataset],
-    Tuple[SegmentationDataset, SegmentationDataset, SegmentationDataset]
+    Tuple[SegmentationDataset, SegmentationDataset, SegmentationDataset],
 ]:
     """
     Creates new segmentation datasets.
@@ -661,7 +680,6 @@ def load_training_dataset_seg(
     validation_ds : SegmentationDataset, (optional)
     test_ds : SegmentationDataset, (optional)
     """
-
     rng = npr.default_rng(seed)
 
     datasets = _load_images_seg(dataset_path, validation_split, test_split, rng)
@@ -760,9 +778,14 @@ def _load_images_seg(
     rng.shuffle(indices)
 
     if with_weights:
-        weights = [counter[tuple(image.flatten())] * weight for image, weight in zip(images, weights)]
+        weights = [
+            counter[tuple(image.flatten())] * weight
+            for image, weight in zip(images, weights)
+        ]
     else:
-        weights = [counter[tuple(image.flatten())] * np.ones_like(image) for image in images]
+        weights = [
+            counter[tuple(image.flatten())] * np.ones_like(image) for image in images
+        ]
 
     flags = [True, validation_split > 0, test_split > 0]
     datasets = [
@@ -771,7 +794,8 @@ def _load_images_seg(
             [mask for index, mask in zip(indices, masks) if index == i],
             [weight for index, weight in zip(indices, weights) if index == i],
         )
-        for i, flag in enumerate(flags) if flag
+        for i, flag in enumerate(flags)
+        if flag
     ]
     return datasets[0] if len(datasets) == 1 else datasets
 
@@ -814,7 +838,7 @@ def random_crop(
     end_x = min(start_x + target_size[1], img.shape[1])
     pad_y = target_size[0] - (end_y - start_y)
     pad_x = target_size[1] - (end_x - start_x)
-    padding = ((pad_y//2, pad_y - pad_y//2), (pad_x//2, pad_x - pad_x//2))
+    padding = ((pad_y // 2, pad_y - pad_y // 2), (pad_x // 2, pad_x - pad_x // 2))
 
     img = np.pad(img[start_y:end_y, start_x:end_x], padding)
     seg = np.pad(seg[start_y:end_y, start_x:end_x], padding)
@@ -831,7 +855,7 @@ def saveResult_seg(
     npyfile: np.ndarray,
     files_list: List[Path] = [],
     multipage: bool = False,
-):
+) -> None:
     """
     Saves an array of segmentation output images to disk.
 
@@ -1548,7 +1572,6 @@ def predictCompilefromseg_track(
             f"{charstrs[2]}"
         )
         fileorder = "pt"
-        crop = True
     else:
         raise ValueError(
             "Filename formatting error. See documentation for image sequence formatting"
@@ -1712,7 +1735,7 @@ def saveResult_track(
     save_path: Path,
     npyfile: np.ndarray,
     files_list: Optional[List[Path]] = None,
-):
+) -> None:
     """
     Save tracking output masks to disk.
 

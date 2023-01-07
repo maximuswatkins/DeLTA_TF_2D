@@ -91,7 +91,9 @@ def training_set_path(model: str) -> Path:
     config_path = getattr(cfg, f"training_set_{model}", None)
     if config_path:
         return Path(config_path)
-    TRAININGSETS_REGISTRY.fetch(f"{cfg.presets}.zip", processor=pooch.Unzip(extract_dir=cfg.presets))
+    TRAININGSETS_REGISTRY.fetch(
+        f"{cfg.presets}.zip", processor=pooch.Unzip(extract_dir=cfg.presets)
+    )
     path = {
         ("mothermachine", "rois"): "chambers_seg_set/train",
         ("mothermachine", "seg"): "segmentation_set/train_multisets",
@@ -117,7 +119,9 @@ def demo_movie_path() -> Path:
 
     if cfg.eval_movie:
         return Path(cfg.eval_movie)
-    DEMO_REGISTRY.fetch(f"{cfg.presets}.zip", processor=pooch.Unzip(extract_dir=cfg.presets))
+    DEMO_REGISTRY.fetch(
+        f"{cfg.presets}.zip", processor=pooch.Unzip(extract_dir=cfg.presets)
+    )
     return DEMO_REGISTRY.path / cfg.presets
 
 
@@ -151,7 +155,9 @@ def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
             model_file_rois = cfg.model_file_rois
         else:
             model_file_rois = MODEL_REGISTRY.fetch(
-                cfg.model_file_rois if cfg.model_file_rois else "unet_momachambers_seg.hdf5"
+                cfg.model_file_rois
+                if cfg.model_file_rois
+                else "unet_momachambers_seg.hdf5"
             )
         models["rois"] = tf.keras.models.load_model(model_file_rois, compile=False)
 
@@ -161,7 +167,9 @@ def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
         else:
             term = {"mothermachine": "moma", "2D": "pads"}[cfg.presets]
             model_file_seg = MODEL_REGISTRY.fetch(f"unet_{term}_seg.hdf5")
-        models["segmentation"] = tf.keras.models.load_model(model_file_seg, compile=False)
+        models["segmentation"] = tf.keras.models.load_model(
+            model_file_seg, compile=False
+        )
 
     if "tracking" in toload:
         if cfg.model_file_track:
@@ -180,7 +188,7 @@ def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
 
 def _write_json(obj: Any, path: Path) -> None:
     class PathEncoder(json.JSONEncoder):
-        def default(self, obj):
+        def default(self, obj: Any):
             if isinstance(obj, Path):
                 return str(obj)
             return json.JSONEncoder.default(self, obj)
@@ -253,4 +261,3 @@ def _write_default_configs(
     _write_json(config, config_dir / "config_mothermachine.json")
 
     print(f"Config files written to {config_dir}")
-
