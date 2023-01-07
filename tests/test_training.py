@@ -7,6 +7,7 @@ Created on Tue Nov  9 16:40:02 2021.
 import pytest
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
+from delta.assets import training_set_path
 from delta.data import load_training_dataset_seg, trainGenerator_track
 from delta.model import unet_rois, unet_seg, unet_track
 from delta.utilities import cfg
@@ -15,10 +16,10 @@ from delta.utilities import cfg
 @pytest.mark.order(3)
 def test_train_moma_rois():
     # Load config:
-    cfg.load_config(presets="mothermachine", config_level="global")
+    cfg.load_config(presets="mothermachine", config_level=None)
 
     # Files:
-    training_set = cfg.training_set_rois
+    training_set = training_set_path("rois")
     savefile = cfg._DELTA_DIR / "assets/test_models/test_train_mothermachine_rois.hdf5"
 
     # Parameters:
@@ -85,10 +86,10 @@ def test_train_seg_2D():
 def _train_seg(presets, batch_size=1):
 
     # Load config:
-    cfg.load_config(presets=presets, config_level="global")
+    cfg.load_config(presets=presets, config_level=None)
 
     # Files:
-    training_set = cfg.training_set_seg
+    training_set = training_set_path("seg")
     savefile = cfg._DELTA_DIR / f"assets/test_models/test_train_{presets}_seg.hdf5"
 
     # Training parameters:
@@ -153,10 +154,10 @@ def test_train_track_2D():
 
 def _train_track(presets):
     # Load config:
-    cfg.load_config(presets="2D", config_level="global")
+    cfg.load_config(presets="2D", config_level=None)
 
     # Files:
-    training_set = cfg.training_set_track
+    training_set = training_set_path("track")
     savefile = savefile = (
         cfg._DELTA_DIR / f"assets/test_models/test_train_{presets}_track.hdf5"
     )

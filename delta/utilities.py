@@ -2223,48 +2223,6 @@ class files_watcher(Thread):
 
 #%% Saving & Loading results
 
-
-def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
-    """
-    Load models (as specified in config.py).
-
-    Parameters
-    ----------
-    toload : tuple of str, or None, optional
-        Which of the 3 models to load. If None, cfg.models will be used.
-        The default is None.
-
-    Returns
-    -------
-    models : dict
-        Dictionary containing the models specified.
-
-    """
-    if toload is None:
-        toload = cfg.models
-
-    models = {}
-
-    if "rois" in toload:
-        models["rois"] = tf.keras.models.load_model(cfg.model_file_rois, compile=False)
-
-    if "segmentation" in toload:
-        models["segmentation"] = tf.keras.models.load_model(
-            cfg.model_file_seg, compile=False
-        )
-
-    if "tracking" in toload:
-        models["tracking"] = tf.keras.models.load_model(
-            cfg.model_file_track, compile=False
-        )
-
-    # In order to be able to use the old models that had a sigmoid as final activation
-    for model in models.values():
-        model.layers[-1].activation = None
-
-    return models
-
-
 def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, float]]:
     """
     Generate list of random hsv colors.

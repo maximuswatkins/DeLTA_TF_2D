@@ -23,7 +23,7 @@ def test_pipeline_tif_stack():
     sys.argv.append(str(xpfolder))
 
     # Load configuration:
-    delta.utils.cfg.load_config(presets="2D", config_level="global")
+    delta.utils.cfg.load_config(presets="2D", config_level=None)
 
     # Init reader
     xpreader = delta.utils.xpreader()
