@@ -861,9 +861,9 @@ def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
     ddepth = -1  # same depth as the source
     filtered = cv2.filter2D(skel_uint8, ddepth, kernel, borderType=cv2.BORDER_ISOLATED)
 
-    # now look through to find the value of 11
+    # now look through to find the value of 11 (extremity) or 10 (single point)
     # this returns a mask of the poles
-    return filtered == 11
+    return (filtered == 10) | (filtered == 11)
 
 
 def extrema_poles(
