@@ -1121,7 +1121,7 @@ class ROI:
         -------
         x : 4D array
             Segmentation input array. Dimensions are
-            (windows, size_y, size_x, 1).
+            (windows, *cfg.target_size_seg, 1).
         windows : tuple of 2 lists
             y and x coordinates of crop windows if any, or None.
 
@@ -1142,7 +1142,7 @@ class ROI:
             # Shape x to expected format:
             x = x[:, :, :, np.newaxis]
             return x, windows
-        # Resize to unet input size
+        # Resize to unet input size (cv2 wants the reverse size)
         x = cv2.resize(i, dsize=cfg.target_size_seg[::-1])
         # Shape x to expected format:
         x = x[np.newaxis, :, :, np.newaxis]
@@ -1161,7 +1161,7 @@ class ROI:
         ----------
         y : 4D array
             Segmentation output array. Dimensions are
-            (windows, size_y, size_x, 1).
+            (windows, *cfg.target_size_seg, 1).
         frame : int or None, optional
             Frame index. If None, this is considered the latest frame's output.
             The default is None.
@@ -1213,10 +1213,8 @@ class ROI:
         Returns
         -------
         x : 4D array or None
-            Tracking input array. Dimensions are (previous_cells,
-            cfg.target_size_track[0], cfg.target_size_track[1], 4). If no
-            previous cells to track from (e.g. first frame or glitch), None is
-            returned.
+            Tracking input array. Dimensions are
+            (previous_cells, *cfg.target_size_track, 4).
         boxes : List of tuples of 2 dicts or None
             Crop and fill boxes to re-place outputs in the ROI
 
@@ -1298,8 +1296,8 @@ class ROI:
         Parameters
         ----------
         y : 4D array
-            Tracking output array. Dimensions are (previous_cells,
-            cfg.target_size_track[1], cfg.target_size_track[0], 1).
+            Tracking output array. Dimensions are
+            (previous_cells, *cfg.target_size_track, 1).
         frame : int
             The frame to process for.
         boxes : List of tuples of 2 dicts or None
