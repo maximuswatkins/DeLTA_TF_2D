@@ -1008,7 +1008,9 @@ class ROI:
     ROI processor object.
     """
 
-    def __init__(self, roi_nb: int, box: CroppingBox, crop_windows: bool = False) -> None:
+    def __init__(
+        self, roi_nb: int, box: CroppingBox, crop_windows: bool = False
+    ) -> None:
         """
         Initialize ROI.
 

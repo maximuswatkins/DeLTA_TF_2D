@@ -73,6 +73,7 @@ class CroppingBox:
         ybr : int
             Bottom-right corner Y coordinate.
     """
+
     xtl: int
     ytl: int
     xbr: int
@@ -104,12 +105,12 @@ class CroppingBox:
         if image.ndim != 2:
             raise ValueError("`image` must have 2 dimensions.")
         cropped = image[
-            max(self.ytl, 0):min(self.ybr, image.shape[0]),
-            max(self.xtl, 0):min(self.xbr, image.shape[1])
+            max(self.ytl, 0) : min(self.ybr, image.shape[0]),
+            max(self.xtl, 0) : min(self.xbr, image.shape[1]),
         ]
         padding = (
             (max(-self.ytl, 0), max(self.ybr - image.shape[0], 0)),
-            (max(-self.xtl, 0), max(self.xbr - image.shape[1], 0))
+            (max(-self.xtl, 0), max(self.xbr - image.shape[1], 0)),
         )
         return np.pad(cropped, padding)
 
@@ -134,18 +135,24 @@ class CroppingBox:
         if image.ndim != 2 or patch.ndim != 2:
             raise ValueError("`image` and `patch` must have 2 dimensions.")
         if patch.shape != (self.ybr - self.ytl, self.xbr - self.xtl):
-            raise ValueError("`patch` must have the same dimensions as the cropping box.")
-        if self.ybr <= 0 or image.shape[1] <= self.ytl or self.xbr <= 0 or image.shape[0] <= self.xtl:
+            raise ValueError(
+                "`patch` must have the same dimensions as the cropping box."
+            )
+        if (
+            self.ybr <= 0
+            or image.shape[1] <= self.ytl
+            or self.xbr <= 0
+            or image.shape[0] <= self.xtl
+        ):
             raise ValueError("`box` must fall at least partially inside the image.")
         image[
-            max(self.ytl, 0):min(self.ybr, image.shape[0]),
-            max(self.xtl, 0):min(self.xbr, image.shape[1])
+            max(self.ytl, 0) : min(self.ybr, image.shape[0]),
+            max(self.xtl, 0) : min(self.xbr, image.shape[1]),
         ] = patch[
-            max(-self.ytl, 0):min(self.ybr, image.shape[0]) - self.ytl,
-            max(-self.xtl, 0):min(self.xbr, image.shape[1]) - self.xtl
+            max(-self.ytl, 0) : min(self.ybr, image.shape[0]) - self.ytl,
+            max(-self.xtl, 0) : min(self.xbr, image.shape[1]) - self.xtl,
         ]
         return image
-
 
 
 class Cell(Dict):
