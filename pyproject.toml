@@ -17,7 +17,6 @@ dependencies = [
     "ffmpeg-python>=0.2",
     "numpy>=1.21",
     "opencv-python>=4.5",
-    "requests",
     "scikit-image>=0.18",
     "tensorflow>=2.7",
     "pooch>=1.6",
