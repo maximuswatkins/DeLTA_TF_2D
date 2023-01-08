@@ -133,7 +133,7 @@ def _unet(
     levels: int,
     conv2d_kwargs: Dict[str, str],
     dropout: float = 0.0,
-):
+) -> tf.Tensor:
     """
     A recursive function to create a U-Net.
     The number of filters at each level are specified with the `filters` argument.

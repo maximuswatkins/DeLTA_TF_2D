@@ -128,7 +128,7 @@ def load_config(
     json_file: Optional[Union[str, _pathlib.Path]] = None,
     presets: str = "2D",
     config_level: Optional[str] = None,
-):
+) -> None:
     """
     Loads json configuration files.
 
@@ -174,7 +174,7 @@ def load_config(
             json_file = _local_path
         elif config_level == "global":
             json_file = _global_path
-    
+
     if json_file is None:
         variables = defaults
     else:

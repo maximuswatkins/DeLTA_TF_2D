@@ -10,8 +10,6 @@ from pathlib import Path
 import cv2
 import numpy as np
 import numpy.random as npr
-
-#
 import pytest
 from scipy.ndimage import binary_fill_holes
 

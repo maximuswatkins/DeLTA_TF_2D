@@ -17,7 +17,18 @@ import tkinter as tk
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 
 import cv2
 import ffmpeg
@@ -69,7 +80,7 @@ class CroppingBox(Dict):
 class Cell(Dict):
     """
     Dictionary describing a cell, its lineage and pole information.
-    
+
     Attributes
     ----------
         id : int
@@ -95,21 +106,23 @@ class Cell(Dict):
 
     def __eq__(self, other) -> bool:
         eq_keys = self.keys() == other.keys()
-        eq_id = self['id'] == other['id']
-        eq_mother = self['mother'] == other['mother']
-        eq_frames = self['frames'] == other['frames']
-        eq_daughters = self['daughters'] == other['daughters']
-        eq_new_pole = np.array_equal(self['new_pole'], other['new_pole'])
-        eq_old_pole = np.array_equal(self['old_pole'], other['old_pole'])
-        return all([
-            eq_keys,
-            eq_id,
-            eq_mother,
-            eq_frames,
-            eq_daughters,
-            eq_new_pole,
-            eq_old_pole
-            ])
+        eq_id = self["id"] == other["id"]
+        eq_mother = self["mother"] == other["mother"]
+        eq_frames = self["frames"] == other["frames"]
+        eq_daughters = self["daughters"] == other["daughters"]
+        eq_new_pole = np.array_equal(self["new_pole"], other["new_pole"])
+        eq_old_pole = np.array_equal(self["old_pole"], other["old_pole"])
+        return all(
+            [
+                eq_keys,
+                eq_id,
+                eq_mother,
+                eq_frames,
+                eq_daughters,
+                eq_new_pole,
+                eq_old_pole,
+            ]
+        )
 
 
 #%% Image correction
@@ -193,7 +206,12 @@ def imrotate(frame: npt.NDArray[Any], rotate: float) -> npt.NDArray[Any]:
     return frame
 
 
-def driftcorr(img, template=None, box=None, drift=None):
+def driftcorr(
+    img: Image,
+    template: Optional[Image] = None,
+    box: Optional[CroppingBox] = None,
+    drift: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+) -> Tuple[Image, Tuple[int, int]]:
     """
     Compute drift between current frame and the reference, and return corrected
     image.
@@ -297,7 +315,7 @@ def getDriftTemplate(
 
 
 def opencv_areafilt(
-    I: SegmentationMask,
+    image: SegmentationMask,
     min_area: Optional[float] = 20,
     max_area: Optional[float] = None,
 ) -> SegmentationMask:
@@ -306,7 +324,7 @@ def opencv_areafilt(
 
     Parameters
     ----------
-    I : 2D array
+    image : 2D array
         Segmentation mask.
     min_area : float or None, optional
         Minimum object area.
@@ -317,12 +335,12 @@ def opencv_areafilt(
 
     Returns
     -------
-    I : 2D array
+    image : 2D array
         Filtered mask.
 
     """
     # Get contours:
-    contours = find_contours(I)
+    contours = find_contours(image)
 
     # Loop through contours, flag them for deletion:
     to_remove = []
@@ -335,9 +353,9 @@ def opencv_areafilt(
 
     # Delete all at once:
     if len(to_remove) > 0:
-        I = cv2.drawContours(I, to_remove, -1, 0, thickness=-1)
+        image = cv2.drawContours(image, to_remove, -1, 0, thickness=-1)
 
-    return I
+    return image
 
 
 #%% Image cropping & stitching
@@ -731,7 +749,9 @@ def getcellsinframe(
         return cellids
 
     # Get opencv contours:
-    contours = [find_contours((labels == cellid + 1).astype(np.uint8))[0] for cellid in cellids]
+    contours = [
+        find_contours((labels == cellid + 1).astype(np.uint8))[0] for cellid in cellids
+    ]
 
     return cellids, contours
 
@@ -1209,7 +1229,7 @@ class Lineage:
     Class for cell lineages contained in each ROI.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize object.
 
@@ -1231,16 +1251,19 @@ class Lineage:
         eq_cells = self.cells == other.cells
         eq_stack = self.stack == other.stack
         eq_cellnumbers = self.cellnumbers == other.cellnumbers
-        eq_cellnumbers_empty = all(not x for x in self.cellnumbers) and all(not x for x in other.cellnumbers)
+        eq_cellnumbers_empty = all(not x for x in self.cellnumbers) and all(
+            not x for x in other.cellnumbers
+        )
         eqs = [
             eq_keys,
             eq_cells,
             eq_cellnumbers or eq_cellnumbers_empty,
             eq_stack,
-            ]
+        ]
         return all(eqs)
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Display representation of the Lineage."""
         return "\n".join(
             f"cell #{icell:04}: "
             + "".join(
@@ -1684,14 +1707,14 @@ class xpreader:
 
     def __init__(
         self,
-        filename=None,
+        filename: Union[Path, str] = None,
         channelnames: Optional[Tuple[str]] = None,
         use_bioformats: bool = False,
         prototype: Optional[str] = None,
         fileorder: str = "pct",
         filenamesindexing: int = 1,
         watchfiles: bool = False,
-    ):
+    ) -> None:
         """
         Initialize experiment reader.
 
@@ -2010,7 +2033,7 @@ class xpreader:
             print()
 
     def close(self) -> None:
-        # Close bioformats or tif reader
+        """Close the bioformats or tif reader."""
         if self.use_bioformats:
             self.filehandle.close()
             import javabridge
@@ -2050,8 +2073,8 @@ class xpreader:
     def getframes(
         self,
         position: int,
-        channels=None,
-        frames=None,
+        channels: Optional[Union[int, Sequence[int]]] = None,
+        frames: Optional[Union[int, Sequence[int]]] = None,
         squeeze_dimensions: bool = True,
         rotate: Optional[float] = None,
     ) -> np.ndarray:
@@ -2159,7 +2182,9 @@ class xpreader:
                         series=position, c=cha, t=fra, rescale=True
                     )
                 elif self.filetype == "dir":
-                    frame = read_image(self.getfilenamefromprototype(position, cha, fra))
+                    frame = read_image(
+                        self.getfilenamefromprototype(position, cha, fra)
+                    )
                 elif self.filetype == "tif":
                     frame = (
                         self.filehandle.series[position]
@@ -2182,14 +2207,15 @@ class files_watcher(Thread):
     Daemon to watch experiment files and signal new ones (not functional yet).
     """
 
-    def __init__(self, reader):
+    def __init__(self, reader: xpreader) -> None:
         super().__init__()
         self.daemon = True
         self.reader = reader
         self.old = []
         self.new = []
 
-    def run(self):
+    def run(self) -> None:
+        """Run the file watcher."""
         while True:
 
             # Run through monitored positions:
@@ -2221,7 +2247,7 @@ class files_watcher(Thread):
                     self.new[p][channel] = i
             time.sleep(0.01)
 
-    def newfiles(self):
+    def newfiles(self) -> List[Tuple[int, int]]:
         """
         Get list of new files position and channel.
 
@@ -2240,6 +2266,7 @@ class files_watcher(Thread):
 
 
 #%% Saving & Loading results
+
 
 def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, float]]:
     """
@@ -2676,7 +2703,7 @@ def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
     return sorted(p for p in directory.iterdir() if p.suffix in suffixes)
 
 
-def tensorboard_callback():
+def tensorboard_callback() -> TensorBoard:
     """
     Returns a callback for TensorBoard logging.
     """
@@ -2688,8 +2715,7 @@ def tensorboard_callback():
         )
     except FileNotFoundError:
         branch = ""
-    log_dir = (
-        "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "_" + branch
-    )
+    date = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_dir = f"logs/fit/{date}_{branch}"
     callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
     return callback
