@@ -453,13 +453,15 @@ def test_extract_poles():
     )
     mask_poles = utils.skeleton_poles(skel)
     poles = utils.extract_poles(mask_poles, labels)
-    solution = [
-        [np.array([0, 1]), np.array([2, 1])],  # Cell 1
-        [np.array([0, 3]), np.array([1, 5])],  # Cell 2
-        [np.array([4, 0]), np.array([4, 2])],  # Cell 3
-        [np.array([3, 4]), np.array([4, 5])],  # Cell 4
-    ]
-    assert np.array_equal(poles, solution)
+    solution = {
+        0: [np.array([0, 1]), np.array([2, 1])],
+        1: [np.array([0, 3]), np.array([1, 5])],
+        2: [np.array([4, 0]), np.array([4, 2])],
+        3: [np.array([3, 4]), np.array([4, 5])],
+    }
+    assert poles.keys() == solution.keys()
+    for k in solution.keys():
+        assert np.array_equal(poles[k], solution[k])
 
 
 @pytest.mark.parametrize("seed", range(1000))  # Run it 1000 times
@@ -593,7 +595,7 @@ def _base_test_color(max_dots, seed=None):
     cells, contours = utils.getcellsinframe(utils.label_seg(mask), return_contours=True)
 
     # Get random colors:
-    colors = utils.getrandomcolors(len(cells), seed=seed)
+    colors = utils.getrandomcolors(cells, seed=seed)
 
     # Color cells contours:
     for c, cell in enumerate(cells):

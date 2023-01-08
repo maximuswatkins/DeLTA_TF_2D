@@ -669,14 +669,12 @@ class Position:
 
         # Now extracting multi-frame features
         for roi in self.rois:
-            for icell, cell in enumerate(roi.lineage.cells):
+            for cellid, cell in roi.lineage.cells.items():
                 for iframe in cell["frames"]:
                     for feature in ["length", "area"]:
                         try:
-                            gr = roi.lineage.growthrate(icell, iframe, feature)
-                            roi.lineage.setvalue(
-                                icell, iframe, f"growthrate_{feature}", gr
-                            )
+                            gr = roi.lineage.growthrate(cellid, iframe, feature)
+                            roi.lineage.setvalue(cellid, iframe, f"growthrate_{feature}", gr)
                         except KeyError:
                             warnings.warn(
                                 "An issue happened related to feature extraction: "
@@ -838,17 +836,16 @@ class Position:
             res["labelsstack"] = np.array(label_stack, dtype=np.uint16)
 
             # Run through cells, update to 1-based indexing
-            cells = r.lineage.cells
             lin: List[Dict[str, Any]] = []
-            for c in cells:
+            for cell in r.lineage.cells.values():
                 lin += [{}]
                 # Base lineage:
-                lin[-1]["mother"] = c["mother"] + 1 if c["mother"] is not None else 0
-                lin[-1]["frames"] = np.array(c["frames"], dtype=np.float32) + 1
-                lin[-1]["daughters"] = np.array(c["daughters"], dtype=np.float32) + 1
+                lin[-1]["mother"] = cell["mother"] + 1 if cell["mother"] is not None else 0
+                lin[-1]["frames"] = np.array(cell["frames"], dtype=np.float32) + 1
+                lin[-1]["daughters"] = np.array(cell["daughters"], dtype=np.float32) + 1
                 lin[-1]["daughters"][np.isnan(lin[-1]["daughters"])] = 0
-                if "edges" in c:
-                    lin[-1]["edges"] = c["edges"]
+                if "edges" in cell:
+                    lin[-1]["edges"] = cell["edges"]
 
                 # Morphological features:
                 morpho_features = (
@@ -862,16 +859,16 @@ class Position:
                     "growthrate_area",
                 )
                 for feat in morpho_features:
-                    if feat in c:
-                        lin[-1][feat] = np.array(c[feat], dtype=np.float32)
+                    if feat in cell:
+                        lin[-1][feat] = np.array(cell[feat], dtype=np.float32)
 
                 # Loop through potential fluo channels:
                 fluo = 0
                 while True:
                     fluo += 1
                     fluostr = f"fluo{fluo}"
-                    if fluostr in c:
-                        lin[-1][fluostr] = np.array(c[fluostr], dtype=np.float32)
+                    if fluostr in cell:
+                        lin[-1][fluostr] = np.array(cell[fluostr], dtype=np.float32)
                     else:
                         break
             # Store into res dict:
@@ -936,7 +933,7 @@ class Position:
             for r, roi in enumerate(self.rois):
 
                 # Get chamber-specific variables:
-                colors = utils.getrandomcolors(len(roi.lineage.cells), seed=r)
+                colors = utils.getrandomcolors(roi.lineage.cells.keys(), seed=r)
                 fr = roi.label_stack[fnb]
                 assert fr is not None  # FIXME: why is it not None?
                 cells, contours = utils.getcellsinframe(fr, return_contours=True)
@@ -1024,6 +1021,12 @@ def load_position(filename: Union[str, Path]) -> Position:
     """
     with open(filename, "rb") as file:
         p = pickle.load(file)
+
+    # Retrocompatibility with old format
+    for roi in p.rois:
+        if isinstance(roi.lineage.cells, list):
+            roi.lineage.cells = {cellid: cell for cellid, cell in enumerate(roi.lineage.cells)}
+
     return p
 
 
@@ -1270,7 +1273,7 @@ class ROI:
             poles = utils.getpoles(self.seg_stack[frame], scaling=self.scaling)
 
             # Create new orphan cells
-            for ipls, pls in enumerate(poles):
+            for ipls, pls in poles.items():
                 self.lineage.update(None, frame, attrib=[ipls], poles=[pls])
 
             return None, None

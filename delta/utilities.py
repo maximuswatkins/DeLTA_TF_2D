@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 import tkinter as tk
+from collections import defaultdict
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
@@ -796,7 +797,7 @@ def getpoles(
     seg: SegmentationMask,
     labels: Optional[Labels] = None,
     scaling: Optional[Tuple[float, float]] = None,
-) -> List[Tuple[Pole, Pole]]:
+) -> Dict[int, Tuple[Pole, Pole]]:
     """
     Get cell poles.
 
@@ -813,8 +814,8 @@ def getpoles(
 
     Returns
     -------
-    poles : list
-        List of poles per cell. Each cell in the list has exactly 2 poles.
+    poles : Dict[int, (Pole, Pole)]
+        Dictionary of cellid to poles. Each cell has exactly 2 poles.
 
     """
     # No label provided:
@@ -828,28 +829,24 @@ def getpoles(
     ends_map = skeleton_poles(skel)
     poles = extract_poles(ends_map, labels)
 
-    clean_poles = []
+    clean_poles = {}
 
     # Make sure cells have 2 poles each:
-    for ipls, pls in enumerate(poles):
-        if len(pls) < 2:  # Sometimes skeletonize fails
-            clean_poles.append(extrema_poles(labels == ipls + 1, scaling=scaling))
-        elif len(pls) == 2:
-            clean_poles.append((pls[0], pls[1]))
+    for cellid, cellpoles in poles.items():
+        if len(cellpoles) < 2:  # Sometimes skeletonize fails
+            clean_poles[cellid] = extrema_poles(labels == cellid + 1, scaling=scaling)
+        elif len(cellpoles) == 2:
+            clean_poles[cellid] = tuple(cellpoles)
         else:
-            clean_poles.append(two_poles(pls))
+            clean_poles[cellid] = two_poles(cellpoles)
 
-    # Apply scaling:
-    if scaling:
-        clean_poles = [
-            (
-                np.round(p1 * scaling).astype(np.int16),
-                np.round(p2 * scaling).astype(np.int16),
-            )
-            for p1, p2 in clean_poles
-        ]
+    if not scaling:
+        return clean_poles
 
-    return clean_poles
+    return {
+        cellid: (np.round(p1 * scaling).astype(np.int16), np.round(p2 * scaling).astype(np.int16))
+        for cellid, (p1, p2) in clean_poles.items()
+    }
 
 
 def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
@@ -954,7 +951,7 @@ def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
     return (poles[i_max], poles[j_max])
 
 
-def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> List[List[Pole]]:
+def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> Dict[int, List[Pole]]:
     """
     Extract poles per cell from ends image.
 
@@ -967,19 +964,19 @@ def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> List[List[P
 
     Returns
     -------
-    poles : list of tuples of 1D numpy arrays
-        For each cell, list of numpy arrays with the y-x coordinates
-        of the poles.  In principle, each list has two poles but sometimes not.
+    poles : Dict[int, List[Pole]]
+        Dict of cellids to list of poles.  In principle, each list has two
+        poles but sometimes the detection fails.
 
     """
     locations = end_img.nonzero()
-    poles: List[List[Pole]] = [[] for _ in range(np.max(labels))]
+    poles = defaultdict(list)
+
     for p in range(len(locations[0])):
+        cellid = labels[locations[0][p], locations[1][p]] - 1
+        poles[cellid] += [np.array([locations[0][p], locations[1][p]], dtype=np.int16)]
 
-        cell = labels[locations[0][p], locations[1][p]] - 1
-        poles[cell] += [np.array([locations[0][p], locations[1][p]], dtype=np.int16)]
-
-    return poles
+    return dict(poles)
 
 
 def eucl(p1: npt.NDArray[Any], p2: npt.NDArray[Any]) -> float:
@@ -1238,7 +1235,7 @@ class Lineage:
         None.
 
         """
-        self.cells = []
+        self.cells = {}
         """List of single-cell dictionaries
         Each dictionary will contain single-cell lineage and extracted feature
         properties"""
@@ -1265,12 +1262,12 @@ class Lineage:
     def __str__(self) -> str:
         """Display representation of the Lineage."""
         return "\n".join(
-            f"cell #{icell:04}: "
+            f"cell #{cellid:04}: "
             + "".join(
                 " +"[iframe in cell["frames"]]
                 for iframe in range(max(cell["frames"]) + 1)
             )
-            for icell, cell in enumerate(self.cells)
+            for cellid, cell in self.cells.items()
         )
 
     def update(
@@ -1408,7 +1405,7 @@ class Lineage:
                 "old_pole": [old_pole],
             }
         )
-        self.cells.append(new_cell)
+        self.cells[new_cell["id"]] = new_cell
 
         return new_cell["id"]
 
@@ -2267,36 +2264,38 @@ class files_watcher(Thread):
 
 #%% Saving & Loading results
 
-
-def getrandomcolors(num_colors: int, seed: int = 0) -> List[Tuple[float, float, float]]:
+def getrandomcolors(cellids: Iterable, seed: int = 0) -> Dict[int, Tuple[float, float, float]]:
     """
     Generate list of random hsv colors.
 
     Parameters
     ----------
-    num_colors : int
-        Number of desired colors.
+    cellids : Iterable (for example list, tuple or iterator)
+        Cellids which should be assigned random colors.
     seed : int, optional
-        Random seed.
+        Random seed used to shuffle colors.
 
     Returns
     -------
-    colors : list
-        List of RGB values (0-1 interval).
+    colors : Dict[int, Tuple[float, float, float]]
+        Dictionary of cellids to colors (RGB values in [0,1]).
 
     """
-    if num_colors == 0:
-        return []
+
+    # XXX: Is this necessary?
+    if len(cellids) == 0:
+        return {}
 
     # Get colors
-    gradient = np.linspace(0, 256, num_colors, endpoint=False, dtype=np.uint8)
+    gradient = np.linspace(0, 256, len(cellids), endpoint=False, dtype=np.uint8)
     colors = cv2.applyColorMap(gradient, cv2.COLORMAP_HSV).squeeze(axis=1)
+    colors = colors.astype(np.float64) / 255
 
     # Shuffle colors
     rng = npr.default_rng(seed)
     rng.shuffle(colors)
 
-    return [tuple(color) for color in colors.astype(np.float64) / 255]
+    return {cellid: tuple(color) for cellid, color in zip(cellids, colors)}
 
 
 def vidwrite(
