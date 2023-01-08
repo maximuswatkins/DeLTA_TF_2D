@@ -1106,16 +1106,15 @@ def getTrackingScores(
     labels: Labels,
     outputs: npt.NDArray[np.float32],
     boxes: Optional[List[Tuple[CroppingBox, CroppingBox]]] = None,
-) -> Optional[npt.NDArray[np.float32]]:
+) -> npt.NDArray[np.float32]:
     """
     Get overlap scores between input/target cells and tracking outputs.
 
     Parameters
     ----------
-    inputs : 2D array of floats
-        Segmentation mask of input/target cells that the tracking U-Net is
-        tracking against. (ie segmentation mask of the 'current'/'new' frame)
-    outputs : 4D array of floats
+    labels : 2D array of np.uint16
+        Labelled image (untracked) of the current frame.
+    outputs : 3D array of floats (previous_cells, sizex, sizey)
         Tracking U-Net output (logits).
     boxes : list of dict, optional
         Cropping box and fill box to re-place output prediction masks in the
@@ -1123,63 +1122,44 @@ def getTrackingScores(
 
     Returns
     -------
-    scores : 2D array of floats, or None
+    scores : 2D array of floats (previous_cells, current_cells)
         Overlap scores matrix between tracking predictions and current
         segmentation mask for each new-old cell.
 
     """
-    total_cell = np.max(labels)
-    if total_cell == 0:
-        return None
-
-    # Get areas for each cell:
-    _, areas = np.unique(labels, return_counts=True)
-    areas = areas[1:]
 
     # Compile scores:
-    scores = np.zeros([outputs.shape[0], total_cell], dtype=np.float32)
+    scores = np.zeros([outputs.shape[0], labels.max()], dtype=np.float32)
     for o, output in enumerate(outputs):
 
         # Find pixels with more than 5% probability
-        nz = list((output > logit(0.05)).nonzero())
-        if len(nz[0]) == 0:
-            continue
+        nz_y, nz_x = list((output > logit(0.05)).nonzero())
 
         # Find cells that are "hit" by those pixels in the labels image:
-        if (
-            boxes is None
-            or boxes[o] is None
-            or all(v is None for v in boxes[o][0].values())
-        ):
-            cells, counts = np.unique(labels[tuple(nz)], return_counts=True)
-
-        else:
+        if boxes is not None:
             # Clean nz hits outside of fillbox:
             cb, fb = boxes[o][:]
-            to_remove = np.logical_or.reduce(
-                (
-                    nz[0] <= fb["ytl"],
-                    nz[0] >= fb["ybr"],
-                    nz[1] <= fb["xtl"],
-                    nz[1] >= fb["xbr"],
-                )
-            )
-            nz[0] = np.delete(nz[0], to_remove.nonzero())
-            nz[1] = np.delete(nz[1], to_remove.nonzero())
+            to_keep_y = (fb["ytl"] <= nz_y) & (nz_y < fb["ybr"])
+            to_keep_x = (fb["xtl"] <= nz_x) & (nz_x < fb["xbr"])
+            nz_y = nz_y[to_keep_x & to_keep_y]
+            nz_x = nz_x[to_keep_x & to_keep_y]
 
             # Offset hits by cropbox-fillbox:
-            nz[0] = nz[0] + cb["ytl"] - fb["ytl"]
-            nz[1] = nz[1] + cb["xtl"] - fb["xtl"]
+            nz_y += cb["ytl"] - fb["ytl"]
+            nz_x += cb["xtl"] - fb["xtl"]
 
-            # Compute number of hits per cell:
-            cells, counts = np.unique(labels[nz[0], nz[1]], return_counts=True)
+        # Compute number of hits per cell:
+        cells, counts = np.unique(labels[nz_y, nz_x], return_counts=True)
 
         # Compile score for these cells:
-        for c, cell in enumerate(cells):
-            if cell > 0:
-                scores[o, cell - 1] = counts[c] / areas[cell - 1]
+        for icell, count in zip(cells, counts):
+            if icell > 0:
+                scores[o, icell - 1] = count
 
-    return scores
+    # Get areas for each cell:
+    _, areas = np.unique(labels, return_counts=True)
+
+    return scores / areas[1:]
 
 
 def getAttributions(scores: npt.NDArray[np.float32]) -> npt.NDArray[np.bool_]:

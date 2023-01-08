@@ -116,7 +116,7 @@ class Pipeline:
         # If reload flag, reload positions from pickle files:
         if reload:
             for p in range(self.reader.positions):
-                self.positions[p].load(self.resfolder / f"Position{p:06d}.pkl")
+                self.positions[p] = Position.load(self.resfolder / f"Position{p:06d}.pkl")
 
     def preprocess(
         self,
@@ -580,9 +580,8 @@ class Position:
             references = []
             for iroi, roi in enumerate(self.rois):
                 inputs, boxes = roi.get_tracking_inputs(frame=frame)
-                if inputs is not None:
-                    x.append(inputs)
-                    references.append((iroi, len(inputs), boxes))
+                x.append(inputs)
+                references.append((iroi, len(inputs), boxes))
 
             # Predict:
             x = np.concatenate(x) if x else np.empty((0, *cfg.target_size_track, 4))
@@ -727,7 +726,8 @@ class Position:
             movie = self.results_movie(frames=frames)
             utils.vidwrite(movie, filename.with_suffix(".mp4"), verbose=False)
 
-    def load(self, filename: Union[str, Path]) -> None:
+    @staticmethod
+    def load(filename: Union[str, Path]):
         """
         Load position from pickle file.
 
@@ -738,14 +738,20 @@ class Position:
 
         Returns
         -------
-        None.
+        position : pipeline.Position object
+            Reloaded Position object. (without reader and models)
 
         """
-        p = load_position(filename)
 
-        for (k, v) in p.__dict__.items():
-            if k not in self._pickle_skip:
-                setattr(self, k, v)
+        with open(filename, "rb") as file:
+            position = pickle.load(file)
+
+        # Retrocompatibility with old format
+        for roi in position.rois:
+            if isinstance(roi.lineage.cells, list):
+                roi.lineage.cells = {cellid: cell for cellid, cell in enumerate(roi.lineage.cells)}
+
+        return position
 
     def clear(self) -> None:
         """
@@ -1004,32 +1010,6 @@ class Position:
         return movie
 
 
-def load_position(filename: Union[str, Path]) -> Position:
-    """
-    Load position object from pickle file.
-
-    Parameters
-    ----------
-    filename : str or Path
-        Path to saved pickle file.
-
-    Returns
-    -------
-    p : pipeline.Position object
-        Reloaded Position object. (without reader and models)
-
-    """
-    with open(filename, "rb") as file:
-        p = pickle.load(file)
-
-    # Retrocompatibility with old format
-    for roi in p.rois:
-        if isinstance(roi.lineage.cells, list):
-            roi.lineage.cells = {cellid: cell for cellid, cell in enumerate(roi.lineage.cells)}
-
-    return p
-
-
 class ROI:
     """
     ROI processor object.
@@ -1223,20 +1203,15 @@ class ROI:
             self.seg_stack[frame] = y
 
     def get_tracking_inputs(
-        self, frame: Optional[int] = None
-    ) -> Union[
-        Tuple[np.ndarray, List[Tuple[utils.CroppingBox, utils.CroppingBox]]],
-        Tuple[None, None],
-    ]:
+        self, frame: int
+        ) -> Tuple[np.ndarray, List[Tuple[utils.CroppingBox, utils.CroppingBox]]]:
         """
-        Compile tracking inputs for ROI.
+        Compile tracking inputs for ROI from `seg_stack`.
 
         Parameters
         ----------
-        frame : int, optional
-            The frame to compile for. If None, the earliest frame not yet
-            tracked is run.
-            The default is None.
+        frame : int
+            The frame to compile for.
 
         Raises
         ------
@@ -1247,49 +1222,33 @@ class ROI:
         -------
         x : 4D array or None
             Tracking input array. Dimensions are (previous_cells,
-            cfg.target_size_track[1], cfg.target_size_track[0], 4). If no
+            cfg.target_size_track[0], cfg.target_size_track[1], 4). If no
             previous cells to track from (e.g. first frame or glitch), None is
             returned.
         boxes : List of tuples of 2 dicts or None
             Crop and fill boxes to re-place outputs in the ROI
 
         """
-        # If no frame number passed, run latest:
-        if frame is None:
-            frame = len(self.lineage.cellnumbers)
 
         # Check if segmentation data is ready:
         if len(self.seg_stack) <= frame:
             raise RuntimeError(f"Segmentation incomplete - frame {frame}")
 
-        # If no previous cells to track from, directly update lineage:
-        if (
-            frame == 0
-            or len(self.lineage.cellnumbers) < frame
-            or len(self.lineage.cellnumbers[frame - 1]) == 0
-        ):
+        # Get cell contours from previous frame
+        if frame == 0 or len(self.lineage.cellnumbers) < frame:
+            prev_cell_contours = []
+        else:
+            prev_cell_contours = utils.find_contours(self.seg_stack[frame - 1])
 
-            # Cell poles
-            poles = utils.getpoles(self.seg_stack[frame], scaling=self.scaling)
-
-            # Create new orphan cells
-            for ipls, pls in poles.items():
-                self.lineage.update(None, frame, attrib=[ipls], poles=[pls])
-
-            return None, None
-
-        # Otherwise, get cell contours:
-        cells = utils.find_contours(self.seg_stack[frame - 1])
-        cells.sort(key=lambda elem: np.max(elem[:, 0, 1]))  # Sorting along Y
+        # Sort them along Y
+        prev_cell_contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))
 
         # Allocate empty tracking inputs array:
-        x = np.empty(
-            shape=(len(cells),) + cfg.target_size_track + (4,), dtype=np.float32
-        )
+        x = np.empty((len(prev_cell_contours), *cfg.target_size_track, 4), dtype=np.float32)
 
         # Run through contours and compile inputs:
         boxes = []
-        for c, cell in enumerate(cells):
+        for c, cell in enumerate(prev_cell_contours):
 
             draw_offset: Optional[Tuple[float, float]]
             if self.crop_windows:
@@ -1341,21 +1300,21 @@ class ROI:
     def process_tracking_outputs(
         self,
         y: np.ndarray,
-        frame: Optional[int] = None,
+        frame: int,
         boxes: Optional[List[Tuple[utils.CroppingBox, utils.CroppingBox]]] = None,
     ) -> None:
         """
         Process output from tracking U-Net.
+
+        Get poles and update lineage.
 
         Parameters
         ----------
         y : 4D array
             Tracking output array. Dimensions are (previous_cells,
             cfg.target_size_track[1], cfg.target_size_track[0], 1).
-        frame : int, optional
-            The frame to process for. If None, the earliest frame not yet
-            tracked is run.
-            The default is None.
+        frame : int
+            The frame to process for.
         boxes : List of tuples of 2 dicts or None
             Crop and fill boxes to re-place outputs in the ROI
 
@@ -1364,8 +1323,6 @@ class ROI:
         None.
 
         """
-        if frame is None:
-            frame = len(self.lineage.cellnumbers)
 
         # Get scores and attributions:
         labels = utils.label_seg(self.seg_stack[frame])
@@ -1373,7 +1330,7 @@ class ROI:
         scores = utils.getTrackingScores(
             labels, y[:, :, :, 0], boxes=boxes if self.crop_windows else None
         )
-        if scores is None:
+        if scores.shape[1] == 0:
             self.lineage.update(None, frame)
             return
         attributions = utils.getAttributions(scores)

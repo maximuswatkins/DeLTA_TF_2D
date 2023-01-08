@@ -28,8 +28,8 @@ def test_pipeline_mothermachine():
 
     xp.process(clear=False)
 
-    pos0 = delta.pipeline.load_position(xpfolder / "expected_results/Position000000.pkl")
-    pos1 = delta.pipeline.load_position(xpfolder / "expected_results/Position000001.pkl")
+    pos0 = delta.pipeline.Position.load(xpfolder / "expected_results/Position000000.pkl")
+    pos1 = delta.pipeline.Position.load(xpfolder / "expected_results/Position000001.pkl")
 
     assert xp.positions[0] == pos0
     assert xp.positions[1] == pos1
