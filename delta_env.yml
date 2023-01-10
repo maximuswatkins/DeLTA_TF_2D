@@ -6,7 +6,7 @@ dependencies:
   - python>=3.7
   - scikit-image>=0.18
   - opencv>=4.5
-  - tensorflow>=2.7
+  - tensorflow>=2.7,<2.11
   - ffmpeg-python
   - numpy>=1.21
   - pooch>=1.6
