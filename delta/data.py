@@ -1399,39 +1399,26 @@ def trainGenerator_track(
                 shape = cast(Tuple[int, int], seg.shape)  # for mypy
                 shiftY, shiftX = utils.getshiftvalues(shift_cropbox, shape, cb, rng)
             else:
-                cb = fb = utils.CroppingBox(
-                    ytl=0, xtl=0, ybr=seg.shape[0], xbr=seg.shape[1]
-                )
+                cb = utils.CroppingBox.full(seg)
+                fb = utils.CroppingBox.full(seg)
                 shiftY, shiftX = 0, 0
 
             # Add into arrays:
 
-            X[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 1] = utils.cropbox(
-                seg, cb
-            )
-            X[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 2] = utils.cropbox(
-                previmg, cb
-            )
+            fb.patch(X[b, :, :, 1], cb.crop(seg))
+            fb.patch(X[b, :, :, 2], cb.crop(previmg))
 
             # Shift crop box for current frame inputs
-            cb["xtl"] += shiftX
-            cb["xbr"] += shiftX
-            cb["ytl"] += shiftY
-            cb["ybr"] += shiftY
+            cb.xtl += shiftX
+            cb.xbr += shiftX
+            cb.ytl += shiftY
+            cb.ybr += shiftY
 
-            X[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 0] = utils.cropbox(
-                img, cb
-            )
-            X[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 3] = utils.cropbox(
-                segall, cb
-            )
+            fb.patch(X[b, :, :, 0], cb.crop(img))
+            fb.patch(X[b, :, :, 3], cb.crop(segall))
 
-            Y[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 0] = utils.cropbox(
-                track, cb
-            )
-            Y[b, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 1] = utils.cropbox(
-                weights, cb
-            )
+            fb.patch(Y[b, :, :, 0], cb.crop(track))
+            fb.patch(Y[b, :, :, 1], cb.crop(weights))
 
         # Yield batch:
         yield X, Y
@@ -1635,26 +1622,20 @@ def predictCompilefromseg_track(
                     shape = cast(Tuple[int, int], img.shape)  # for mypy
                     cb, fb = utils.gettrackingboxes(seg, shape)
                 else:
-                    cb = fb = utils.CroppingBox(ytl=None, xtl=None, ybr=None, xbr=None)
+                    cb = utils.CroppingBox.full(img)
+                    fb = utils.CroppingBox.full(img)
                 boxes += [(cb, fb)]
 
                 # Current image
-                x[
-                    lbl - 1, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 0
-                ] = utils.cropbox(img, cb)
+                fb.patch(x[lbl - 1, :, :, 0], cb.crop(img))
 
-                x[
-                    lbl - 1, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 1
-                ] = utils.cropbox(seg, cb)
+                fb.patch(x[lbl - 1, :, :, 1], cb.crop(seg))
+
                 # Previous image
-                x[
-                    lbl - 1, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 2
-                ] = utils.cropbox(previmg, cb)
+                fb.patch(x[lbl - 1, :, :, 2], cb.crop(previmg))
 
                 # Segmentation of all current cells
-                x[
-                    lbl - 1, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"], 3
-                ] = utils.cropbox(segall, cb)
+                fb.patch(x[lbl - 1, :, :, 3], cb.crop(segall))
 
                 segfilename = getfnfromprototype(
                     prototype,

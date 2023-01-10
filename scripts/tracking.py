@@ -67,7 +67,7 @@ while unprocessed:
 
     print("Cells to track: %d" % len(inputs))
 
-    # Predict (have to do it in batches otherwise run into memry issues):
+    # Predict (have to do it in batches otherwise run into memory issues):
     results = np.empty_like(inputs, shape=inputs.shape[:3] + (1,))
     for i in range(0, len(inputs), 32):
         j = min((len(inputs), i + 32))
@@ -78,9 +78,7 @@ while unprocessed:
         _results = np.zeros_like(results, shape=(len(results),) + imsize + (1,))
         for r, mask in enumerate(results):
             cb, fb = boxes[r]
-            _results[r, cb["ytl"] : cb["ybr"], cb["xtl"] : cb["xbr"]] = results[
-                r, fb["ytl"] : fb["ybr"], fb["xtl"] : fb["xbr"]
-            ]
+            cb.patch(_results[r, :, :, 0], fb.crop(results[r, :, :, 0]))
         results = _results
 
     # Save (use the filenames list from the data compiler)

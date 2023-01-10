@@ -15,6 +15,7 @@ import sys
 import time
 import tkinter as tk
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
@@ -55,27 +56,103 @@ SegmentationMask = npt.NDArray[np.uint8]
 
 Pole = npt.NDArray[np.int16]
 
-# TODO: properly type this
-class CroppingBox(Dict):
+
+@dataclass
+class CroppingBox:
     """
-    Dictionary describing a box to cut out.
+    Class describing a box to cut out.
 
     Attributes
     ----------
-        xtl : Any
+        xtl : int
             Top-left corner X coordinate.
-        ytl : Any
+        ytl : int
             Top-left corner Y coordinate.
-        xbr : Any
+        xbr : int
             Bottom-right corner X coordinate.
-        ybr : Any
+        ybr : int
             Bottom-right corner Y coordinate.
     """
 
-    xtl: Any
-    ytl: Any
-    xbr: Any
-    ybr: Any
+    xtl: int
+    ytl: int
+    xbr: int
+    ybr: int
+
+    @staticmethod
+    def full(image: np.ndarray):
+        """
+        Returns a cropping box set to the full size of the image.
+        """
+        return CroppingBox(xtl=0, ytl=0, xbr=image.shape[1], ybr=image.shape[0])
+
+    def crop(self, image: np.ndarray):
+        """
+        Crops an image according to the cropping box.
+
+        Pads with zeros if a part of the box falls outside of the image.
+
+        Arguments
+        ---------
+            image : np.ndarray
+                Image to crop.
+
+        Returns
+        -------
+            patch : np.ndarray
+                Patch cropped from the image.
+        """
+        if image.ndim != 2:
+            raise ValueError("`image` must have 2 dimensions.")
+        cropped = image[
+            max(self.ytl, 0) : min(self.ybr, image.shape[0]),
+            max(self.xtl, 0) : min(self.xbr, image.shape[1]),
+        ]
+        padding = (
+            (max(-self.ytl, 0), max(self.ybr - image.shape[0], 0)),
+            (max(-self.xtl, 0), max(self.xbr - image.shape[1], 0)),
+        )
+        return np.pad(cropped, padding)
+
+    def patch(self, image: np.ndarray, patch: np.ndarray):
+        """
+        Applies a patch on an image at the position specified by the box.
+
+        Parts of the box may fall outside of the image.
+
+        Arguments
+        ---------
+            image : np.ndarray
+                Image to patch.
+            patch : np.ndarray
+                Patch to apply.
+
+        Returns
+        -------
+            image : np.ndarray
+                The patched image.
+        """
+        if image.ndim != 2 or patch.ndim != 2:
+            raise ValueError("`image` and `patch` must have 2 dimensions.")
+        if patch.shape != (self.ybr - self.ytl, self.xbr - self.xtl):
+            raise ValueError(
+                "`patch` must have the same dimensions as the cropping box."
+            )
+        if (
+            self.ybr <= 0
+            or image.shape[1] <= self.ytl
+            or self.xbr <= 0
+            or image.shape[0] <= self.xtl
+        ):
+            raise ValueError("`box` must fall at least partially inside the image.")
+        image[
+            max(self.ytl, 0) : min(self.ybr, image.shape[0]),
+            max(self.xtl, 0) : min(self.xbr, image.shape[1]),
+        ] = patch[
+            max(-self.ytl, 0) : min(self.ybr, image.shape[0]) - self.ytl,
+            max(-self.xtl, 0) : min(self.xbr, image.shape[1]) - self.xtl,
+        ]
+        return image
 
 
 class Cell(Dict):
@@ -224,9 +301,9 @@ def driftcorr(
     template : None or 2D numpy array of uint8/uint16/floats, optional
         The template for drift correction (see getDriftTemplate()).
         default is None.
-    box : None or dictionary, optional
+    box : None or CroppingBox, optional
         A cropping box to extract the part of the frame to compute drift
-        correction over (see cropbox()).
+        correction over.
         default is None.
     drift : None or tuple of 2 numpy arrays, optional
         Pre-computed drift to apply to the img stack. If this is None, you must
@@ -260,7 +337,7 @@ def driftcorr(
     for i in range(img.shape[0]):
         if drift is None:
             frame = to_integer_values(img[i], np.uint8)
-            driftcorrimg = cropbox(frame, box)
+            driftcorrimg = box.crop(frame)
             res = cv2.matchTemplate(driftcorrimg, template, cv2.TM_CCOEFF_NORMED)
             _, _, _, max_loc = cv2.minMaxLoc(res)
             ycorr[i] = max_loc[0] - res.shape[1] / 2
@@ -299,20 +376,18 @@ def getDriftTemplate(
     """
     if len(chamberboxes) == 0 and not whole_frame:
         return None
-    (y_cut, x_cut) = (
-        round(i * 0.025) for i in img.shape
-    )  # Cutting out 2.5% of the image on each side as drift margin
+
+    # Cutting out 2.5% of the image on each side as drift margin
+    y_cut, x_cut = (round(i * 0.025) for i in img.shape)
 
     box = CroppingBox(
         xtl=x_cut,
         xbr=-x_cut,
         ytl=y_cut,
-        ybr=-y_cut
-        if whole_frame
-        else max(chamberboxes, key=lambda elem: elem["ytl"])["ytl"] - y_cut,
+        ybr=-y_cut if whole_frame else max(box.ytl for box in chamberboxes) - y_cut,
     )
 
-    return cropbox(img, box)
+    return box.crop(img)
 
 
 def opencv_areafilt(
@@ -360,28 +435,6 @@ def opencv_areafilt(
 
 
 #%% Image cropping & stitching
-
-
-def cropbox(img: npt.NDArray[Any], box: Optional[CroppingBox]) -> npt.NDArray[Any]:
-    """
-    Crop image.
-
-    Parameters
-    ----------
-    img : 2D numpy array
-        Image to crop.
-    box : Optional[CroppingBox]
-        Cropping box to crop the image with.
-
-    Returns
-    -------
-    2D numpy array
-        Cropped-out region.
-
-    """
-    if box is None or all(v is None for v in box.values()):
-        return img
-    return img[box["ytl"] : box["ybr"], box["xtl"] : box["xbr"]]
 
 
 def create_windows(
@@ -525,11 +578,9 @@ def gettrackingboxes(
 
     Returns
     -------
-    cropbox : dict
-        Crop box in the cropbox() input format.
+    cropbox : CroppingBox
         The crop box determines which part of the full-size frame to crop out.
-    fillbox : dict
-        Fill box in the cropbox() input format.
+    fillbox : CroppingBox
         The fill box determines which part of the target-size input to fill with
         the cropped out image.
 
@@ -548,7 +599,7 @@ def gettrackingboxes(
     ytl = int(max(cy - target_size[0] / 2, 0))
     ybr = int(min(cy + target_size[0] / 2, frame_shape[0]))
 
-    cropbox = CroppingBox({"xtl": xtl, "ytl": ytl, "xbr": xbr, "ybr": ybr})
+    cropbox = CroppingBox(xtl=xtl, ytl=ytl, xbr=xbr, ybr=ybr)
 
     xtl = int(max(target_size[1] / 2 - cx, 0))
     xbr = int(min(target_size[1] / 2 + frame_shape[1] - cx, target_size[1]))
@@ -556,7 +607,7 @@ def gettrackingboxes(
     ytl = int(max(target_size[0] / 2 - cy, 0))
     ybr = int(min(target_size[0] / 2 + frame_shape[0] - cy, target_size[0]))
 
-    fillbox = CroppingBox({"xtl": xtl, "ytl": ytl, "xbr": xbr, "ybr": ybr})
+    fillbox = CroppingBox(xtl=xtl, ytl=ytl, xbr=xbr, ybr=ybr)
 
     return cropbox, fillbox
 
@@ -572,8 +623,7 @@ def getshiftvalues(
         Max amount of pixels cropbox to be shifted in the y / x direction.
     img_shape : tuple
         Shape of the image / input that will be cropped.
-    cropbox : dict
-        Crop box in the cropbox() input format.
+    cropbox : CroppingBox
         The crop box determines which part of the full-size frame to crop out.
     rng : npr.Generator
         Pseudo-random number generator.
@@ -581,17 +631,17 @@ def getshiftvalues(
     Returns
     -------
     shiftY : int
-        Number of pixels to shift cropbox in the y irection
+        Number of pixels to shift cropbox in the y direction
     shiftX : int
         Number of pixels to shift cropbox in the x direction.
 
     """
-    upperY = np.min((shift, img_shape[0] - cb["ybr"]))
-    lowerY = np.min((shift, cb["ytl"]))
+    upperY = np.min((shift, img_shape[0] - cb.ybr))
+    lowerY = np.min((shift, cb.ytl))
     shiftY = round(rng.uniform(-lowerY, upperY))
 
-    upperX = np.min((shift, img_shape[1] - cb["xbr"]))
-    lowerX = np.min((shift, cb["xtl"]))
+    upperX = np.min((shift, img_shape[1] - cb.xbr))
+    lowerX = np.min((shift, cb.xtl))
     shiftX = round(rng.uniform(-lowerX, upperX))
 
     return shiftY, shiftX
@@ -637,8 +687,8 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
 
     Returns
     -------
-    chamberboxes : list of dictionaries
-        List of cropping box dictionaries (see cropbox()).
+    chamberboxes : list of `CroppingBox`es
+        Chamber `CroppingBox`es.
 
     """
     chamberboxes = []
@@ -659,7 +709,7 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
         )
 
     # Sorting by top-left X (normally sorted by Y top left)
-    chamberboxes.sort(key=lambda box: box["xtl"])
+    chamberboxes.sort(key=lambda box: box.xtl)
 
     return chamberboxes
 
@@ -1139,14 +1189,14 @@ def getTrackingScores(
         if boxes is not None:
             # Clean nz hits outside of fillbox:
             cb, fb = boxes[o][:]
-            to_keep_y = (fb["ytl"] <= nz_y) & (nz_y < fb["ybr"])
-            to_keep_x = (fb["xtl"] <= nz_x) & (nz_x < fb["xbr"])
+            to_keep_y = (fb.ytl <= nz_y) & (nz_y < fb.ybr)
+            to_keep_x = (fb.xtl <= nz_x) & (nz_x < fb.xbr)
             nz_y = nz_y[to_keep_x & to_keep_y]
             nz_x = nz_x[to_keep_x & to_keep_y]
 
             # Offset hits by cropbox-fillbox:
-            nz_y += cb["ytl"] - fb["ytl"]
-            nz_x += cb["xtl"] - fb["xtl"]
+            nz_y += cb.ytl - fb.ytl
+            nz_x += cb.xtl - fb.xtl
 
         # Compute number of hits per cell:
         cells, counts = np.unique(labels[nz_y, nz_x], return_counts=True)
@@ -2366,9 +2416,8 @@ def roi_features(
         (size_x, size_y, fluo_channels). The number of fluo_channels must match
         the number of fluo features to extract.
         The default is None.
-    roi_box : dict, optional
-        Cropping box dictionary (see cropbox())to apply shift when looking at
-        full-frame fluo images.
+    roi_box : CroppingBox, optional
+        Cropping box to apply shift when looking at full-frame fluo images.
         The default is None.
 
     Returns
@@ -2426,9 +2475,8 @@ def singlecell_features(
         Fluorescent images to extract fluo from. Dimensions are
         (channels, size_y, size_x).
         The default is None.
-    roi_box : dict, optional
-        Cropping box dictionary (see cropbox())to apply shift when looking at
-        full-frame fluo images.
+    roi_box : CroppingBox, optional
+        Cropping box to apply shift when looking at full-frame fluo images.
         The default is None.
 
     Raises
@@ -2592,9 +2640,8 @@ def cell_fluo(
         (channels, size_y, size_x).
     mask : 2D numpy array of bool
         Mask of the region to extract (typically a single cell).
-    roi_box : dictionary, optional
-        Cropping box dictionary (see cropbox())to apply shift when looking at
-        full-frame fluo images.
+    roi_box : CroppingBox, optional
+        Cropping box to apply shift when looking at full-frame fluo images.
         The default is None.
 
     Returns
@@ -2607,8 +2654,8 @@ def cell_fluo(
     pixels = np.where(mask)
     if roi_box is not None:
         _pixels = list(pixels)
-        _pixels[0] += roi_box["ytl"]
-        _pixels[1] += roi_box["xtl"]
+        _pixels[0] += roi_box.ytl
+        _pixels[1] += roi_box.xtl
         pixels = tuple(_pixels)
 
     # Loop through fluo frames:
