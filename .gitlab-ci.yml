@@ -2,6 +2,24 @@ test:
   stage: test
   
   image: continuumio/miniconda3:latest
+  
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /tests::block/'
+      when: never
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /tests::force/'
+      when: always
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH'
+      when: always
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"'
+      when: always
+      
+  cache:
+      key: assets-cache
+      paths:
+        - .cache/delta_assets
+
+  variables:
+    DELTA_ASSETS_CACHE: ".cache/delta_assets"
 
   before_script:
     - date
@@ -11,12 +29,10 @@ test:
     - conda env create --file delta_env.yml
     - source activate delta_env
     - pip install pytest pytest-order
-    - date
-    - python -c "import delta; delta.assets.download_assets(load_models=True, load_sets=False, load_evals=False, config_level='global')"
-  
+    
   script:
     - date
-    - pytest -k "not download_assets and not test_train"
+    - pytest -k "not test_train"
 
 deploy:
   stage: deploy
