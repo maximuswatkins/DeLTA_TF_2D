@@ -2,6 +2,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import numpy.testing as npt
 import pytest
 import tensorflow as tf
 
@@ -49,7 +50,7 @@ def test_pixelwise_weighted_binary_crossentropy_seg():
         tf_labels_weights, tf_logits
     )
     loss_sum = loss.numpy().sum()
-    assert np.allclose(loss_sum, 8053870.791163433)
+    npt.assert_allclose(loss_sum, 8053870.791163433)
 
 
 def test_pixelwise_weighted_binary_crossentropy_track():
@@ -65,7 +66,7 @@ def test_pixelwise_weighted_binary_crossentropy_track():
         tf_labels_weights, tf_logits
     )
     loss_sum = loss.numpy().sum()
-    assert np.allclose(loss_sum, 8053870.791163433)
+    npt.assert_allclose(loss_sum, 8053870.791163433)
 
 
 def test_moma_segmentation_canary():
