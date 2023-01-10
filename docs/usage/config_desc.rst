@@ -103,7 +103,7 @@ probably better for you to update that file or re-generate one with the
 Also note that, in the source code, you may find places where the config module is
 referred to through the utils module, in statements such as::
 
-    from .utilities import cfg
+    from delta.utils import cfg
 
 Which is due to how we used to load configuration in previous versions. Now
 both `delta.config` and `delta.utils.cfg` point to the same thing.

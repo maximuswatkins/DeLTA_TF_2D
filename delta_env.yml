@@ -10,3 +10,4 @@ dependencies:
   - ffmpeg-python
   - numpy>=1.21
   - pooch>=1.6
+  - tqdm

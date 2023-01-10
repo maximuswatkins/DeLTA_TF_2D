@@ -5,6 +5,7 @@ downloads, and writing configuration files.
 
 @author: jeanbaptiste
 """
+import sys
 import json
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
@@ -92,7 +93,9 @@ def training_set_path(model: str) -> Path:
     if config_path:
         return Path(config_path)
     TRAININGSETS_REGISTRY.fetch(
-        f"{cfg.presets}.zip", processor=pooch.Unzip(extract_dir=cfg.presets)
+        f"{cfg.presets}.zip",
+        processor=pooch.Unzip(extract_dir=cfg.presets),
+        progressbar=True
     )
     path = {
         ("mothermachine", "rois"): "chambers_seg_set/train",
@@ -120,7 +123,9 @@ def demo_movie_path() -> Path:
     if cfg.eval_movie:
         return Path(cfg.eval_movie)
     DEMO_REGISTRY.fetch(
-        f"{cfg.presets}.zip", processor=pooch.Unzip(extract_dir=cfg.presets)
+        f"{cfg.presets}.zip",
+        processor=pooch.Unzip(extract_dir=cfg.presets),
+        progressbar=True
     )
     return DEMO_REGISTRY.path / cfg.presets
 
@@ -157,7 +162,8 @@ def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
             model_file_rois = MODEL_REGISTRY.fetch(
                 cfg.model_file_rois
                 if cfg.model_file_rois
-                else "unet_momachambers_seg.hdf5"
+                else "unet_momachambers_seg.hdf5",
+                progressbar=True
             )
         models["rois"] = tf.keras.models.load_model(model_file_rois, compile=False)
 
@@ -166,7 +172,9 @@ def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
             model_file_seg = cfg.model_file_seg
         else:
             term = {"mothermachine": "moma", "2D": "pads"}[cfg.presets]
-            model_file_seg = MODEL_REGISTRY.fetch(f"unet_{term}_seg.hdf5")
+            model_file_seg = MODEL_REGISTRY.fetch(
+                f"unet_{term}_seg.hdf5", progressbar=True
+                )
         models["segmentation"] = tf.keras.models.load_model(
             model_file_seg, compile=False
         )
@@ -176,7 +184,9 @@ def loadmodels(toload: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
             model_file_track = cfg.model_file_track
         else:
             term = {"mothermachine": "moma", "2D": "pads"}[cfg.presets]
-            model_file_track = MODEL_REGISTRY.fetch(f"unet_{term}_track.hdf5")
+            model_file_track = MODEL_REGISTRY.fetch(
+                f"unet_{term}_track.hdf5", progressbar=True
+                )
         models["tracking"] = tf.keras.models.load_model(model_file_track, compile=False)
 
     # In order to be able to use the old models that had a sigmoid as final activation
