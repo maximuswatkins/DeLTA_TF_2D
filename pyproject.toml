@@ -20,6 +20,7 @@ dependencies = [
     "scikit-image>=0.18",
     "tensorflow>=2.7",
     "pooch>=1.6",
+    "tqdm"
 ]
 
 [project.optional-dependencies]

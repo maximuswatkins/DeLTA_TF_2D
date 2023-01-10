@@ -1,58 +1,52 @@
 
-Downloading assets
+Assets
 =================================
 
 `Source code <https://gitlab.com/dunloplab/delta/-/blob/master/delta/assets.py>`_ | 
 :doc:`API <../_generated/delta.assets>` 
 
 We provide archives of our trained models, training sets, and evaluation movies
-in `this google drive folder <https://drive.google.com/drive/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP?usp=sharing>`_
+in `this google drive folder <https://drive.google.com/drive/folders/1nTRVo0rPP9CR9F6WUunVXSXrLNMT_zCP?usp=sharing>`_.
+We refer to these data files as "assets".
 
-You can download them manually, but the assets module allows you to download 
-and save them automatically, and also to generate the JSON config files that 
-points to their location so you can start using DeLTA right away.
+You can download them manually, but the assets are now downloaded automatically
+the first time you try to use them via the 
+`pooch library <https://www.fatiando.org/pooch/latest/>`_. This means you do 
+not need to call the `download_datasets()` function anymore.
 
-You will only need to run this once after install, unless you want to
-re-download assets.
+If the assets changed, either because you overwrote them or because we updated 
+them online, they will be re-downloaded automatically. If you wish to prevent
+them from being downloaded automatically, you can specify their paths in the
+config (see below).
 
-Automated download
-----------------------
 
-You can download assets interactively simply by executing the following line
-in python after importing delta::
+Cache location
+--------------------
 
-    delta.assets.download_assets()
+By default, assets will be downloaded under the cache locations used by the
+`pooch library <https://www.fatiando.org/pooch/latest/api/generated/pooch.os_cache.html>`_,
+for example under `C:/Users/jeanbaptiste/AppData/Local/delta/delta/Cache` 
+on Windows. If you wish for delta to use a different cache location you 
+will need to set the `DELTA_ASSETS_CACHE` environment variable to point to
+where you want this data to be downloaded. 
 
-For a first installation/use, we recommend downloading all assets and setting the
-configuration level to 'global'. See :doc:`Configuration files <config_desc>` 
-for more information. 
+For example you can 
+`set this permanently within your conda environment <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#setting-environment-variables>`_::
 
-Please note that some of these datasets are several GBs in size and the 
-download process can take a while. By default they are saved in an 'assets' 
-folder under the delta installation path. If you are only interested in running
-DeLTA as-is, without retraining or evaluating outputs, you can only accept
-the models and save the corresponding config file, the 
-:doc:`pipeline <pipeline_desc>` will run.
+    conda env config vars set DELTA_ASSETS_CACHE="D:/data/delta_cache"
 
-Download and path options
---------------------------
 
-You can also specify which assets to download if you want to automate the process::
 
-    delta.assets.download_assets(
-        load_models=True,
-        load_sets=True,
-        load_evals=False,
-        config_level='local'
-    )
+Local files, automated downloads, and `config`
+--------------------------------------------------
 
-or specify where to save them, for example if you don't want them to be saved 
-under the installation directory::
+By default, the `config` variables for the assets files and folders point to 
+`None`. This means the `assets` module and the `pooch` library handle assets
+management. However, if you want to use your own custom trained models or
+training sets, or if you want to disable automated model downloads, you can 
+specify their paths in the :doc:`config module <config_desc>`. For example::
 
-    delta.assets.download_assets(
-        load_models='/path/to/models/folder',
-        load_sets=False,
-        load_evals='/other/path/to/eval/folder',
-        config_level='/my/path/to/config_file.json'
-    )
+    delta.config.model_file_rois = 'D:/data/delta_cache/unet_momachambers_seg.hdf5'
 
+Or, if you want this change to be more permanent you can modify the relevant 
+config file directly.
