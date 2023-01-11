@@ -19,7 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
+from typing import (Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type,
+                    Union)
 
 import cv2
 import ffmpeg

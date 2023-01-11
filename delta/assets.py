@@ -5,14 +5,11 @@ downloads, and writing configuration files.
 
 @author: jeanbaptiste
 """
-import copy
-import json
+
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict
 
 import pooch
-
-import delta
 
 BASE_URL = "https://docs.google.com/uc?export=download&confirm=t&id="
 
@@ -138,17 +135,6 @@ def download_model(presets: str, model: str) -> Path:
     return MODEL_REGISTRY.fetch(filename, progressbar=True)
 
 
-def _write_json(obj: Any, path: Path) -> None:
-    class PathEncoder(json.JSONEncoder):
-        def default(self, obj: Any):
-            if isinstance(obj, Path):
-                return str(obj)
-            return json.JSONEncoder.default(self, obj)
-
-    with path.open(mode="w", encoding="utf8") as file:
-        json.dump(obj, file, indent=4, cls=PathEncoder)
-
-
 def _ask(prompt: str, options: Dict[str, Any] = {"y": True, "n": False}) -> Any:
     question = f"{prompt} [{'/'.join(options)}]: "
     answer = input(question)
@@ -156,60 +142,3 @@ def _ask(prompt: str, options: Dict[str, Any] = {"y": True, "n": False}) -> Any:
         print(f"invalid answer: '{answer}'")
         answer = input(question)
     return options[answer]
-
-
-def _write_default_configs(
-    config_level: Union[str, Path] = "local",
-    model_files: Dict[str, Path] = {},
-    sets_files: Dict[str, Path] = {},
-    eval_files: Dict[str, Path] = {},
-) -> None:
-
-    if config_level == "local":
-        config_dir = Path.home() / ".delta"
-    elif config_level == "global":
-        config_dir = delta.config._DELTA_DIR / "assets/config"
-    else:
-        path_config = Path(config_level)
-        if not path_config.is_dir():
-            raise ValueError(
-                f"Invalid config level/path: {config_level}. "
-                "If providing a folder path, the folder must exist."
-            )
-        config_dir = path_config
-
-    config_dir.mkdir(parents=True, exist_ok=True)
-
-    # Write 2D config:
-    config = copy.deepcopy(delta.config.DEFAULT_CONFIG_2D)
-    if len(model_files) > 0:
-        config.model_file_seg = model_files["unet_pads_seg"]
-        config.model_file_track = model_files["unet_pads_track"]
-    if len(sets_files) > 0:
-        config.training_set_seg = sets_files["2D"] / "training/segmentation_set"
-        config.training_set_track = sets_files["2D"] / "training/tracking_set"
-    if len(eval_files) > 0:
-        config.eval_movie = eval_files["2D"] / "movie_tifs"
-    _write_json(config, config_dir / "config_2D.json")
-
-    # Write mothermachine config:
-    config = copy.deepcopy(delta.config.DEFAULT_CONFIG_MOTHERMACHINE)
-    if len(model_files) > 0:
-        config.model_file_rois = model_files["unet_momachambers_seg"]
-        config.model_file_seg = model_files["unet_moma_seg"]
-        config.model_file_track = model_files["unet_moma_track"]
-    if len(sets_files) > 0:
-        config.training_set_rois = (
-            sets_files["mothermachine"] / "training/chambers_seg_set/train"
-        )
-        config.training_set_seg = (
-            sets_files["mothermachine"] / "training/segmentation_set/train_multisets"
-        )
-        config.training_set_track = (
-            sets_files["mothermachine"] / "training/tracking_set/train_multisets"
-        )
-    if len(eval_files) > 0:
-        config.eval_movie = eval_files["mothermachine"] / "movie_tifs"
-    _write_json(config, config_dir / "config_mothermachine.json")
-
-    print(f"Config files written to {config_dir}")

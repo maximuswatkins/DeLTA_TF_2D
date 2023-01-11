@@ -8,14 +8,8 @@ from typing import Dict, List, Optional, Tuple
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import backend as K
-from tensorflow.keras.layers import (
-    Concatenate,
-    Conv2D,
-    Dropout,
-    Input,
-    MaxPool2D,
-    UpSampling2D,
-)
+from tensorflow.keras.layers import (Concatenate, Conv2D, Dropout, Input,
+                                     MaxPool2D, UpSampling2D)
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.python.ops import math_ops

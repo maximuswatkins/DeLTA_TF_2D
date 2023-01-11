@@ -3,19 +3,19 @@ Module for configuration files and configuration parameters.
 
 @author: jblugagne
 """
-import json as _json
-import os as _os
-import pathlib as _pathlib
-import warnings as _warnings
+import json
+import os
+import warnings
 from dataclasses import dataclass
-from typing import Optional, Tuple, Union
+from pathlib import Path
+from typing import Any, Optional, Tuple, Union
 
 import tensorflow as tf
 
 import delta
 
 # DeLTA lib install directory
-_DELTA_DIR = _pathlib.Path(__file__).parent
+_DELTA_DIR = Path(__file__).parent
 
 
 @dataclass
@@ -28,11 +28,11 @@ class Config:
     """Type of analysis: can be '2D', 'mothermachine', or your own custom name."""
     models: Tuple[str, ...]
     """Which models need to be loaded."""
-    model_file_rois: Optional[_pathlib.Path]
+    model_file_rois: Optional[Path]
     """Path to the hdf5 model for ROI segmentation."""
-    model_file_seg: Optional[_pathlib.Path]
+    model_file_seg: Optional[Path]
     """Path to the hdf5 model for cell segmentation."""
-    model_file_track: Optional[_pathlib.Path]
+    model_file_track: Optional[Path]
     """Path to the hdf5 model for cell tracking."""
     target_size_rois: Tuple[int, int]
     """Input size of the ROI segmentation model."""
@@ -40,13 +40,13 @@ class Config:
     """Input size of the cell segmentation model."""
     target_size_track: Tuple[int, int]
     """Input size of the cell tracking model."""
-    training_set_rois: Optional[_pathlib.Path]
+    training_set_rois: Optional[Path]
     """Path to the ROI segmentation training set."""
-    training_set_seg: Optional[_pathlib.Path]
+    training_set_seg: Optional[Path]
     """Path to the cell segmentation training set."""
-    training_set_track: Optional[_pathlib.Path]
+    training_set_track: Optional[Path]
     """Path to the cell tracking training set."""
-    eval_movie: Optional[_pathlib.Path]
+    eval_movie: Optional[Path]
     """Path to the evaluation movie."""
     rotation_correction: bool
     """Whether or not to correct for image rotation (mothermachine only)."""
@@ -77,13 +77,13 @@ class Config:
     lowering this value.  You can also increase it to improve speed."""
 
     @staticmethod
-    def read(path: Union[str, _pathlib.Path], presets: Optional[str] = None):
+    def read(path: Union[str, Path], presets: Optional[str] = None):
         """
         Read a configuration file.
 
         Parameters
         ----------
-        path : Union[str, _pathlib.Path]
+        path : Union[str, Path]
             Path to specific configuration file. Keywords "local" and "global"
             can also be used. See online documentation for more information.
         presets : Optional[str], optional
@@ -105,12 +105,12 @@ class Config:
                     "presets are required ('2D' or 'mothermachine' or custom)."
                 )
             if path == "local":
-                path = _pathlib.Path.home() / f".delta/config_{presets}.json"
+                path = Path.home() / f".delta/config_{presets}.json"
             else:
-                path = _DELTA_DIR / f"assets/config/config_{presets}.json"
+                path = _DELTA_DIR / f"global_config/config_{presets}.json"
 
         try:
-            return Config(**_read_json(_pathlib.Path(path)))
+            return Config(**read_json(Path(path)))
         except TypeError as err:
             raise ValueError(
                 "The config file has too many or is missing some parameters. "
@@ -119,7 +119,29 @@ class Config:
                 "on the current one, detailed in `delta.config.Config`."
             ) from err
 
-    def training_set_path(self, model: str) -> _pathlib.Path:
+    def write(self, config_level: Union[str, Path]) -> None:
+        """
+        Write a configuration file.
+
+        Parameters
+        ----------
+        config_level : Union[str, Path]
+            Path to specific configuration file. Keywords "local" and "global"
+            can also be used. See online documentation for more information.
+
+        """
+        if config_level == "local":
+            config_dir = Path.home() / ".delta"
+        elif config_level == "global":
+            config_dir = _DELTA_DIR / "global_config"
+        else:
+            config_dir = Path(config_level)
+
+        config_dir.mkdir(exist_ok=True)
+
+        write_json(self, config_dir / f"config_{self.presets}.json")
+
+    def training_set_path(self, model: str) -> Path:
         """
         Returns the path of the training set for the specified model.
 
@@ -142,7 +164,7 @@ class Config:
             return config_path
         return delta.assets.download_training_set(self.presets, model)
 
-    def demo_movie_path(self) -> _pathlib.Path:
+    def demo_movie_path(self) -> Path:
         """
         Returns the path of the demo movie for the specified presets.
 
@@ -199,7 +221,7 @@ class Config:
     def apply_tensorflow_config(self):
         # Tensorflow technical parameters:
         # Debugging messages level from Tensorflow ('0' = most verbose to '3' = not verbose)
-        _os.environ["TF_CPP_MIN_LOG_LEVEL"] = str(self.tensorflow_log_level)
+        os.environ["TF_CPP_MIN_LOG_LEVEL"] = str(self.tensorflow_log_level)
 
         # If running into OOM issues or having trouble with cuDNN loading, try setting
         # memory_growth_limit to a value in MB: (eg 1024, 2048...)
@@ -214,12 +236,12 @@ class Config:
                     gpus[0], [vdconf]
                 )
                 logical_gpus = tf.config.experimental.list_logical_devices("GPU")
-                _warnings.warn(
+                warnings.warn(
                     f"{len(gpus)} physical GPUs, {len(logical_gpus)} logical GPUs"
                 )
             except RuntimeError as err:
                 # Virtual devices must be set before GPUs have been initialized
-                _warnings.warn(f"{err}")
+                warnings.warn(f"{err}")
 
 
 ###
@@ -280,12 +302,11 @@ DEFAULT_CONFIG_MOTHERMACHINE = Config(
 )
 
 
-def _read_json(json_file: _pathlib.Path):
-
+def read_json(json_file: Path):
     # Load file:
     print(f"Loading configuration from: {json_file}")
     with json_file.open("r") as file:
-        variables = _json.load(file)
+        variables = json.load(file)
 
     # Type cast:
     for key, value in variables.items():
@@ -293,6 +314,16 @@ def _read_json(json_file: _pathlib.Path):
             # Always use tuples, not lists in config
             variables[key] = tuple(value)
         elif key.startswith(("model_file", "training_set", "eval_movie")) and value:
-            variables[key] = _pathlib.Path(value)
-
+            variables[key] = Path(value)
     return variables
+
+
+def write_json(obj: Any, path: Path) -> None:
+    class PathEncoder(json.JSONEncoder):
+        def default(self, obj: Any):
+            if isinstance(obj, Path):
+                return str(obj)
+            return json.JSONEncoder.default(self, obj)
+
+    with path.open(mode="w", encoding="utf8") as file:
+        json.dump(obj, file, ident=4, cls=PathEncoder)
