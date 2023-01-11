@@ -675,14 +675,14 @@ def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
     return contours
 
 
-def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
+def getROIBoxes(chambersmask: SegmentationMask) -> List[CroppingBox]:
     """
     Extract the bounding boxes of the chambers in the binary mask
     produced by the chambers identification unet.
 
     Parameters
     ----------
-    chambersmask : 2D array of uint8/uint16/floats
+    chambersmask : 2D array of uint8
         The mask of the chambers as returned by the chambers id unet.
 
     Returns
@@ -692,7 +692,6 @@ def getROIBoxes(chambersmask: np.ndarray) -> List[CroppingBox]:
 
     """
     chamberboxes = []
-    chambersmask = (chambersmask > 0.5).astype(np.uint8)
 
     contours = find_contours(chambersmask)
     for chamber in contours:

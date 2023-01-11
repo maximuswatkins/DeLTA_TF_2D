@@ -2,8 +2,10 @@ from pathlib import Path
 
 import numpy as np
 import numpy.testing as npt
+import pytest
 
 import delta
+from delta import data
 
 # fmt: off
 MASK_1D = np.array(
@@ -58,3 +60,187 @@ def test_seg_weights_2D_complex():
     norm_weights = weights / weights.max()
     int_weights = delta.utils.to_integer_values(norm_weights, np.uint8)
     npt.assert_allclose(int_weights / 255, target)
+
+
+def test_postprocess_binarize():
+    logits = np.array([[-3, -1, 1.5], [3, 0.5, -0.1]])
+    mask = data.postprocess(logits, crop=True)
+    npt.assert_array_equal(mask, np.array([[0, 0, 1], [1, 1, 0]]))
+
+
+def test_postprocess_minsize():
+    preds = np.array(
+        [
+            [1, 0, 1, 0, 1, 1],
+            [0, 0, 1, 0, 1, 1],
+            [1, 0, 0, 0, 0, 0],
+            [1, 1, 0, 0, 1, 1],
+            [0, 0, 0, 1, 1, 1],
+            [1, 1, 0, 0, 0, 0],
+            [0, 0, 1, 1, 0, 0],
+        ],
+        dtype=np.float32
+    )
+    mask = data.postprocess(preds, crop=True, min_size=4)
+    minsize = np.array(
+        [
+            [0, 0, 0, 0, 1, 1],
+            [0, 0, 0, 0, 1, 1],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 1],
+            [0, 0, 0, 1, 1, 1],
+            [1, 1, 0, 0, 0, 0],
+            [0, 0, 1, 1, 0, 0],
+        ]
+    )
+    npt.assert_array_equal(mask, minsize)
+
+
+def test_postprocess_opening():
+    preds = np.array(
+        [
+            [1, 0, 1, 1, 0, 1, 1],
+            [0, 0, 1, 1, 0, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0],
+            [1, 1, 0, 1, 1, 1, 0],
+            [1, 1, 0, 1, 1, 1, 0],
+            [1, 1, 0, 1, 1, 1, 0],
+            [0, 0, 1, 1, 0, 0, 0],
+            [0, 0, 1, 1, 1, 0, 0],
+            [0, 1, 1, 1, 1, 1, 0],
+            [0, 1, 1, 1, 1, 0, 0],
+        ],
+        dtype=np.float32
+    )
+    mask = data.postprocess(preds, crop=False, min_size=None, square_size=3)
+    minsize = np.array(
+        [
+            [0, 0, 0, 0, 0, 1, 1],
+            [0, 0, 0, 0, 0, 1, 1],
+            [0, 0, 0, 0, 0, 0, 0],
+            [1, 1, 0, 1, 1, 1, 0],
+            [1, 1, 0, 1, 1, 1, 0],
+            [1, 1, 0, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 1, 1, 1, 0, 0],
+            [0, 1, 1, 1, 1, 0, 0],
+            [0, 1, 1, 1, 1, 0, 0],
+        ]
+    )
+    npt.assert_array_equal(mask, minsize)
+
+
+@pytest.mark.parametrize(
+    "shiftX, shiftY",
+     [
+         (0.6, 1.6),
+         (0.6, 2.0),
+         (0.6, 2.4),
+         (1.0, 1.6),
+         (1.0, 2.0),
+         (1.0, 2.4),
+         (1.4, 1.6),
+         (1.4, 2.0),
+         (1.4, 2.4),
+     ])
+def test_affine_transform_shift_order0(shiftX, shiftY):
+    img = np.array(
+        [
+            [1, 0, 1, 1, 0, 1, 1],
+            [0, 0, 1, 1, 0, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0],
+            [1, 1, 0, 1, 1, 1, 0],
+            [1, 1, 0, 1, 1, 1, 0],
+            [1, 1, 0, 1, 1, 1, 0],
+            [0, 0, 1, 1, 0, 0, 0],
+            [0, 0, 1, 1, 1, 0, 0],
+            [0, 1, 1, 1, 1, 1, 0],
+            [0, 1, 1, 1, 1, 0, 0],
+        ],
+        dtype=np.uint8
+    )
+    actual = data.affine_transform(img, zoom=1.0, angle=0.0, shift=(shiftX/img.shape[0], shiftY/img.shape[1]), order=0)
+    # 1 up, 2 left
+    truth = np.array(
+        [
+            [1, 1, 0, 1, 1, 1, 1],
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0],
+            [1, 1, 0, 0, 0, 0, 0],
+            [1, 1, 1, 0, 0, 0, 0],
+            [1, 1, 1, 1, 0, 0, 0],
+            [1, 1, 1, 0, 0, 0, 0],
+            [1, 1, 1, 0, 0, 0, 0],
+        ],
+    )
+    npt.assert_array_equal(actual, truth)
+
+
+def test_affine_transform_zoom_order0():
+    img = np.array(
+        [
+            [1, 0, 1, 1, 0, 1, 1, 1],
+            [0, 0, 1, 1, 0, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0],
+            [1, 1, 0, 1, 1, 1, 0, 0],
+            [1, 1, 0, 1, 0, 1, 0, 0],
+            [1, 1, 0, 1, 1, 1, 0, 1],
+            [0, 0, 1, 1, 0, 0, 0, 0],
+            [0, 0, 1, 1, 1, 0, 0, 1],
+            [0, 1, 1, 1, 1, 1, 0, 1],
+            [0, 1, 1, 1, 1, 0, 0, 0],
+        ],
+        dtype=np.uint8
+    )
+    actual = data.affine_transform(img, zoom=2.0, angle=0.0, shift=(0, 0), order=0)
+    truth = np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 1, 1, 1, 1, 1, 1],
+            [0, 0, 1, 1, 1, 1, 1, 1],
+            [0, 0, 1, 1, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 1, 1],
+            [0, 0, 1, 1, 1, 1, 1, 1],
+            [0, 0, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 0, 0, 0, 0],
+            [1, 1, 1, 1, 0, 0, 0, 0],
+            [1, 1, 1, 1, 1, 1, 0, 0],
+        ]
+    )
+    npt.assert_array_equal(actual, truth)
+
+
+def test_affine_transform_zoomshift_order0():
+    img = np.array(
+        [
+            [1, 0, 1, 1, 0, 1, 1, 1],
+            [0, 0, 1, 1, 0, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0],
+            [1, 1, 0, 1, 1, 1, 0, 0],
+            [1, 1, 0, 1, 0, 1, 0, 0],
+            [1, 1, 0, 1, 1, 1, 0, 1],
+            [0, 0, 1, 1, 0, 0, 0, 0],
+            [0, 0, 1, 1, 1, 0, 0, 1],
+            [0, 1, 1, 1, 1, 1, 0, 1],
+            [0, 1, 1, 1, 1, 0, 0, 0],
+        ],
+        dtype=np.uint8
+    )
+    actual = data.affine_transform(img, zoom=2.0, angle=0.0, shift=(1.0/img.shape[0], 2.0/img.shape[1]), order=0)
+    truth = np.array(
+        [
+            [1, 1, 1, 1, 0, 0, 0, 0],
+            [0, 0, 1, 1, 0, 0, 0, 0],
+            [0, 0, 1, 1, 0, 0, 0, 0],
+            [1, 1, 1, 1, 0, 0, 1, 1],
+            [1, 1, 1, 1, 0, 0, 1, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [1, 1, 0, 0, 0, 0, 1, 1],
+            [1, 1, 0, 0, 0, 0, 1, 1],
+            [1, 1, 1, 1, 0, 0, 1, 1],
+        ]
+    )
+    npt.assert_array_equal(actual, truth)

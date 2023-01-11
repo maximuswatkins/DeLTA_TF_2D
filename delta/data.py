@@ -51,7 +51,7 @@ def binarizerange(array: utils.Image, threshold: Optional[float] = None) -> util
 
     Parameters
     ----------
-    array : 2D numpy array
+    array : 2D numpy array of floating-point numbers
         Input array/image.
     threshold : float, optional
         Binarization threshold.
@@ -59,13 +59,13 @@ def binarizerange(array: utils.Image, threshold: Optional[float] = None) -> util
 
     Returns
     -------
-    newi : 2D numpy array
+    newi : 2D numpy array of uint8
            Binarized image.
 
     """
     if threshold is None:
         threshold = (np.amin(array) + np.amax(array)) / 2
-    return np.array(array > threshold, dtype=array.dtype)
+    return (array > threshold).astype(np.uint8)
 
 
 def readreshape(
@@ -124,7 +124,7 @@ def readreshape(
         raise ValueError(f"Resizing method not understood: {method}.")
 
     if binarize:
-        return binarizerange(img)
+        return binarizerange(img).astype(img.dtype)
 
     return img
 
@@ -134,13 +134,13 @@ def postprocess(
     square_size: int = 5,
     min_size: Optional[float] = None,
     crop: bool = False,
-) -> npt.NDArray[np.float32]:
+) -> npt.NDArray[np.uint8]:
     """
     A generic binary image cleaning function based on mathematical morphology.
 
     Parameters
     ----------
-    images : 2D or 3D numpy array
+    images : 2D or 3D numpy array of floating-point numbers between 0 and 1
         Input image or images stacked along axis=0.
     square_size : int, optional
         Size of the square structuring element to use for morphological opening
@@ -152,7 +152,7 @@ def postprocess(
 
     Returns
     -------
-    images : 2D or 3D numpy array
+    images : 2D or 3D numpy array of uint8 (0 or 1)
         Cleaned, binarized images. Note that the dimensions are squeezed before
         return (see numpy.squeeze doc)
 
@@ -161,19 +161,20 @@ def postprocess(
     if images.ndim == 2:
         images = np.expand_dims(images, axis=0)
 
-    # Generate struturing element:
-    selem = morph.square(square_size)
-
-    # Go through stack:
-    for index, image in enumerate(images):
+    outputs = []
+    for image in images:
         image = binarizerange(image, threshold=0)
         if not crop:
-            image = morph.binary_opening(image, selem=selem)
+            kernel = np.ones((square_size, square_size), dtype=np.uint8)
+            image = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
         if min_size is not None:
-            image = morph.remove_small_objects(image, min_size=min_size)
-        images[index, :, :] = image
+            _, labels, stats, _ = cv2.connectedComponentsWithStats(image)
+            threshold = (stats[:, cv2.CC_STAT_AREA] >= min_size).astype(np.uint8)
+            threshold[0] = 0
+            image = threshold[labels]
+        outputs.append(image)
 
-    return np.squeeze(images)
+    return np.squeeze(outputs)
 
 
 #%% DATA AUGMENTATION
@@ -240,11 +241,6 @@ def data_augmentation(
         Note that the histogram voodoo operation is only applied to images with
         a non-zero order.
         The default is 0.
-    time : int or list of ints, optional
-        Timepoint of each input. If a list is provided, inputs belonging to the
-        same timepoint (e.g. 0 for previous timepoint images and 1 for current)
-        will be treated the same in time-related transformations (e.g.
-        timeshift, where current frames are shifted relative to previous frames)
 
     Returns
     -------
@@ -261,41 +257,23 @@ def data_augmentation(
 
     # Apply augmentation operations:
 
-    if "illumination_voodoo" in aug_par:
-        if aug_par["illumination_voodoo"]:
-            for index, item in enumerate(output):
-                # Not super elegant, but tells me if binary or grayscale image
-                if orderlist[index] > 0:
-                    output[index] = illumination_voodoo(item, rng)
+    if aug_par.get("illumination_voodoo"):
+        output = [illumination_voodoo(item, rng) if order > 0 else item
+                  for order, item in zip(orderlist, output)]
 
-    if "histogram_voodoo" in aug_par:
-        if aug_par["histogram_voodoo"]:
-            for index, item in enumerate(output):
-                # Not super elegant, but tells me if binary or grayscale image
-                if orderlist[index] > 0:
-                    output[index] = histogram_voodoo(item, rng)
+    if aug_par.get("histogram_voodoo"):
+        output = [histogram_voodoo(item, rng) if order > 0 else item
+                  for order, item in zip(orderlist, output)]
 
-    if "gaussian_noise" in aug_par:
-        if aug_par["gaussian_noise"]:
-            sigma = rng.uniform(0, aug_par["gaussian_noise"])
-            for index, item in enumerate(output):
-                # Not super elegant, but tells me if binary or grayscale image
-                if orderlist[index] > 0:
-                    # Add Gaussian noise
-                    item = rng.normal(item, sigma)
-                    # Rescale to 0-1
-                    output[index] = (item - np.min(item)) / np.ptp(item)
+    if aug_par.get("gaussian_noise"):
+        output = [np.clip(rng.normal(item, aug_par["gaussian_noise"]), 0, 1) if order > 0 else item
+                  for order, item in zip(orderlist, output)]
 
-    if "gaussian_blur" in aug_par:
-        if aug_par["gaussian_blur"]:
-            sigma = rng.uniform(0, aug_par["gaussian_blur"])
-            for index, item in enumerate(output):
-                # Not super elegant, but tells me if binary or grayscale image
-                if orderlist[index] > 0:
-                    item = cv2.GaussianBlur(item, (5, 5), sigma)  # blur image
-                    output[index] = item
+    if aug_par.get("gaussian_blur"):
+        output = [cv2.GaussianBlur(item, (5, 5), aug_par["gaussian_blur"]) if order > 0 else item
+                  for order, item in zip(orderlist, output)]
 
-    if "elastic_deformation" in aug_par:
+    if aug_par.get("elastic_deformation"):
         output = elasticdeform.deform_random_grid(
             output,
             sigma=aug_par["elastic_deformation"]["sigma"],
@@ -307,78 +285,49 @@ def data_augmentation(
             prefilter=False,
         )
 
-    if "horizontal_flip" in aug_par:
-        if aug_par["horizontal_flip"]:
-            if rng.choice(2):
-                for index, item in enumerate(output):
-                    output[index] = np.fliplr(item)
+    if aug_par.get("horizontal_flip"):
+        if rng.choice(2):
+            output = [np.fliplr(item) for item in output]
 
-    if "vertical_flip" in aug_par:
-        if aug_par["vertical_flip"]:
-            if rng.choice(2):
-                for index, item in enumerate(output):
-                    output[index] = np.flipud(item)
+    if aug_par.get("vertical_flip"):
+        if rng.choice(2):
+            output = [np.flipud(item) for item in output]
 
-    if "rotations_90d" in aug_par:  # Only works with square images right now!
-        if aug_par["rotations_90d"]:
-            rot = rng.choice(4) * 90
-            if rot > 0:
-                for index, item in enumerate(output):
-                    output[index] = trans.rotate(
-                        item, rot, mode="edge", order=orderlist[index]
-                    )
+    if aug_par.get("rotations_90d"):
+        output = [np.rot90(item, k=rng.choice(4)) for item in output]
 
-    if "rotation" in aug_par:
-        rot = rng.uniform(-aug_par["rotation"], aug_par["rotation"])
-        for index, item in enumerate(output):
-            output[index] = trans.rotate(item, rot, mode="edge", order=orderlist[index])
+    # Rotation, zoom and shift are processed together
+    angle = rng.uniform(-1.0, 1.0) * aug_par.get("rotation", 0.0)
 
-    # Zoom and shift operations are processed together:
-    if "zoom" in aug_par:
-        # I want most of them to not be too zoomed
-        zoom = rng.exponential(aug_par["zoom"] / 3.0)
-        zoom = aug_par["zoom"] if zoom > aug_par["zoom"] else zoom
-    else:
-        zoom = 0
+    zoom = 1 + rng.exponential(aug_par.get("zoom", 0.0) / 3.0)
 
-    if "shiftX" in aug_par:
-        shiftX = rng.uniform(-aug_par["shiftX"], aug_par["shiftX"])
-    else:
-        shiftX = 0
+    shift_x = rng.uniform(-1.0, 1.0) * aug_par.get("shiftX", 0.0)
+    shift_y = rng.uniform(-1.0, 1.0) * aug_par.get("shiftY", 0.0)
 
-    if "shiftY" in aug_par:
-        shiftY = rng.uniform(-aug_par["shiftY"], aug_par["shiftY"])
-    else:
-        shiftY = 0
-
-    # Apply zoom & shifts:
-    if any(abs(x) > 0 for x in [zoom, shiftX, shiftY]):
-        for index, item in enumerate(output):
-            output[index] = zoomshift(
-                item, zoom + 1, shiftX, shiftY, order=orderlist[index]
-            )
+    output = [affine_transform(item, zoom=zoom, angle=angle, shift=(shift_x, shift_y), order=order)
+              for order, item in zip(orderlist, output)]
 
     return output
 
 
-def zoomshift(
-    image: utils.Image, zoomlevel: float, shiftX: float, shiftY: float, order: int = 0
+def affine_transform(
+    image: utils.Image, zoom: float, angle: float, shift: Tuple[float, float], order: int
 ) -> utils.Image:
     """
-    This function zooms and shifts images.
+    This function applies an affine transformation to an image (zoom, rotation and translation).
 
     Parameters
     ----------
-    I : 2D numpy array
+    image : 2D numpy array
         input image.
-    zoomlevel : float
-        Additional zoom to apply to the image.
-    shiftX : float
-        X-axis shift to apply to the image, in pixels.
-    shiftY : float
-        Y-axis shift to apply to the image, in pixels.
-    order : int, optional
-        Interpolation order. The default is 0.
+    zoom : float
+        Zoom to apply to the image.
+    angle : float
+        Rotation angle to apply to the image.
+    shift : (float, float)
+        Translation to apply to the image, in proportion of the image size.
+    order : int
+        Interpolation order.
 
     Returns
     -------
@@ -386,46 +335,20 @@ def zoomshift(
         Zoomed and shifted image of same size as input.
 
     """
-    oldshape = image.shape
-    image = trans.rescale(
-        image, zoomlevel, mode="edge", multichannel=False, order=order
-    )
-    shiftX = shiftX * image.shape[0]
-    shiftY = shiftY * image.shape[1]
-    image = shift(image, (shiftY, shiftX), order=order)
-    i0 = (
-        round(image.shape[0] / 2 - oldshape[0] / 2),
-        round(image.shape[1] / 2 - oldshape[1] / 2),
-    )
-    image = image[i0[0] : (i0[0] + oldshape[0]), i0[1] : (i0[1] + oldshape[1])]
-    return image
 
+    # Center of rotation and zoom
+    center = (np.array(image.shape[1::-1]) - 1) / 2
+    # Affine transform matrix
+    matrix = cv2.getRotationMatrix2D(center=center, angle=angle, scale=zoom)
+    # Add shift
+    matrix[:, 2] -= [shift[1]*image.shape[1]*zoom, shift[0]*image.shape[0]*zoom]
 
-def shift(
-    image: utils.Image, vector: Tuple[float, float], order: int = 0
-) -> utils.Image:
-    """
-    Image shifting function.
-
-    Parameters
-    ----------
-    image : 2D numpy array
-        Input image.
-    vector : tuple of floats
-        Translation/shit vector.
-    order : int, optional
-        Interpolation order. The default is 0.
-
-    Returns
-    -------
-    shifted : 2D numpy image
-        Shifted image.
-
-    """
-    transform = trans.AffineTransform(translation=vector)
-    shifted = trans.warp(image, transform, mode="edge", order=order)
-
-    return shifted
+    kwargs = {
+        "flags": [cv2.INTER_NEAREST, cv2.INTER_LINEAR][order],
+        "borderMode": cv2.BORDER_REPLICATE,
+    }
+    new_image = cv2.warpAffine(image, matrix, image.shape[1::-1], **kwargs)
+    return new_image
 
 
 def histogram_voodoo(
@@ -453,7 +376,7 @@ def histogram_voodoo(
 
     """
     control_points = np.linspace(0, 1, num=num_control_points + 2)
-    sorted_points = copy.copy(control_points)
+    sorted_points = np.array(control_points)
     random_points = rng.uniform(low=0.1, high=0.9, size=num_control_points)
     sorted_points[1:-1] = np.sort(random_points)
     mapping = interpolate.PchipInterpolator(control_points, sorted_points)
@@ -489,7 +412,7 @@ def illumination_voodoo(
     control_points = np.linspace(0, image.shape[0] - 1, num=num_control_points)
     random_points = rng.uniform(low=0.1, high=0.9, size=num_control_points)
     mapping = interpolate.PchipInterpolator(control_points, random_points)
-    curve = mapping(np.linspace(0, image.shape[0] - 1, image.shape[0]))
+    curve = mapping(np.arange(image.shape[0]))
     # Apply this curve to the image intensity along the length of the chamebr:
     newimage = np.multiply(
         image,
@@ -888,7 +811,7 @@ def saveResult_seg(
         if multipage:
             filename = save_path / files_list[0]
             io.imsave(
-                filename, (img * 255).astype(np.uint8), plugin="tifffile", append=True
+                filename, img * 255, plugin="tifffile", append=True
             )
         else:
             if files_list:
@@ -897,7 +820,7 @@ def saveResult_seg(
                 filename = save_path / f"{i}_predict.png"
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                io.imsave(filename, (img * 255).astype(np.uint8))
+                io.imsave(filename, img * 255)
 
 
 def predictGenerator_seg(
@@ -1744,4 +1667,4 @@ def saveResult_track(
             filename = save_path / f"tracking_{i:09d}.png"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            io.imsave(filename, (mother * 255).astype(np.uint8))
+            io.imsave(filename, mother * 255)

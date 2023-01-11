@@ -470,22 +470,21 @@ class Position:
         reference = (reference - reference.min()) / reference.ptp()
 
         # Predict
-        roismask = self.models["rois"].predict(
+        rois_pred = self.models["rois"].predict(
             cv2.resize(reference, cfg.target_size_rois)[np.newaxis, :, :, np.newaxis],
             verbose=0,
         )
 
         # Clean up:
-        roismask = postprocess(
-            cv2.resize(np.squeeze(roismask), reference.shape[::-1]),
+        self.roismask = postprocess(
+            cv2.resize(np.squeeze(rois_pred), reference.shape[::-1]),
             min_size=cfg.min_roi_area,
         )
 
         # Get boxes
-        roisboxes = utils.getROIBoxes(roismask)
+        roisboxes = utils.getROIBoxes(self.roismask)
 
         # Instantiate ROIs:
-        self.roismask = roismask
         for b, box in enumerate(roisboxes):
             self.rois += [ROI(roi_nb=b, box=box, crop_windows=self.crop_windows)]
 
