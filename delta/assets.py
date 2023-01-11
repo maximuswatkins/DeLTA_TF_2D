@@ -11,10 +11,8 @@ from pathlib import Path
 from typing import Any, Dict, Union
 
 import pooch
-import tensorflow as tf
 
 import delta
-from delta.config import _DELTA_DIR, DEFAULT_CONFIG_2D, DEFAULT_CONFIG_MOTHERMACHINE
 
 BASE_URL = "https://docs.google.com/uc?export=download&confirm=t&id="
 
@@ -172,7 +170,7 @@ def _write_default_configs(
     if config_level == "local":
         config_dir = Path.home() / ".delta"
     elif config_level == "global":
-        config_dir = _DELTA_DIR / "assets/config"
+        config_dir = delta.config._DELTA_DIR / "assets/config"
     else:
         path_config = Path(config_level)
         if not path_config.is_dir():

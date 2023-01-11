@@ -56,10 +56,17 @@ class Pipeline:
         """
 
         self.reader: utils.xpreader = xpreader
+        "Experiment reader object"
         self.positions: List[Position] = []
-        self.config = config
-
+        "List of Position objects for experiment"
+        self.config: Config = config
+        "Configuration parameters object"
         self.models = {model: config.model(model) for model in config.models}
+        "List of Tensorflow models"
+        self.resfolder: Path
+        "Folder to save results to"
+
+        
 
         for arg_index, arg in enumerate(sys.argv):
             if sys.argv[arg_index] == "--resfolder":
@@ -292,7 +299,8 @@ class Position:
         "List of ROI objects under position"
         self.drift_values: List = [[], []]
         "XY drift correction values over time"
-        self.config = config
+        self.config : Config = config
+        "Configuration parameters object"
         self.verbose: int = 1
         "Console output verbosity"
         self._preprocessed: bool = False
@@ -1009,7 +1017,10 @@ class ROI:
         "Lineage object for ROI"
         self.label_stack: List[utils.Labels] = []
         "Labelled images stack"
-        self.config = config
+        self.config: Config = config
+        "Configuration parameters object"
+        self.scaling: Optional[Tuple[float, float]]
+        "Resizing ratios along Y and X"
 
         if config.crop_windows:
             self.scaling = None
