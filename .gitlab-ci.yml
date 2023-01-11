@@ -1,10 +1,43 @@
-stages:
-  - publish
+test:
+  stage: test
+  
+  image: continuumio/miniconda3:latest
+  
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /tests::block/'
+      when: never
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /tests::force/'
+      when: always
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH'
+      when: always
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"'
+      when: always
+      
+  cache:
+      key: assets-cache
+      paths:
+        - .cache/delta_assets
 
-image: python:3
+  variables:
+    DELTA_ASSETS_CACHE: ".cache/delta_assets"
 
-publish:
-  stage: publish
+  before_script:
+    - date
+    - apt-get update
+    - apt-get install -y libgl1
+    - apt-get clean
+    - conda env create --file delta_env.yml
+    - source activate delta_env
+    - pip install pytest pytest-order
+    
+  script:
+    - date
+    - pytest -k "not test_train"
+
+deploy:
+  stage: deploy
+
+  image: python:latest
   
   variables:
     TWINE_USERNAME: $PRODUCTION_USERNAME
