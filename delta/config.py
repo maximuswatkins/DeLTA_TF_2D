@@ -21,37 +21,37 @@ _DELTA_DIR = _pathlib.Path(__file__).parent
 @dataclass
 class Config:
     """
-    Configuration class containing DeLTA parameters. 
+    Configuration class containing DeLTA parameters.
     """
 
     presets: str
-    'Type of analysis: can be "2D", "mothermachine", or your own custom name.'
+    """Type of analysis: can be '2D', 'mothermachine', or your own custom name."""
     models: Tuple[str, ...]
-    'Which models need to be loaded.'
+    """Which models need to be loaded."""
     model_file_rois: Optional[_pathlib.Path]
-    'Path to the hdf5 model for ROI segmentation.'
+    """Path to the hdf5 model for ROI segmentation."""
     model_file_seg: Optional[_pathlib.Path]
-    'Path to the hdf5 model for cell segmentation.'
+    """Path to the hdf5 model for cell segmentation."""
     model_file_track: Optional[_pathlib.Path]
-    'Path to the hdf5 model for cell tracking.'
+    """Path to the hdf5 model for cell tracking."""
     target_size_rois: Tuple[int, int]
-    'Input size of the ROI segmentation model.'
+    """Input size of the ROI segmentation model."""
     target_size_seg: Tuple[int, int]
-    'Input size of the cell segmentation model.'
+    """Input size of the cell segmentation model."""
     target_size_track: Tuple[int, int]
-    'Input size of the cell tracking model.'
+    """Input size of the cell tracking model."""
     training_set_rois: Optional[_pathlib.Path]
-    'Path to the ROI segmentation training set.'
+    """Path to the ROI segmentation training set."""
     training_set_seg: Optional[_pathlib.Path]
-    'Path to the cell segmentation training set.'
+    """Path to the cell segmentation training set."""
     training_set_track: Optional[_pathlib.Path]
-    'Path to the cell tracking training set.'
+    """Path to the cell tracking training set."""
     eval_movie: Optional[_pathlib.Path]
-    'Path to the evaluation movie.'
+    """Path to the evaluation movie."""
     rotation_correction: bool
-    'Whether or not to correct for image rotation (mothermachine only).'
+    """Whether or not to correct for image rotation (mothermachine only)."""
     drift_correction: bool
-    'Whether or not to correct for drift over time (mothermachine only).'
+    """Whether or not to correct for drift over time (mothermachine only)."""
     whole_frame_drift: bool
     """If correcting for drift, use the entire frame instead of the region
     above the chambers."""
@@ -59,13 +59,13 @@ class Config:
     """If True, crop input images into windows of size target_size_seg for
     segmentation, otherwise resize them."""
     min_roi_area: int
-    'Minimum area of detected ROIs in pixels (mothermachine only).'
+    """Minimum area of detected ROIs in pixels (mothermachine only)."""
     min_cell_area: int
-    'Minimum area of detected cells in pixels.'
+    """Minimum area of detected cells in pixels."""
     save_format: Tuple[str, ...]
-    'Format to save output data to.'
+    """Format to save output data to."""
     tensorflow_log_level: int
-    'Debugging level of tensorflow messages (0: most verbose to 3: quiet).'
+    """Debugging level of tensorflow messages (0: most verbose to 3: quiet)."""
     memory_growth_limit: Optional[int]
     """If running into OOM issues or having troupble with CuDNN loading, try
     setting this to a value in MB: 1024, 2048, etc."""
@@ -79,7 +79,7 @@ class Config:
     @staticmethod
     def read(path: Union[str, _pathlib.Path], presets: Optional[str] = None):
         """
-        Read configuration file
+        Read a configuration file.
 
         Parameters
         ----------
@@ -97,7 +97,7 @@ class Config:
             Loaded config object.
 
         """
-        
+
         if path in ["local", "global"]:
             if presets is None:
                 raise ValueError(
@@ -108,7 +108,7 @@ class Config:
                 path = _pathlib.Path.home() / f".delta/config_{presets}.json"
             else:
                 path = _DELTA_DIR / f"assets/config/config_{presets}.json"
-        
+
         try:
             return Config(**_read_json(_pathlib.Path(path)))
         except TypeError as err:

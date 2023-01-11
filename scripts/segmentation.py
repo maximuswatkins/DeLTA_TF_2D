@@ -11,8 +11,7 @@ import numpy as np
 
 import delta
 import delta.utilities as utils
-from delta.data import (postprocess, predictGenerator_seg, readreshape,
-                        saveResult_seg)
+from delta.data import postprocess, predictGenerator_seg, readreshape, saveResult_seg
 from delta.model import unet_seg
 from delta.utilities import listfiles
 

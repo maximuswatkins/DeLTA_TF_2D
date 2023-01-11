@@ -89,9 +89,7 @@ def download_training_set(presets: str, model: str) -> Path:
 
     """
     TRAININGSETS_REGISTRY.fetch(
-        f"{presets}.zip",
-        processor=pooch.Unzip(extract_dir=presets),
-        progressbar=True
+        f"{presets}.zip", processor=pooch.Unzip(extract_dir=presets), progressbar=True
     )
     path = {
         ("mothermachine", "rois"): "chambers_seg_set/train",

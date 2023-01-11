@@ -66,8 +66,6 @@ class Pipeline:
         self.resfolder: Path
         "Folder to save results to"
 
-        
-
         for arg_index, arg in enumerate(sys.argv):
             if sys.argv[arg_index] == "--resfolder":
                 resfolder = sys.argv[arg_index + 1]
@@ -98,7 +96,9 @@ class Pipeline:
         # If reload flag, reload positions from pickle files:
         if reload:
             for p in range(self.reader.positions):
-                self.positions[p] = Position.load(self.resfolder / f"Position{p:06d}.pkl")
+                self.positions[p] = Position.load(
+                    self.resfolder / f"Position{p:06d}.pkl"
+                )
 
     def preprocess(
         self,
@@ -299,7 +299,7 @@ class Position:
         "List of ROI objects under position"
         self.drift_values: List = [[], []]
         "XY drift correction values over time"
-        self.config : Config = config
+        self.config: Config = config
         "Configuration parameters object"
         self.verbose: int = 1
         "Console output verbosity"
@@ -646,7 +646,9 @@ class Position:
                     for feature in ["length", "area"]:
                         try:
                             gr = roi.lineage.growthrate(cellid, iframe, feature)
-                            roi.lineage.setvalue(cellid, iframe, f"growthrate_{feature}", gr)
+                            roi.lineage.setvalue(
+                                cellid, iframe, f"growthrate_{feature}", gr
+                            )
                         except KeyError:
                             warnings.warn(
                                 "An issue happened related to feature extraction: "
@@ -722,7 +724,9 @@ class Position:
         # Retrocompatibility with old format
         for roi in position.rois:
             if isinstance(roi.lineage.cells, list):
-                roi.lineage.cells = {cellid: cell for cellid, cell in enumerate(roi.lineage.cells)}
+                roi.lineage.cells = {
+                    cellid: cell for cellid, cell in enumerate(roi.lineage.cells)
+                }
 
         return position
 
@@ -819,7 +823,9 @@ class Position:
             for cell in r.lineage.cells.values():
                 lin += [{}]
                 # Base lineage:
-                lin[-1]["mother"] = cell["mother"] + 1 if cell["mother"] is not None else 0
+                lin[-1]["mother"] = (
+                    cell["mother"] + 1 if cell["mother"] is not None else 0
+                )
                 lin[-1]["frames"] = np.array(cell["frames"], dtype=np.float32) + 1
                 lin[-1]["daughters"] = np.array(cell["daughters"], dtype=np.float32) + 1
                 lin[-1]["daughters"][np.isnan(lin[-1]["daughters"])] = 0
@@ -1198,7 +1204,10 @@ class ROI:
         prev_cell_contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))
 
         # Allocate empty tracking inputs array:
-        x = np.empty((len(prev_cell_contours), *self.config.target_size_track, 4), dtype=np.float32)
+        x = np.empty(
+            (len(prev_cell_contours), *self.config.target_size_track, 4),
+            dtype=np.float32,
+        )
 
         # Run through contours and compile inputs:
         boxes = []
@@ -1210,7 +1219,9 @@ class ROI:
                 prev_img = self.img_stack[frame - 1]
                 # Cell-centered crop boxes:
                 shape = cast(Tuple[int, int], curr_img.shape)  # for mypy
-                cb, fb = utils.gettrackingboxes(cell, shape, self.config.target_size_track)
+                cb, fb = utils.gettrackingboxes(
+                    cell, shape, self.config.target_size_track
+                )
                 draw_offset = (-cb.xtl + fb.xtl, -cb.ytl + fb.ytl)
             else:
                 curr_img = cv2.resize(

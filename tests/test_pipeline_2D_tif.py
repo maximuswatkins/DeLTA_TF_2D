@@ -31,7 +31,9 @@ def test_pipeline_tif_stack():
 
     xp.process(frames=[0, 1, 2, 3], clear=False)
 
-    pos0 = delta.pipeline.Position.load(xpfolder / "expected_results/Position000000.pkl")
+    pos0 = delta.pipeline.Position.load(
+        xpfolder / "expected_results/Position000000.pkl"
+    )
 
     assert xp.positions[0] == pos0
 
@@ -59,7 +61,10 @@ def test_pipeline_tif_stack():
 
     # Load up processor:
     new_xp = delta.pipeline.Pipeline(
-        new_xpreader, DEFAULT_CONFIG_2D, reload=True, resfolder=xpfolder / "delta_results"
+        new_xpreader,
+        DEFAULT_CONFIG_2D,
+        reload=True,
+        resfolder=xpfolder / "delta_results",
     )
 
     assert len(xp.positions) == len(new_xp.positions)

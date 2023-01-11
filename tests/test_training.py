@@ -7,8 +7,7 @@ Created on Tue Nov  9 16:40:02 2021.
 import pytest
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
-from delta.config import (_DELTA_DIR, DEFAULT_CONFIG_2D,
-                          DEFAULT_CONFIG_MOTHERMACHINE)
+from delta.config import _DELTA_DIR, DEFAULT_CONFIG_2D, DEFAULT_CONFIG_MOTHERMACHINE
 from delta.data import load_training_dataset_seg, trainGenerator_track
 from delta.model import unet_rois, unet_seg, unet_track
 

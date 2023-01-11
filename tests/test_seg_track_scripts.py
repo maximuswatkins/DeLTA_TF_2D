@@ -10,8 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from delta.config import (_DELTA_DIR, DEFAULT_CONFIG_2D,
-                          DEFAULT_CONFIG_MOTHERMACHINE)
+from delta.config import _DELTA_DIR, DEFAULT_CONFIG_2D, DEFAULT_CONFIG_MOTHERMACHINE
 
 test_folder = Path(__file__).parent
 
@@ -26,7 +25,10 @@ def test_rois_script():
         raise ValueError("Script changed, not running it.")
 
     inputs_folder = test_folder / "data/movie_mothermachine_tif"
-    parameters = {"config": DEFAULT_CONFIG_MOTHERMACHINE, "inputs_folder": inputs_folder}
+    parameters = {
+        "config": DEFAULT_CONFIG_MOTHERMACHINE,
+        "inputs_folder": inputs_folder,
+    }
     _run_script(script, _parameters=parameters)
 
 
@@ -35,8 +37,11 @@ def test_rois_script():
     "config,inputs_folder",
     [
         (DEFAULT_CONFIG_2D, _DELTA_DIR.parent / "tests/data/movie_2D_tif"),
-        (DEFAULT_CONFIG_MOTHERMACHINE, _DELTA_DIR.parent / "tests/data/movie_mothermachine_tif/cropped_rois"),
-    ]
+        (
+            DEFAULT_CONFIG_MOTHERMACHINE,
+            _DELTA_DIR.parent / "tests/data/movie_mothermachine_tif/cropped_rois",
+        ),
+    ],
 )
 def test_segmentation_script(config, inputs_folder):
     parameters = {"config": config, "inputs_folder": inputs_folder}
@@ -48,8 +53,11 @@ def test_segmentation_script(config, inputs_folder):
     "config,inputs_folder",
     [
         (DEFAULT_CONFIG_2D, _DELTA_DIR.parent / "tests/data/movie_2D_tif"),
-        (DEFAULT_CONFIG_MOTHERMACHINE, _DELTA_DIR.parent / "tests/data/movie_mothermachine_tif/cropped_rois"),
-    ]
+        (
+            DEFAULT_CONFIG_MOTHERMACHINE,
+            _DELTA_DIR.parent / "tests/data/movie_mothermachine_tif/cropped_rois",
+        ),
+    ],
 )
 def test_tracking_script(config, inputs_folder):
     parameters = {"config": config, "inputs_folder": inputs_folder}
@@ -69,8 +77,6 @@ def _run_script(_scriptfile, _parameters):
     # set parameters:
     print(_parameters)
     locals().update(_parameters)
-    #for _pname in _parameters:
-        #exec(f"{_pname} = _parameters[_pname]", globals(), locals())
 
     # Run script:
     exec(_script, globals(), locals())

@@ -32,7 +32,8 @@ def test_croppingbox_full_img_crop_patch(xtl, xbr, ytl, ybr):
     np.testing.assert_array_equal(patched_img, img)
 
 
-@pytest.mark.parametrize("xtl, xbr, ytl, ybr",
+@pytest.mark.parametrize(
+    "xtl, xbr, ytl, ybr",
     [
         # inside
         (2, 16, 3, 7),
@@ -46,7 +47,7 @@ def test_croppingbox_full_img_crop_patch(xtl, xbr, ytl, ybr):
         (-5, 24, 6, 22),
         (-5, 4, -10, 22),
         (5, 24, -10, 22),
-    ]
+    ],
 )
 def test_croppingbox_partial_crop_patch(xtl, xbr, ytl, ybr):
     rng = npr.default_rng(0)
@@ -205,6 +206,7 @@ def test_create_windows_number(image_size, nb_tiles):
     assert windows.shape == (nb_tiles, *target_size)
 
 
+# fmt: off
 @pytest.mark.parametrize(
     "image_size, target_size, min_overlap, nb_tiles",
     [
@@ -237,6 +239,7 @@ def test_create_windows_number(image_size, nb_tiles):
         (10, 10, 8, 1), (10, 10, 9, 1),
     ]
 )
+# fmt: on
 def test_create_windows_number_1d(image_size, target_size, min_overlap, nb_tiles):
     other_dim = 20
     image = np.zeros((other_dim, image_size))
@@ -354,7 +357,7 @@ def test_label_seg():
             [0, 4, 4, 0, 5, 5],
             [0, 0, 0, 0, 0, 5],
         ],
-        dtype=np.uint16
+        dtype=np.uint16,
     )
     assert np.array_equal(utils.label_seg(mask), solution)
     labels = [18, 93, 21, 9, 7]
@@ -771,32 +774,37 @@ class Test_xpreader:
         pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
 
+# fmt: off
 UNTRACKED_LABELS = np.array(
     [
-        [ 0, 0, 1, 0, ],
-        [ 0, 2, 1, 0, ],
-        [ 0, 2, 1, 0, ],
-        [ 0, 2, 3, 3, ],
+        [0, 0, 1, 0],
+        [0, 2, 1, 0],
+        [0, 2, 1, 0],
+        [0, 2, 3, 3],
     ],
     dtype=np.uint16,
 )
+# fmt: on
 
-TRACKING_OUTPUTS = logit(np.array(
-    [
-        [   # Cell tracked to label 2
-            [ 0.00, 0.06, 0.00, 0.00],
-            [ 0.02, 0.72, 0.10, 0.01],
-            [ 0.03, 0.68, 0.06, 0.02],
-            [ 0.12, 0.89, 0.04, 0.00],
-        ],
-        [   # Cell tracked to label 1
-            [ 0.00, 0.07, 0.43, 0.00],
-            [ 0.00, 0.02, 0.78, 0.13],
-            [ 0.01, 0.10, 0.82, 0.07],
-            [ 0.00, 0.25, 0.92, 0.04],
+TRACKING_OUTPUTS = logit(
+    np.array(
+        [
+            [  # Cell tracked to label 2
+                [0.00, 0.06, 0.00, 0.00],
+                [0.02, 0.72, 0.10, 0.01],
+                [0.03, 0.68, 0.06, 0.02],
+                [0.12, 0.89, 0.04, 0.00],
+            ],
+            [  # Cell tracked to label 1
+                [0.00, 0.07, 0.43, 0.00],
+                [0.00, 0.02, 0.78, 0.13],
+                [0.01, 0.10, 0.82, 0.07],
+                [0.00, 0.25, 0.92, 0.04],
+            ],
         ]
-    ]
-))
+    )
+)
+
 
 def test_getTrackingScores_no_old_cells():
     labels = UNTRACKED_LABELS
@@ -824,4 +832,4 @@ def test_getTrackingScores():
     labels = UNTRACKED_LABELS
     outputs = TRACKING_OUTPUTS
     scores = utils.getTrackingScores(labels, outputs)
-    np.testing.assert_allclose(scores, [[2/3, 1, 0], [1, 2/3, 1/2]])
+    np.testing.assert_allclose(scores, [[2 / 3, 1, 0], [1, 2 / 3, 1 / 2]])

@@ -871,7 +871,10 @@ def getpoles(
         return clean_poles
 
     return {
-        cellid: (np.round(p1 * scaling).astype(np.int16), np.round(p2 * scaling).astype(np.int16))
+        cellid: (
+            np.round(p1 * scaling).astype(np.int16),
+            np.round(p2 * scaling).astype(np.int16),
+        )
         for cellid, (p1, p2) in clean_poles.items()
     }
 
@@ -978,7 +981,9 @@ def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
     return (poles[i_max], poles[j_max])
 
 
-def extract_poles(end_img: npt.NDArray[np.bool_], labels: Labels) -> Dict[int, List[Pole]]:
+def extract_poles(
+    end_img: npt.NDArray[np.bool_], labels: Labels
+) -> Dict[int, List[Pole]]:
     """
     Extract poles per cell from ends image.
 
@@ -2262,7 +2267,10 @@ class files_watcher(Thread):
 
 #%% Saving & Loading results
 
-def getrandomcolors(cellids: Iterable, seed: int = 0) -> Dict[int, Tuple[float, float, float]]:
+
+def getrandomcolors(
+    cellids: Iterable, seed: int = 0
+) -> Dict[int, Tuple[float, float, float]]:
     """
     Generate list of random hsv colors.
 
