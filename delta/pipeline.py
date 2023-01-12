@@ -1323,6 +1323,7 @@ class ROI:
         poles = utils.getpoles(self.seg_stack[frame], labels, scaling=self.scaling)
 
         # Update lineage:
+        self.lineage.update(None, frame)
         # Go through old cells:
         for o in range(attributions.shape[0]):
             attrib = attributions[o, :].nonzero()[0]
