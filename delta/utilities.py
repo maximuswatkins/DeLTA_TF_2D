@@ -1268,25 +1268,16 @@ class Lineage:
         """List of single-cell dictionaries
         Each dictionary will contain single-cell lineage and extracted feature
         properties"""
-        self.stack = []  # Orphan attribute?
         self.cellnumbers = []
         "List of cells present in FOV at each timepoint"
 
     def __eq__(self, other) -> bool:
-        eq_keys = self.__dict__.keys() == other.__dict__.keys()
         eq_cells = self.cells == other.cells
-        eq_stack = self.stack == other.stack
         eq_cellnumbers = self.cellnumbers == other.cellnumbers
         eq_cellnumbers_empty = all(not x for x in self.cellnumbers) and all(
             not x for x in other.cellnumbers
         )
-        eqs = [
-            eq_keys,
-            eq_cells,
-            eq_cellnumbers or eq_cellnumbers_empty,
-            eq_stack,
-        ]
-        return all(eqs)
+        return eq_cells and (eq_cellnumbers or eq_cellnumbers_empty)
 
     def __str__(self) -> str:
         """Display representation of the Lineage."""
@@ -2425,7 +2416,6 @@ def roi_features(
         IDs of cells present in the labels frame
     cell_features : list of dict
         List of dictionary with values for requested features.
-
     """
     # Cell numbers and contours:
     cell_nbs, contours = getcellsinframe(labels_frame, return_contours=True)
