@@ -537,19 +537,15 @@ class Position:
             self._msg(f"Tracking - frame {frame}/{len(frames)} ")
 
             # Compile inputs and references:
-            x = []
+            xs = []
             references = []
             for iroi, roi in enumerate(self.rois):
                 inputs, boxes = roi.get_tracking_inputs(frame=frame)
-                x.append(inputs)
+                xs.append(inputs)
                 references.append((iroi, len(inputs), boxes))
+            x = np.concatenate(xs) if xs else np.empty((0, *self.config.target_size_track, 4))
 
             # Predict:
-            x = (
-                np.concatenate(x)
-                if x
-                else np.empty((0, *self.config.target_size_track, 4))
-            )
             y = np.empty(shape=(*x.shape[:3], 1))
             for i in range(0, len(x), self.config.pipeline_track_batch):
                 j = min(len(x), i + self.config.pipeline_track_batch)

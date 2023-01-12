@@ -1601,6 +1601,7 @@ class Lineage:
         # If the cell has a daughter at next frame, we consider this branch as well.
         idaughter = self.getvalue(cell, frame + 1, "daughters")
         if idaughter is not None:
+            assert isinstance(idaughter, int)
             value += self.getfuturevalue(
                 idaughter, frame=frame + 1, feature=feature, df=df - 1
             )
@@ -1660,6 +1661,7 @@ class Lineage:
         """
         value_fm1 = self.getpastvalue(cell, frame, feature)
         value_f = self.getvalue(cell, frame, feature)
+        assert isinstance(value_f, int) or isinstance(value_f, float)
         value_fp1 = self.getfuturevalue(cell, frame, feature)
         if (
             value_fm1 is not None
