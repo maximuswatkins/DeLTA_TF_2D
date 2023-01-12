@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to specify validation and test splits.
 - DeLTA assets (models, training sets, evaluation movies) are downloaded
   automatically and cached, thanks to the python package `pooch`.
+- DeLTA's configuration is now a global `Config` object instead of many
+  variables dispersed in `delta.config`.  Configuration files are read with
+  `Config.read` and loaded into memory with `Config.load`.
 ### Changed
 - Fixed bug in the computation of cell perimeters
 - Fixed training reproducibility bugs
@@ -28,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The function `download_assets` was removed, because assets are now downloaded
   on the fly.
 - The `load_position` was removed in favor of `Position.load`.
+- The function `load_config` was removed, replaced by `config.Config.read` and
+  `config.Config.load`.
 
 ## [2.0.5] - 2022-03-11
 ### Changed

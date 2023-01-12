@@ -16,18 +16,20 @@ If there are no chambers, then images will be cropped as done for DeLTA 2D
 
 import numpy as np
 
-from delta.assets import loadmodels
+import delta
 from delta.data import predictCompilefromseg_track, saveResult_track
 from delta.model import unet_track
-from delta.utilities import cfg, listfiles, read_image
+from delta.utilities import listfiles, read_image
 
 ### Parameters:
 
-# Configuration presets: ("2D" or "mothermachine")
-cfg.load_config(presets="2D")
+# Default config ("2D" or "MOTHERMACHINE")
+config = delta.config.DEFAULT_CONFIG_2D
+# Uncomment if you already have a config file
+# config = delta.config.Config.read("/path/to/your/config.yml")
 
-# Input images sequences (replace with your own):
-inputs_folder = cfg.eval_movie
+# Image sequence to segment: (replace with your own)
+inputs_folder = delta.config._DELTA_DIR.parent / "tests/data/movie_2D_tif"
 segmentation_folder = inputs_folder / "segmentation"
 
 ### /Parameters
@@ -43,7 +45,7 @@ unprocessed = listfiles(inputs_folder, {".png", ".tif"})
 imsize = read_image(unprocessed[0]).shape
 
 # Load up model:
-model = loadmodels()["tracking"]
+model = config.model("tracking")
 
 # Process
 while unprocessed:
@@ -61,8 +63,8 @@ while unprocessed:
         inputs_folder,
         segmentation_folder,
         files_list=to_process,
-        target_size=cfg.target_size_track,
-        crop_windows=cfg.crop_windows,
+        target_size=config.target_size_track,
+        crop_windows=config.crop_windows,
     )
 
     print("Cells to track: %d" % len(inputs))
@@ -74,7 +76,7 @@ while unprocessed:
         results[i:j] = model.predict(inputs[i:j], verbose=1, batch_size=1)
 
     # Paste results into masks of original imsize:
-    if cfg.crop_windows:
+    if config.crop_windows:
         _results = np.zeros_like(results, shape=(len(results),) + imsize + (1,))
         for r, mask in enumerate(results):
             cb, fb = boxes[r]

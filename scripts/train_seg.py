@@ -3,23 +3,27 @@ This script trains the cell segmentation U-Net.
 
 @author: jblugagne
 """
+from pathlib import Path
+
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
-from delta.data import load_training_dataset_seg
+import delta
 from delta.model import unet_seg
-from delta.utilities import cfg, tensorboard_callback
+from delta.utilities import tensorboard_callback
 
 # Set tensorflow's random seed to make the training reproducible
 # (only on CPU: not reproducible on GPU yet)
 tf.keras.utils.set_random_seed(1)
 
-# Load config:
-cfg.load_config(presets="2D")
+# Default config
+config = delta.config.DEFAULT_CONFIG_2D
+# Uncomment if you already have a config file
+# config = delta.config.Config.read("/path/to/your/config.yml")
 
 # Files:
-training_set = cfg.training_set_seg
-savefile = cfg.model_file_seg
+training_set = config.training_set_path("segmentation")
+savefile = Path("new_segmentation_model.hdf5")
 
 # Training parameters:
 epochs = 600
@@ -40,7 +44,7 @@ data_gen_args = dict(
 
 ds_train, ds_val = load_training_dataset_seg(
     dataset_path=training_set,
-    target_size=cfg.target_size_seg,
+    target_size=config.target_size_seg,
     crop=True,
     kw_data_aug=data_gen_args,
     validation_split=0.05,
@@ -48,7 +52,7 @@ ds_train, ds_val = load_training_dataset_seg(
 )
 
 # Define model:
-model = unet_seg(input_size=cfg.target_size_seg + (1,))
+model = unet_seg(input_size=config.target_size_seg + (1,))
 model.summary()
 
 # Callbacks:

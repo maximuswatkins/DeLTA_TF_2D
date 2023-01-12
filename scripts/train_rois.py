@@ -3,23 +3,29 @@ This script trains the chambers segmentation U-Net.
 
 @author: jblugagne
 """
+
+from pathlib import Path
+
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
+import delta
 from delta.data import load_training_dataset_seg
 from delta.model import unet_rois
-from delta.utilities import cfg, tensorboard_callback
+from delta.utilities import tensorboard_callback
 
 # Set tensorflow's random seed to make the training reproducible
 # (only on CPU: not reproducible on GPU yet)
 tf.keras.utils.set_random_seed(1)
 
-# Load config:
-cfg.load_config(presets="mothermachine")
+# Default config
+config = delta.config.DEFAULT_CONFIG_MOTHERMACHINE
+# Uncomment if you already have a config file
+# config = delta.config.Config.read("/path/to/your/config.yml")
 
 # Files:
-training_set = cfg.training_set_rois
-savefile = cfg.model_file_rois
+training_set = config.training_set_path("rois")
+savefile = Path("new_rois_model.hdf5")
 
 # Parameters:
 epochs = 600
@@ -42,14 +48,14 @@ data_gen_args = dict(
 
 ds_train, ds_val = load_training_dataset_seg(
     dataset_path=training_set,
-    target_size=cfg.target_size_rois,
+    target_size=config.target_size_rois,
     crop=False,
     kw_data_aug=data_gen_args,
     validation_split=0.05,
 )
 
 # Define model:
-model = unet_rois(input_size=cfg.target_size_rois + (1,))
+model = unet_rois(input_size=config.target_size_rois + (1,))
 model.summary()
 
 # Callbacks:

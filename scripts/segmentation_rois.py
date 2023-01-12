@@ -1,24 +1,25 @@
 """
-This script will run the rois identification/segmentation U-Net. 
+This script will run the rois identification/segmentation U-Net.
 
-To see how to extract roi images with this segmentation masks, see the 
+To see how to extract roi images with this segmentation mask, see the
 preprocessing section of pipeline.py and getROIBoxes() in utilities.py
 
 @author: jblugagne
 """
 
-from delta.assets import demo_movie_path, loadmodels
+import delta
 from delta.data import postprocess, predictGenerator_seg, saveResult_seg
-from delta.model import unet_rois
-from delta.utilities import cfg, listfiles
+from delta.utilities import listfiles
 
 ### Parameters:
 
-# Load config file:
-cfg.load_config(presets="mothermachine")
+# Default config
+config = delta.config.DEFAULT_CONFIG_MOTHERMACHINE
+# Uncomment if you already have a config file
+# config = delta.config.Config.read("/path/to/your/config.yml").load()
 
-# Images sequence: (replace with your own)
-inputs_folder = demo_movie_path()
+# Image sequence to segment: (replace with your own)
+inputs_folder = delta.config._DELTA_DIR.parent / "tests/data/movie_mothermachine_tif"
 
 ### /Parameters
 
@@ -31,11 +32,11 @@ outputs_folder.mkdir(exist_ok=True)
 input_files = listfiles(inputs_folder, {".tif", ".png"})
 
 # Load up model:
-model = loadmodels()["rois"]
+model = config.model("rois")
 
 # Inputs data generator:
 predGene = predictGenerator_seg(
-    inputs_folder, files_list=input_files, target_size=cfg.target_size_rois
+    inputs_folder, files_list=input_files, target_size=config.target_size_rois
 )
 
 # Predictions:
