@@ -5,7 +5,6 @@ Created on Wed Apr  6 09:47:07 2022.
 @author: ooconnor
 """
 
-import hashlib
 from pathlib import Path
 
 import pytest
@@ -19,10 +18,6 @@ test_folder = Path(__file__).parent
 def test_rois_script():
 
     script = test_folder.parent / "scripts/segmentation_rois.py"
-    with script.open() as file:
-        sha256 = hashlib.sha256(file.read().encode("utf8")).hexdigest()
-    if sha256 != "e4472ef3fae9f779d1972b88bb0d193542cbe2d47b4678ffe1e6bf95a0d59045":
-        raise ValueError("Script changed, not running it.")
 
     inputs_folder = test_folder / "data/movie_mothermachine_tif"
     parameters = {
