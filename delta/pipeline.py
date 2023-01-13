@@ -636,7 +636,6 @@ class Position:
                 roi.extract_features(
                     frame=f,
                     fluo_frames=fluo_frames[f] if fluo_frames is not None else None,
-                    features=features,
                 )
 
         # Now extracting multi-frame features
@@ -1333,55 +1332,42 @@ class ROI:
 
     def extract_features(
         self,
-        frame: Optional[int] = None,
+        frame: int,
         fluo_frames: Optional[np.ndarray] = None,
-        features: Tuple[str, ...] = (
-            "length",
-            "width",
-            "area",
-            "perimeter",
-            "edges",
-        ),
     ) -> None:
         """
         Extract single cell features.
 
         Parameters
         ----------
-        frame : int, optional
-            The frame to extract for. If None, the earliest frame not yet
-            extracted is run.
-            The default is None.
+        frame : int
+            The frame to extract for.
         fluo_frames : 3D array, optional
             Fluorescent images to extract fluo from. Dimensions are
             (channels, size_y, size_x).
             The default is None.
-        features : list or tuple of str, optional
-            Features to extract. Options are ("length", "width", "area", "fluo1",
-            "fluo2", "fluo3"...)
-            The default is ("length", "width", "area", "perimeter", "edges").
 
         Returns
         -------
         None.
 
         """
-        # Default frame:
-        if frame is None:
-            frame = len(self.label_stack)
 
         if len(self.label_stack) <= frame:
             raise ValueError(f"Asked for frame {frame} but label_stack has only {len(self.label_stack)} frames")
 
         # Extract features for all cells in the ROI:
-        cells, extracted_features = utils.roi_features(
+        extracted_features = utils.roi_features(
             self.label_stack[frame],
-            features=features,
             fluo_frames=fluo_frames,
             roi_box=self.box,
         )
 
         # Add feature values to lineage for each cell:
-        for cell, cell_features in zip(cells, extracted_features):
-            for feature_name, feature_val in cell_features.items():
-                self.lineage.setvalue(cell, frame, feature_name, feature_val)
+        for cellid, features in extracted_features.items():
+            for feature_name, feature_val in features.__dict__.items():
+                if feature_name == "fluo":
+                    for ifluo, fluo in enumerate(feature_val, start=1):
+                        self.lineage.setvalue(cellid, frame, f"fluo{ifluo}", fluo)
+                elif feature_name not in ["new_pole", "old_pole"]:
+                    self.lineage.setvalue(cellid, frame, feature_name, feature_val)

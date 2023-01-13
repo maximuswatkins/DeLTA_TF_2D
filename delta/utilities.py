@@ -33,6 +33,8 @@ from skimage.transform import hough_line, hough_line_peaks
 from tensorflow.keras.callbacks import TensorBoard
 from tifffile import TiffFile
 
+from delta.lineage import CellFeatures, Pole
+
 Image = npt.NDArray[np.float32]
 
 Contour = np.ndarray
@@ -40,8 +42,6 @@ Contour = np.ndarray
 Labels = npt.NDArray[np.uint16]
 
 SegmentationMask = npt.NDArray[np.uint8]
-
-Pole = npt.NDArray[np.int16]
 
 
 @dataclass
@@ -2373,10 +2373,9 @@ def vidwrite(
 
 def roi_features(
     labels_frame: npt.NDArray[np.uint16],
-    features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
     fluo_frames: Optional[np.ndarray] = None,
     roi_box: Optional[CroppingBox] = None,
-) -> Tuple[List[int], List[Dict[str, Any]]]:
+) -> Dict[int, CellFeatures]:
     """
     Extract single-cell morphological and fluorescence features.
 
@@ -2384,10 +2383,6 @@ def roi_features(
     ----------
     labels_frame : 2D array of uint16
         Labels image of numbered cell regions.
-    features : list of str, optional
-        Features to extract. Valid features are 'length','width','area',
-        'perimeter','edges','fluo1','fluo2',...,'fluoN'.
-        The default is ('length','width','area','perimeter','edges').
     fluo_frames : 3D array, optional
         Array of fluo frames to extract fluorescence from. Dimensions are
         (size_x, size_y, fluo_channels). The number of fluo_channels must match
@@ -2399,109 +2394,35 @@ def roi_features(
 
     Returns
     -------
-    cell_nbs : list of ints
-        IDs of cells present in the labels frame
-    cell_features : list of dict
-        List of dictionary with values for requested features.
+    cell_features : Dict[int, CellFeatures]
+        Dictionary that associates cellids and CellFeatures.
     """
     # Cell numbers and contours:
-    cell_nbs, contours = getcellsinframe(labels_frame, return_contours=True)
-    assert isinstance(cell_nbs, list)  # needed for mypy on Python < 3.8
+    cellids, contours = getcellsinframe(labels_frame, return_contours=True)
+    assert isinstance(cellids, list)  # needed for mypy on Python < 3.8
     assert isinstance(contours, list)  # needed for mypy on Python < 3.8
 
+    cell_features = {}
     # Loop through cells in image, extract single-cell features:
-    cell_features = []
-    for cell, contour in zip(cell_nbs, contours):
+    for cellid, contour in zip(cellids, contours):
+        mask = labels_frame == cellid + 1
 
-        # Append to features list:
-        cell_features += [
-            singlecell_features(
-                contour,
-                labels_frame == cell + 1,
-                features=features,
-                roi_box=roi_box,
-                fluo_frames=fluo_frames,
-            )
-        ]
+        fluo_values = cell_fluo(fluo_frames, mask, roi_box) if fluo_frames is not None else []
 
-    return cell_nbs, cell_features
-
-
-def singlecell_features(
-    contour: Contour,
-    mask: SegmentationMask,
-    features: Tuple[str, ...] = ("length", "width", "area", "perimeter", "edges"),
-    fluo_frames: Optional[np.ndarray] = None,
-    roi_box: Optional[CroppingBox] = None,
-) -> Dict[str, Any]:
-    """
-    Extract features for a single cell.
-
-    Parameters
-    ----------
-    contour : list
-        Single cell contour from cv2 findcontours.
-    mask : 2D numpy array of bool
-        Mask of the region to extract (typically a single cell).
-    features : list of str, optional
-        Features to extract. Valid features are 'length','width','area',
-        'perimeter','edges','fluo1','fluo2',...,'fluoN'.
-        The default is ('length','width','area','perimeter','edges').
-    fluo_frames : 3D array, optional
-        Fluorescent images to extract fluo from. Dimensions are
-        (channels, size_y, size_x).
-        The default is None.
-    roi_box : CroppingBox, optional
-        Cropping box to apply shift when looking at full-frame fluo images.
-        The default is None.
-
-    Raises
-    ------
-    ValueError
-        If the number of fluo frames provided is different from the number of
-        fluo features to extract.
-
-    Returns
-    -------
-    features_dict : dict
-        Dictionary of requested features.
-
-    """
-    features_dict: Dict[str, Any] = {}
-
-    # Morphological features:
-    if "edges" in features:
-        features_dict["edges"] = image_edges(contour, mask)
-
-    if "length" in features or "width" in features:
         width, length = cell_width_length(contour)
-        if "length" in features:
-            features_dict["length"] = length
-        if "width" in features:
-            features_dict["width"] = width
 
-    if "area" in features:
-        features_dict["area"] = cell_area(contour)
+        cell_features[cellid] = CellFeatures(
+            new_pole=None,
+            old_pole=None,
+            edges=image_edges(contour, mask),
+            width=width,
+            length=length,
+            area=cell_area(contour),
+            perimeter=cell_perimeter(contour),
+            fluo=fluo_values,
+        )
 
-    if "perimeter" in features:
-        features_dict["perimeter"] = cell_perimeter(contour)
-
-    # Fluo features:
-    fluo_features = [x for x in features if x[0:4] == "fluo"]
-    if len(fluo_features) > 0:
-        if fluo_frames is None:
-            raise ValueError("You did not provide fluo frames")
-        if len(fluo_features) != fluo_frames.shape[0]:
-            raise ValueError(
-                "You should provide exactly as many fluo frames as you want "
-                f"fluo features to extract. Here fluo_frames.shape[0]={fluo_frames.shape[0]} "
-                f"but you ask for {len(fluo_features)} fluo features: {fluo_features}"
-            )
-        fluo_values = cell_fluo(fluo_frames, mask, roi_box)
-        for fluo_feat, fluo_val in zip(fluo_features, fluo_values):
-            features_dict[fluo_feat] = fluo_val
-
-    return features_dict
+    return cell_features
 
 
 def image_edges(contour: Contour, image: npt.NDArray[Any]) -> str:
