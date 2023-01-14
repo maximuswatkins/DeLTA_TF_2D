@@ -8,7 +8,6 @@ to minimize the risk of unforeseen bugs.
 """
 
 import datetime
-import importlib
 import re
 import subprocess
 import sys
@@ -19,8 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
-from typing import (Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type,
-                    Union)
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import bioformats
 import cv2
@@ -284,6 +282,7 @@ def imrotate(frame: npt.NDArray[Any], rotate: float) -> npt.NDArray[Any]:
     return frame
 
 
+# TODO: refactor this (maybe separate drift computation and application)
 def driftcorr(
     img: Image,
     template: Optional[Image] = None,
@@ -297,23 +296,24 @@ def driftcorr(
     ----------
     img : 2D or 3D numpy array of uint8/uint16/floats
         The frames to correct drfit for.
-    template : None or 2D numpy array of uint8/uint16/floats, optional
+    template : 2D numpy array of uint8/uint16/floats, optional
         The template for drift correction (see getDriftTemplate()).
-        default is None.
-    box : None or CroppingBox, optional
+        Default is None.
+    box : CroppingBox, optional
         A cropping box to extract the part of the frame to compute drift
         correction over.
-        default is None.
-    drift : None or tuple of 2 numpy arrays, optional
+        Default is None.
+    drift : tuple of 2 numpy arrays, optional
         Pre-computed drift to apply to the img stack. If this is None, you must
         provide a template and box.
-        default it None.
+        Default is None.
 
     Returns
     -------
-    2D/3D numpy array, tuple of len 2
-        Drift-corrected image and drift.
-
+    image : 2D/3D numpy array
+        Drift-corrected image.
+    xcorr, ycorr : float, float
+        Drift used.
     """
     if len(img.shape) == 2:
         twoDflag = True
@@ -437,8 +437,8 @@ def opencv_areafilt(
 
 
 def create_windows(
-    image: Image, target_size: Tuple[int, int] = (512, 512), min_overlap: int = 24
-) -> Tuple[npt.NDArray[np.float32], List[Tuple[int, int]], List[Tuple[int, int]]]:
+    image: npt.NDArray, target_size: Tuple[int, int] = (512, 512), min_overlap: int = 24
+) -> Tuple[npt.NDArray, npt.NDArray[np.int32], npt.NDArray[np.int32]]:
     """
     Crop input image into windows of set size.
 
@@ -491,7 +491,8 @@ def create_windows(
             image[sy : sy + target_size[0], sx : sx + target_size[1]]
             for sy in starts_y
             for sx in starts_x
-        ]
+        ],
+        dtype=image.dtype,
     )
     loc_x = np.vstack((starts_x, starts_x + target_size[1])) - pad_x // 2
     loc_y = np.vstack((starts_y, starts_y + target_size[0])) - pad_y // 2
@@ -705,7 +706,7 @@ def getROIBoxes(chambersmask: SegmentationMask) -> List[CroppingBox]:
 
 def label_seg(
     seg: SegmentationMask,
-    cellnumbers: Optional[List[int]] = None,
+    cellnumbers: Optional[Sequence[int]] = None,
 ) -> Labels:
     """
     Label cells in segmentation mask.
@@ -1017,7 +1018,7 @@ def extract_poles(
 
     """
     locations = end_img.nonzero()
-    poles = defaultdict(list)
+    poles: defaultdict[int, List[Pole]] = defaultdict(list)
 
     for p in range(len(locations[0])):
         cellid = labels[locations[0][p], locations[1][p]] - 1
@@ -1259,11 +1260,11 @@ class Lineage:
         None.
 
         """
-        self.cells = {}
-        """List of single-cell dictionaries
+        self.cells: Dict[int, Cell] = {}
+        """Dict of cellid to single-cell dictionaries
         Each dictionary will contain single-cell lineage and extracted feature
         properties"""
-        self.cellnumbers = []
+        self.cellnumbers: List[List[int]] = []
         "List of cells present in FOV at each timepoint"
 
     def __eq__(self, other) -> bool:
@@ -1638,7 +1639,7 @@ class Lineage:
 
         return self.cells[cell][feature][i]
 
-    def growthrate(self, cell: int, frame: int, feature: str) -> float:
+    def growthrate(self, cell: int, frame: int, feature: str) -> Optional[float]:
         """
         Compute exponential growth rate of a given feature for the given cell at the given frame.
 
@@ -1656,7 +1657,7 @@ class Lineage:
 
         Returns
         -------
-        float
+        Optional[float]
             Growth rate of the feature at frame.
         """
         value_fm1 = self.getpastvalue(cell, frame, feature)
@@ -1718,7 +1719,7 @@ class xpreader:
 
     def __init__(
         self,
-        filename: Union[Path, str] = None,
+        filename: Optional[Union[Path, str]] = None,
         channelnames: Optional[Tuple[str]] = None,
         use_bioformats: bool = False,
         prototype: Optional[str] = None,
@@ -1731,7 +1732,7 @@ class xpreader:
 
         Parameters
         ----------
-        filename : String or None
+        filename : Path or str, optional
             Path to experiment file or directory. If the path leads to a
             directory, the experiment folder is expected to contain exclusively
             single-page tif images. If None, an interactive selection dialog
@@ -1784,7 +1785,7 @@ class xpreader:
 
         """
         # Set default parameters
-        self.filename = filename
+        self.filename = None if not filename else Path(filename)
         "File or folder name for the experiment"
         self.use_bioformats = use_bioformats
         "Flag to use the Bio-Formats library to read file"
@@ -1821,8 +1822,6 @@ class xpreader:
             else:
                 # Interactive selection and pop up window:
                 self._interactive_init()
-
-        self.filename = Path(self.filename)
 
         self.channelnames = channelnames
 
@@ -1941,10 +1940,10 @@ class xpreader:
         """
         self.filename = Path(cmdln_arguments[1])
 
-        if importlib.util.find_spec("bioformats"):
-            self.use_bioformats = (
-                self.filename.suffix[1:] in bioformats.READABLE_FORMATS
-            )
+        self.use_bioformats = (
+            self.filename.suffix[1:] in bioformats.READABLE_FORMATS
+        )
+
         i = 2
         while i < len(cmdln_arguments):
             if cmdln_arguments[i] == "--bio-formats":
@@ -2146,11 +2145,13 @@ class xpreader:
                         raise ValueError(channel + " is not a valid channel name.")
                 channels = channels_list
         elif not isinstance(channels, (list, tuple)):
+            assert isinstance(channels, int)
             channels = [channels]
 
         if frames is None:  # No frames specified: load all
             frames = list(range(self.timepoints))
         elif not isinstance(frames, (list, tuple)):
+            assert isinstance(frames, int)
             if frames == -1:  # Read new frames from files watcher:
                 if self.watchfiles:
                     if len(channels) > 1:
@@ -2270,7 +2271,7 @@ class files_watcher(Thread):
 
 
 def getrandomcolors(
-    cellids: Iterable, seed: int = 0
+    cellids: Sequence[int], seed: int = 0
 ) -> Dict[int, Tuple[float, float, float]]:
     """
     Generate list of random hsv colors.
@@ -2406,7 +2407,9 @@ def roi_features(
     for cellid, contour in zip(cellids, contours):
         mask = labels_frame == cellid + 1
 
-        fluo_values = cell_fluo(fluo_frames, mask, roi_box) if fluo_frames is not None else []
+        fluo_values = (
+            cell_fluo(fluo_frames, mask, roi_box) if fluo_frames is not None else []
+        )
 
         width, length = cell_width_length(contour)
 

@@ -207,50 +207,6 @@ class Pipeline:
             if clear:
                 self.positions[p].clear()
 
-    def run(self) -> None:
-        """
-        On-the-fly processor (not functional yet).
-
-        Raises
-        ------
-        RuntimeError
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
-        """
-        if not self.on_the_fly:
-            raise RuntimeError(
-                "This Pipeline was not initialized for on-the-fly processing"
-            )
-
-        while True:
-
-            # Check if new files are available:
-            newfiles = self.reader.watcher.newfiles
-            while len(newfiles) == 0:
-                newfiles = self.reader.watcher.newfiles()
-
-            for nf in newfiles:
-                pos, chan = nf
-                frame = self.reader.watcher.old[pos, chan]
-
-                # Segmentation & tracking for trans images:
-                if chan == 0:
-                    self.positions[pos].segment(frames=[frame])
-                    self.positions[pos].track(frames=[frame])
-                    self.positions[pos].features(
-                        frames=[frame], features=("length", "width", "area")
-                    )
-
-                # Features extraction for fluorescence images:
-                else:
-                    self.positions[pos].features(
-                        frames=[frame], features=[f"fluo{chan}"]
-                    )
-
 
 class Position:
     """Position-processing object."""
@@ -440,7 +396,9 @@ class Position:
 
         # Predict
         rois_pred = self.models["rois"].predict(
-            cv2.resize(reference, self.config.target_size_rois)[np.newaxis, :, :, np.newaxis],
+            cv2.resize(reference, self.config.target_size_rois)[
+                np.newaxis, :, :, np.newaxis
+            ],
             verbose=0,
         )
 
@@ -543,7 +501,11 @@ class Position:
                 inputs, boxes = roi.get_tracking_inputs(frame=frame)
                 xs.append(inputs)
                 references.append((iroi, len(inputs), boxes))
-            x = np.concatenate(xs) if xs else np.empty((0, *self.config.target_size_track, 4))
+            x = (
+                np.concatenate(xs)
+                if xs
+                else np.empty((0, *self.config.target_size_track, 4))
+            )
 
             # Predict:
             y = np.empty(shape=(*x.shape[:3], 1))
@@ -1335,7 +1297,9 @@ class ROI:
 
         """
         if len(self.label_stack) <= frame:
-            raise ValueError(f"Asked for frame {frame} but label_stack has only {len(self.label_stack)} frames")
+            raise ValueError(
+                f"Asked for frame {frame} but label_stack has only {len(self.label_stack)} frames"
+            )
 
         # Extract features for all cells in the ROI:
         extracted_features = utils.roi_features(
