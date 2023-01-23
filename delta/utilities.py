@@ -855,9 +855,7 @@ def getpoles(
     """
     # No label provided:
     if labels is None:
-        lbls = label_seg(seg)
-        assert isinstance(lbls, np.ndarray)  # needed for mypy on Python < 3.8
-        labels = lbls
+        labels = label_seg(seg)
 
     # Get poles using skeleton method:
     skel = skeletonize(seg, method="lee")

@@ -1231,7 +1231,6 @@ class ROI:
         # Get scores and attributions:
         # Label frame but numbered 1, 2, 3, 4, etc. (temporary labels)
         labels = utils.label_seg(self.seg_stack[frame])
-        assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
         scores = utils.getTrackingScores(
             labels, y[:, :, :, 0], boxes=boxes if self.config.crop_windows else None
         )
@@ -1271,7 +1270,6 @@ class ROI:
             )
             labels = cv2.resize(labels, resize, interpolation=cv2.INTER_NEAREST)
 
-        assert isinstance(labels, np.ndarray)  # needed for mypy on Python < 3.8
         assert len(self.label_stack) == frame
         self.label_stack.append(labels)
 
