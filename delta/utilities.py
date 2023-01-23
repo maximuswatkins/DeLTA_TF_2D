@@ -288,7 +288,7 @@ def driftcorr(
     template: Optional[Image] = None,
     box: Optional[CroppingBox] = None,
     drift: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-) -> Tuple[Image, Tuple[int, int]]:
+) -> Tuple[Image, Union[Tuple[int, int], Tuple[List[int], List[int]]]]:
     """
     Compute and correct drift between current frame and the reference.
 
@@ -335,6 +335,8 @@ def driftcorr(
 
     for i in range(img.shape[0]):
         if drift is None:
+            if box is None:
+                raise ValueError("If `drift` is None, a box must be provided.")
             frame = to_integer_values(img[i], np.uint8)
             driftcorrimg = box.crop(frame)
             res = cv2.matchTemplate(driftcorrimg, template, cv2.TM_CCOEFF_NORMED)
@@ -1038,7 +1040,7 @@ def eucl(p1: npt.NDArray[Any], p2: npt.NDArray[Any]) -> float:
         Euclidean distance between p1 and p2.
 
     """
-    return np.linalg.norm(p1 - p2)
+    return np.linalg.norm(p1 - p2).astype(float)
 
 
 def track_poles(
@@ -1809,13 +1811,14 @@ class xpreader:
         # Retrieve command line arguments (if any)
         cmdln_arguments = sys.argv
 
-        if filename is None:
+        if self.filename is None:
             if len(cmdln_arguments) >= 2:
                 # If command line arguments were passed
                 self._command_line_init(cmdln_arguments)
             else:
                 # Interactive selection and pop up window:
                 self._interactive_init()
+            assert self.filename is not None
 
         self.channelnames = channelnames
 
@@ -2207,8 +2210,8 @@ class files_watcher(Thread):
         super().__init__()
         self.daemon = True
         self.reader = reader
-        self.old = []
-        self.new = []
+        self.old: List[List[int]] = []
+        self.new: List[List[int]] = []
 
     def run(self) -> None:
         """Run the file watcher."""

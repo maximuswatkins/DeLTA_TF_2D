@@ -15,6 +15,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Literal,
     Optional,
     Sequence,
     Tuple,
@@ -41,6 +42,8 @@ except ModuleNotFoundError:
 
 from delta import utilities as utils
 from delta.utilities import Image, SegmentationMask
+
+MODE = Literal["training", "evaluation"]
 
 #%% UTILITIES:
 
@@ -454,7 +457,7 @@ class SegmentationDataset(tf.keras.utils.Sequence):
         self,
         dataset: Tuple[List[Image], List[SegmentationMask], List[Image]],
         target_size: Tuple[int, int],
-        mode: str,
+        mode: MODE,
         kw_data_aug: Dict[str, Any],
         crop: bool,
         rng: npr.Generator,
@@ -469,7 +472,7 @@ class SegmentationDataset(tf.keras.utils.Sequence):
             Iterable on (image, segmentation mask, weights) tuples.
         target_size : (int, int)
             Target size of the images (input size of the neural network).
-        mode : str, "training" or "evaluation"
+        mode : MODE
             In "training" mode, data augmentation is applied.  In "evaluation"
             mode it is not.
         kw_data_aug : Dict[str, Any]
@@ -485,6 +488,8 @@ class SegmentationDataset(tf.keras.utils.Sequence):
             raise ValueError('`mode` can only be `"training"` or `"evaluation"`')
         if kw_data_aug and mode == "evaluation":
             raise ValueError("No data augmentation is supported in evaluation mode.")
+        if rng is None and mode == "training":
+            raise ValueError("A rng is required in training mode.")
         images, masks, weights = dataset
         if crop:
             if mode == "training":
@@ -658,12 +663,12 @@ def load_training_dataset_seg(
             mode="evaluation",
             kw_data_aug={},
             crop=crop,
-            rng=None,
+            rng=rng,
             stack=stack,
         )
         for other_imgs in datasets[1:]
     ]
-    return [train_ds, *other_dss]
+    return (train_ds, *other_dss)
 
 
 def _load_images_seg(
@@ -1342,8 +1347,8 @@ def trainGenerator_track(
             )
 
             if crop_windows:
-                cb, fb = utils.gettrackingboxes(seg, seg.shape, target_size)
                 shape = cast(Tuple[int, int], seg.shape)  # for mypy
+                cb, fb = utils.gettrackingboxes(seg, shape, target_size)
                 shiftY, shiftX = utils.getshiftvalues(shift_cropbox, shape, cb, rng)
             else:
                 cb = utils.CroppingBox.full(seg)

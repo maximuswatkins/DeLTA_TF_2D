@@ -74,6 +74,7 @@ class Pipeline:
             self.resfolder = Path(resfolder)
         else:
             xpfile = self.reader.filename
+            assert xpfile is not None
             if xpfile.is_dir():
                 self.resfolder = xpfile / "delta_results"
             else:
@@ -249,7 +250,7 @@ class Position:
         "List of Tensorflow models"
         self.rois: List[ROI] = []
         "List of ROI objects under position"
-        self.drift_values: List = [[], []]
+        self.drift_values: Tuple = ([], [])
         "XY drift correction values over time"
         self.config: Config = config
         "Configuration parameters object"
@@ -731,13 +732,13 @@ class Position:
             return
 
         # Initialize data structure/dict:
-        data = dict(moviedimensions=moviedimensions, tifffile=str(xpfile))
+        data: Dict[str, Any] = {"moviedimensions": moviedimensions, "tifffile": str(xpfile)}
 
         # Proc dict/structure:
-        data["proc"] = dict(
-            rotation=self.rotate,
-            XYdrift=np.array(self.drift_values, dtype=np.float64),
-            chambers=np.array(
+        data["proc"] = {
+            "rotation": self.rotate,
+            "XYdrift": np.array(self.drift_values, dtype=np.float64),
+            "chambers": np.array(
                 [
                     [
                         r.box.xtl,
@@ -749,7 +750,7 @@ class Position:
                 ],
                 dtype=np.float64,
             ),
-        )
+        }
 
         # Lineages:
         data["res"] = []
@@ -867,7 +868,7 @@ class Position:
             for r, roi in enumerate(self.rois):
 
                 # Get chamber-specific variables:
-                colors = utils.getrandomcolors(roi.lineage.cells.keys(), seed=r)
+                colors = utils.getrandomcolors(list(roi.lineage.cells.keys()), seed=r)
                 fr = roi.label_stack[fnb]
                 assert fr is not None  # FIXME: why is it not None?
                 cells, contours = utils.getcellsinframe(fr, return_contours=True)
@@ -1066,7 +1067,7 @@ class ROI:
 
     def process_segmentation_outputs(
         self,
-        y: npt.NDArray[np.uint8],
+        logits: npt.NDArray[np.float32],
         frame: Optional[int] = None,
         windows: Optional[Tuple[List, List]] = None,
     ) -> None:
@@ -1091,24 +1092,24 @@ class ROI:
         """
         # Stitch windows back together (if needed):
         if windows is None:
-            y = y[0, :, :, 0]
+            logits = logits[0, :, :, 0]
         else:
-            y = utils.stitch_pic(y[..., 0], windows[0], windows[1])
+            logits = utils.stitch_pic(logits[..., 0], windows[0], windows[1])
 
         # Binarize:
-        y = binarizerange(y, threshold=0).astype(np.uint8)
+        seg = binarizerange(logits, threshold=0).astype(np.uint8)
         # Crop out segmentation if image was smaller than target_size
         if self.config.crop_windows:
-            y = y[: self.img_stack[0].shape[0], : self.img_stack[0].shape[1]]
+            seg = seg[: self.img_stack[0].shape[0], : self.img_stack[0].shape[1]]
         # Area filtering:
-        y = utils.opencv_areafilt(y, min_area=self.config.min_cell_area)
+        seg = utils.opencv_areafilt(seg, min_area=self.config.min_cell_area)
 
         # Append to segmentation results stack:
         if frame is None or frame == len(self.seg_stack):
-            self.seg_stack.append(y)
+            self.seg_stack.append(seg)
         else:
             assert frame < len(self.seg_stack)
-            self.seg_stack[frame] = y
+            self.seg_stack[frame] = seg
 
     def get_tracking_inputs(
         self, frame: int
