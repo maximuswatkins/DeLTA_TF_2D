@@ -1,5 +1,5 @@
 """
-Module for configuration files and configuration parameters.
+Define, read and write DeLTA's configuration.
 
 @author: jblugagne
 """
@@ -20,9 +20,7 @@ _DELTA_DIR = Path(__file__).parent
 
 @dataclass
 class Config:
-    """
-    Configuration class containing DeLTA parameters.
-    """
+    """Configuration class containing DeLTA parameters."""
 
     presets: str
     """Type of analysis: can be '2D', 'mothermachine', or your own custom name."""
@@ -97,7 +95,6 @@ class Config:
             Loaded config object.
 
         """
-
         if path in ["local", "global"]:
             if presets is None:
                 raise ValueError(
@@ -143,7 +140,7 @@ class Config:
 
     def training_set_path(self, model: str) -> Path:
         """
-        Returns the path of the training set for the specified model.
+        Return the path of the training set for the specified model.
 
         If necessary, we download it first and cache it under a directory
         than can be specified with the environment variable `DELTA_ASSETS_CACHE`.
@@ -158,7 +155,6 @@ class Config:
         path : Path
             Path of the training set on the disk.
         """
-
         config_path = self.__dict__[f"training_set_{model}"]
         if config_path:
             return config_path
@@ -166,7 +162,7 @@ class Config:
 
     def demo_movie_path(self) -> Path:
         """
-        Returns the path of the demo movie for the specified presets.
+        Return the path of the demo movie for the specified presets.
 
         If necessary, we download it first and cache it uder a directory
         than can be specified with the environment variable `DELTA_ASSETS_CACHE`.
@@ -176,15 +172,13 @@ class Config:
         path : Path
             Path of the training set on the disk.
         """
-
         if self.eval_movie:
             return self.eval_movie
         return delta.assets.download_demo_movie(self.presets)
 
     def model(self, model: str) -> tf.keras.Model:
         """
-        Returns the keras model for the specified preset and model type
-        ("rois", "segmentation" or "tracking").
+        Return the keras model for the specified preset and model type.
 
         If the variable "model_file_(rois|seg|track)" is non-empty in the
         configuration, it is assumed to be the filename of the model.  If this
@@ -202,7 +196,6 @@ class Config:
         model : tf.keras.Model
             The required model.
         """
-
         if model == "segmentation":
             model = "seg"
         if model == "tracking":

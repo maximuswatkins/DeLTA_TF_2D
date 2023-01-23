@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Module to handle assets (model files, training sets, evaluation movies...),
-downloads, and writing configuration files.
+Handle asset downloads (model files, training sets, and demonstration movies).
 
 @author: jeanbaptiste
 """
@@ -64,7 +63,7 @@ DEMO_REGISTRY = pooch.create(
 
 def download_training_set(presets: str, model: str) -> Path:
     """
-    Returns the path of the training set for the currently loaded configuration.
+    Return the path of the training set for the currently loaded configuration.
 
     Depending on the current value of presets ("2D" or "mothermachine") and
     of the value of the argument `model` ("rois", "seg" or "track"), this
@@ -100,7 +99,7 @@ def download_training_set(presets: str, model: str) -> Path:
 
 def download_demo_movie(presets: str) -> Path:
     """
-    Returns the path of the demo movie for the currently loaded configuration.
+    Return the path of the demo movie for the currently loaded configuration.
 
     If necessary, it downloads it first and caches it under a directory that
     can be specified by the environment variable `DELTA_ASSETS_CACHE`.
@@ -115,7 +114,6 @@ def download_demo_movie(presets: str) -> Path:
     path : Path
         Path of the demo movie.
     """
-
     DEMO_REGISTRY.fetch(
         f"{presets}.zip",
         processor=pooch.Unzip(extract_dir=presets),

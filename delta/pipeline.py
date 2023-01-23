@@ -24,9 +24,7 @@ from delta.utilities import CroppingBox
 
 
 class Pipeline:
-    """
-    Main Pipeline class to process all positions.
-    """
+    """Main Pipeline class to process all positions."""
 
     def __init__(
         self,
@@ -54,7 +52,6 @@ class Pipeline:
         None.
 
         """
-
         self.reader: utils.xpreader = xpreader
         "Experiment reader object"
         self.positions: List[Position] = []
@@ -106,8 +103,7 @@ class Pipeline:
         references: Optional[np.ndarray] = None,
     ) -> None:
         """
-        Pre-process positions (Rotation correction, identify ROIs,
-        initialize drift correction).
+        Pre-process positions (Rotation correction, identify ROIs, initialize drift correction).
 
         Parameters
         ----------
@@ -257,9 +253,7 @@ class Pipeline:
 
 
 class Position:
-    """
-    Position processing object.
-    """
+    """Position-processing object."""
 
     def __init__(
         self,
@@ -356,8 +350,7 @@ class Position:
         rotation_correction: Union[float, bool] = True,
     ) -> None:
         """
-        Pre-process position (Rotation correction, identify ROIs,
-        initialize drift correction).
+        Pre-process position (Rotation correction, identify ROIs, initialize drift correction).
 
         Parameters
         ----------
@@ -442,7 +435,6 @@ class Position:
         None.
 
         """
-
         # Rescale pixel values between 0 and 1 for the old model
         reference = (reference - reference.min()) / reference.ptp()
 
@@ -716,7 +708,6 @@ class Position:
             Reloaded Position object. (without reader and models)
 
         """
-
         with open(filename, "rb") as file:
             position = pickle.load(file)
 
@@ -731,8 +722,7 @@ class Position:
 
     def clear(self) -> None:
         """
-        Clear Position-specific variables from memory (can be loaded back with
-        load()).
+        Clear Position-specific variables from memory (can be loaded back with load()).
 
         Returns
         -------
@@ -989,9 +979,7 @@ class Position:
 
 
 class ROI:
-    """
-    ROI processor object.
-    """
+    """ROI processor object."""
 
     def __init__(self, roi_nb: int, box: CroppingBox, config: Config) -> None:
         """
@@ -1188,7 +1176,6 @@ class ROI:
             Crop and fill boxes to re-place outputs in the ROI
 
         """
-
         # Check if segmentation data is ready:
         if len(self.seg_stack) <= frame:
             raise RuntimeError(f"Segmentation incomplete - frame {frame}")
@@ -1282,7 +1269,6 @@ class ROI:
         None.
 
         """
-
         # Get scores and attributions:
         # Label frame but numbered 1, 2, 3, 4, etc. (temporary labels)
         labels = utils.label_seg(self.seg_stack[frame])
@@ -1352,7 +1338,6 @@ class ROI:
         None.
 
         """
-
         if len(self.label_stack) <= frame:
             raise ValueError(f"Asked for frame {frame} but label_stack has only {len(self.label_stack)} frames")
 

@@ -1,5 +1,5 @@
 """
-Module for utility functions and class definitions that are used in pipeline.py.
+Utility functions and class definitions that are used in pipeline.py.
 
 A few functions are redundant from data.py, but we keep the files separate
 to minimize the risk of unforeseen bugs.
@@ -71,13 +71,23 @@ class CroppingBox:
     @staticmethod
     def full(image: np.ndarray):
         """
-        Returns a cropping box set to the full size of the image.
+        Return a cropping box set to the full size of the image.
+
+        Arguments
+        ---------
+            image : np.ndarray
+                Image to use as reference for the bounding box.
+
+        Returns
+        -------
+            box : CroppingBox
+                Cropping box adjusted to the full size of the image.
         """
         return CroppingBox(xtl=0, ytl=0, xbr=image.shape[1], ybr=image.shape[0])
 
     def crop(self, image: np.ndarray):
         """
-        Crops an image according to the cropping box.
+        Crop an image according to the cropping box.
 
         Pads with zeros if a part of the box falls outside of the image.
 
@@ -105,7 +115,7 @@ class CroppingBox:
 
     def patch(self, image: np.ndarray, patch: np.ndarray):
         """
-        Applies a patch on an image at the position specified by the box.
+        Apply a patch on an image at the position specified by the box.
 
         Parts of the box may fall outside of the image.
 
@@ -197,7 +207,7 @@ class Cell(Dict):
 
 def to_integer_values(frame: Image, dtype: Type[object]) -> Image:
     """
-    Returns an image with integer-valued pixels of the given size.
+    Return an image with integer-valued pixels of the given size.
 
     Parameters
     ----------
@@ -216,6 +226,7 @@ def to_integer_values(frame: Image, dtype: Type[object]) -> Image:
 def deskew(image: Image) -> float:
     """
     Compute the rotation angle to apply to the image to remove its rotation.
+
     You can skip rotation correction if your chambers are about +/- 1 degrees of horizontal.
 
     Parameters
@@ -280,8 +291,7 @@ def driftcorr(
     drift: Optional[Tuple[np.ndarray, np.ndarray]] = None,
 ) -> Tuple[Image, Tuple[int, int]]:
     """
-    Compute drift between current frame and the reference, and return corrected
-    image.
+    Compute and correct drift between current frame and the reference.
 
     Parameters
     ----------
@@ -343,7 +353,7 @@ def getDriftTemplate(
     chamberboxes: List[CroppingBox], img: Image, whole_frame: bool = False
 ) -> Optional[Image]:
     """
-    This function retrieves a region above the chambers to use as drift template.
+    Retrieve a region above the chambers to use as drift template.
 
     Parameters
     ----------
@@ -550,8 +560,7 @@ def gettrackingboxes(
     target_size: Tuple[int, int],
 ) -> Tuple[CroppingBox, CroppingBox]:
     """
-    Get a crop box and a fill box around a cell that fits the tracking target
-    size.
+    Get a crop box and a fill box around a cell that fits the tracking target size.
 
     Parameters
     ----------
@@ -571,7 +580,6 @@ def gettrackingboxes(
         the cropped out image.
 
     """
-
     cx, cy = getcentroid(cell)
 
     xtl = int(max(cx - target_size[1] / 2, 0))
@@ -597,6 +605,7 @@ def getshiftvalues(
     shift: int, img_shape: Tuple[int, int], cb: CroppingBox, rng: npr.Generator
 ) -> Tuple[int, int]:
     """
+    Get shift values.
 
     Parameters
     ----------
@@ -633,8 +642,9 @@ def getshiftvalues(
 
 def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
     """
-    wrapper for CV2's findContours() because it
-    keeps changing signatures.
+    Find contours of morphological components of a segmentation mask.
+
+    This is a wrapper of CV2's findContours() because it keeps changing signatures.
 
     Parameters
     ----------
@@ -658,8 +668,7 @@ def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
 
 def getROIBoxes(chambersmask: SegmentationMask) -> List[CroppingBox]:
     """
-    Extract the bounding boxes of the chambers in the binary mask
-    produced by the chambers identification unet.
+    Extract the bounding boxes of the chambers in the binary mask produced by the ROI segmentation model.
 
     Parameters
     ----------
@@ -770,7 +779,6 @@ def getcellsinframe(
         List of cv2 contours for each cell. Returned if return_contours==True.
 
     """
-
     cellids, ind = np.unique(labels, return_index=True)
 
     # Sorting along Y axis & removing background
@@ -884,10 +892,10 @@ def getpoles(
 
 def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
     """
-    This function was adapted from stackoverflow
-    #https://stackoverflow.com/questions/26537313/how-can-i-find-endpoints-of-binary-skeleton-image-in-opencv.
+    Filter out the poles of a skeleton.
 
-    It uses a kernel to filter out the poles
+    This function was adapted from stackoverflow:
+        https://stackoverflow.com/q/26537313
 
     Parameters
     ----------
@@ -917,6 +925,8 @@ def extrema_poles(
     cellmask: SegmentationMask, scaling: Optional[Tuple[float, float]] = None
 ) -> Tuple[Pole, Pole]:
     """
+    Find 2 poles per cell with the extrema method.
+
     A slower and more rudimentary version of poles finding but that is
     guaranteed to find exactly 2 poles.
 
@@ -948,6 +958,8 @@ def extrema_poles(
 
 def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
     """
+    Select only 2 poles out of possibly more than 2.
+
     Sometimes the skeleton produces more than 2 poles.
     Thus function selects only 2 poles in the skeleton.
 
@@ -1162,7 +1174,6 @@ def getTrackingScores(
         segmentation mask for each new-old cell.
 
     """
-
     # Compile scores:
     scores = np.zeros([outputs.shape[0], labels.max()], dtype=np.float32)
     for o, output in enumerate(outputs):
@@ -1237,9 +1248,7 @@ def getAttributions(scores: npt.NDArray[np.float32]) -> npt.NDArray[np.bool_]:
 
 
 class Lineage:
-    """
-    Class for cell lineages contained in each ROI.
-    """
+    """Class for cell lineages contained in each ROI."""
 
     def __init__(self) -> None:
         """
@@ -1703,10 +1712,7 @@ def getxppathdialog(ask_folder: bool = False) -> str:
 
 
 class xpreader:
-    """
-    Class to read experiment files from bioformats-compatible files or from
-    file sequences in folders.
-    """
+    """Class to read experiment files from bioformats-compatible files or from file sequences in folders."""
 
     def __init__(
         self,
@@ -1919,7 +1925,7 @@ class xpreader:
 
     def _command_line_init(self, cmdln_arguments: List[str]) -> None:
         """
-        Initialization routine if command line arguments were passed.
+        Initialize the reader if command line arguments were passed.
 
         Parameters
         ----------
@@ -2040,8 +2046,7 @@ class xpreader:
 
     def getfilenamefromprototype(self, position: int, channel: int, frame: int) -> Path:
         """
-        Generate full filename for specific frame based on file path,
-        prototype, fileorder, and filenamesindexing.
+        Generate full filename for specific frame based on file path, prototype, fileorder, and filenamesindexing.
 
         Parameters
         ----------
@@ -2199,9 +2204,7 @@ class xpreader:
 
 
 class files_watcher(Thread):
-    """
-    Daemon to watch experiment files and signal new ones (not functional yet).
-    """
+    """Daemon to watch experiment files and signal new ones (not functional yet)."""
 
     def __init__(self, reader: xpreader) -> None:
         super().__init__()
@@ -2283,7 +2286,6 @@ def getrandomcolors(
         Dictionary of cellids to colors (RGB values in [0,1]).
 
     """
-
     # XXX: Is this necessary?
     if len(cellids) == 0:
         return {}
@@ -2563,7 +2565,7 @@ def cell_fluo(
 
 def read_image(filename: Path) -> np.ndarray:
     """
-    Returns the image as a numpy array of np.float32 rescaled between 0 and 1.
+    Return the image as a numpy array of np.float32 rescaled between 0 and 1.
 
     Parameters
     ----------
@@ -2603,8 +2605,7 @@ def findfirst(mylist: List) -> Optional[int]:
 
 def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
     """
-    Returns a sorted list of filenames in `directory` that have one of the
-    specified extensions.
+    Return a sorted list of filenames in `directory` that have one of the specified extensions.
 
     Parameters
     ----------
@@ -2623,7 +2624,12 @@ def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
 
 def tensorboard_callback() -> TensorBoard:
     """
-    Returns a callback for TensorBoard logging.
+    Return a callback for TensorBoard logging.
+
+    Returns
+    -------
+    TensorBoard
+        TensorBoard callback.
     """
     try:
         branch = (
