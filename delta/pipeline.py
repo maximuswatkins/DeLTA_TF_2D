@@ -871,7 +871,6 @@ class Position:
                 fr = roi.label_stack[fnb]
                 assert fr is not None  # FIXME: why is it not None?
                 cells, contours = utils.getcellsinframe(fr, return_contours=True)
-                assert isinstance(cells, list)  # needed for mypy on Python < 3.8
 
                 if roi.box is None:
                     xtl, ytl = (0, 0)

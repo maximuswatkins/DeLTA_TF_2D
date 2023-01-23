@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Dict, Iterable, List, Literal, Optional, overload, Sequence, Tuple, Type, Union
 
 import bioformats
 import cv2
@@ -741,22 +741,18 @@ def label_seg(
     return labels
 
 
-#### These prototypes help mypy understand the return type of the function
-#    but can only be used from Python 3.8 because of typing.Literal
-#
-#
-# @overload
-# def getcellsinframe(
-#     labels: Labels, return_contours: Literal[True], background: int = 0
-# ) -> Tuple[List[int], List[Contour]]:
-#     ...
-#
-#
-# @overload
-# def getcellsinframe(
-#     labels: Labels, return_contours: Literal[False] = False, background: int = 0
-# ) -> List[int]:
-#     ...
+@overload
+def getcellsinframe(
+    labels: Labels, return_contours: Literal[True]
+) -> Tuple[List[int], List[Contour]]:
+    ...
+
+
+@overload
+def getcellsinframe(
+    labels: Labels, return_contours: Literal[False] = False
+) -> List[int]:
+    ...
 
 
 def getcellsinframe(
@@ -2399,8 +2395,6 @@ def roi_features(
     """
     # Cell numbers and contours:
     cellids, contours = getcellsinframe(labels_frame, return_contours=True)
-    assert isinstance(cellids, list)  # needed for mypy on Python < 3.8
-    assert isinstance(contours, list)  # needed for mypy on Python < 3.8
 
     cell_features = {}
     # Loop through cells in image, extract single-cell features:
