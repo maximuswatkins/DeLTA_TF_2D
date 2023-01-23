@@ -9,7 +9,7 @@ import sys
 import time
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union, cast
 
 import cv2
 import numpy as np
@@ -21,6 +21,8 @@ from delta import utilities as utils
 from delta.config import Config
 from delta.data import binarizerange, postprocess
 from delta.utilities import CroppingBox
+
+MODEL = Literal["rois", "seg", "track"]
 
 
 class Pipeline:
@@ -215,7 +217,7 @@ class Position:
         self,
         position_nb: int,
         reader: utils.xpreader,
-        models: Dict[str, tf.keras.Model],
+        models: Dict[MODEL, tf.keras.Model],
         config: Config,
     ) -> None:
         """
@@ -465,7 +467,7 @@ class Position:
         for i in range(0, len(x), self.config.pipeline_seg_batch):
             self._msg(f"Segmentation - ROI ({i}/{len(x)})")
             j = min((len(x), i + self.config.pipeline_seg_batch))
-            y[i:j] = self.models["segmentation"].predict(x[i:j], batch_size=1)
+            y[i:j] = self.models["seg"].predict(x[i:j], batch_size=1)
 
         # Dispatch segmentation outputs to rois:
         i = 0
@@ -511,7 +513,7 @@ class Position:
             y = np.empty(shape=(*x.shape[:3], 1))
             for i in range(0, len(x), self.config.pipeline_track_batch):
                 j = min(len(x), i + self.config.pipeline_track_batch)
-                y[i:j] = self.models["tracking"].predict(
+                y[i:j] = self.models["track"].predict(
                     x[i:j],
                     batch_size=1,
                     workers=1,

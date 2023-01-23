@@ -6,9 +6,13 @@ Handle asset downloads (model files, training sets, and demonstration movies).
 """
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
 import pooch
+
+PRESETS = Literal["2D", "mothermachine"]
+
+MODEL = Literal["rois", "seg", "track"]
 
 BASE_URL = "https://docs.google.com/uc?export=download&confirm=t&id="
 
@@ -61,7 +65,7 @@ DEMO_REGISTRY = pooch.create(
 )
 
 
-def download_training_set(presets: str, model: str) -> Path:
+def download_training_set(presets: PRESETS, model: MODEL) -> Path:
     """
     Return the path of the training set for the currently loaded configuration.
 
@@ -73,7 +77,7 @@ def download_training_set(presets: str, model: str) -> Path:
 
     Parameters
     ----------
-    presets : str
+    presets : PRESETS
         2D or mothermachine
     model : str
         Type of training set: `rois`, `seg` or `track`.
@@ -97,7 +101,7 @@ def download_training_set(presets: str, model: str) -> Path:
     return TRAININGSETS_REGISTRY.path / presets / "training" / path
 
 
-def download_demo_movie(presets: str) -> Path:
+def download_demo_movie(presets: PRESETS) -> Path:
     """
     Return the path of the demo movie for the currently loaded configuration.
 
@@ -106,7 +110,7 @@ def download_demo_movie(presets: str) -> Path:
 
     Parameters
     ----------
-    presets : str
+    presets : PRESETS
         2D or mothermachine
 
     Returns
@@ -122,7 +126,7 @@ def download_demo_movie(presets: str) -> Path:
     return DEMO_REGISTRY.path / presets
 
 
-def download_model(presets: str, model: str) -> Path:
+def download_model(presets: PRESETS, model: MODEL) -> Path:
     filename = {
         ("2D", "seg"): "unet_pads_seg.hdf5",
         ("2D", "track"): "unet_pads_track.hdf5",

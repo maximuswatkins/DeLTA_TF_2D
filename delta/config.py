@@ -8,11 +8,15 @@ import os
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Literal, Optional, Tuple, Union
 
 import tensorflow as tf
 
 import delta
+
+MODEL = Literal["rois", "seg", "track"]
+
+PRESETS = Literal["2D", "mothermachine"]
 
 # DeLTA lib install directory
 _DELTA_DIR = Path(__file__).parent
@@ -22,10 +26,10 @@ _DELTA_DIR = Path(__file__).parent
 class Config:
     """Configuration class containing DeLTA parameters."""
 
-    presets: str
-    """Type of analysis: can be '2D', 'mothermachine', or your own custom name."""
-    models: Tuple[str, ...]
-    """Which models need to be loaded."""
+    presets: PRESETS
+    """Type of analysis: can be '2D' or 'mothermachine'."""
+    models: Tuple[MODEL, ...]
+    """Which models need to be loaded ('rois', 'seg' or 'track')."""
     model_file_rois: Optional[Path]
     """Path to the hdf5 model for ROI segmentation."""
     model_file_seg: Optional[Path]
@@ -138,7 +142,7 @@ class Config:
 
         write_json(self, config_dir / f"config_{self.presets}.json")
 
-    def training_set_path(self, model: str) -> Path:
+    def training_set_path(self, model: MODEL) -> Path:
         """
         Return the path of the training set for the specified model.
 
@@ -176,7 +180,7 @@ class Config:
             return self.eval_movie
         return delta.assets.download_demo_movie(self.presets)
 
-    def model(self, model: str) -> tf.keras.Model:
+    def model(self, model: MODEL) -> tf.keras.Model:
         """
         Return the keras model for the specified preset and model type.
 
@@ -196,10 +200,6 @@ class Config:
         model : tf.keras.Model
             The required model.
         """
-        if model == "segmentation":
-            model = "seg"
-        if model == "tracking":
-            model = "track"
         if self.__dict__[f"model_file_{model}"]:
             model_path = self.__dict__[f"model_file_{model}"]
         else:
@@ -244,7 +244,7 @@ class Config:
 
 DEFAULT_CONFIG_2D = Config(
     presets="2D",
-    models=("segmentation", "tracking"),
+    models=("seg", "track"),
     model_file_rois=None,
     model_file_seg=None,
     model_file_track=None,
@@ -270,7 +270,7 @@ DEFAULT_CONFIG_2D = Config(
 
 DEFAULT_CONFIG_MOTHERMACHINE = Config(
     presets="mothermachine",
-    models=("rois", "segmentation", "tracking"),
+    models=("rois", "seg", "track"),
     model_file_rois=None,
     model_file_seg=None,
     model_file_track=None,

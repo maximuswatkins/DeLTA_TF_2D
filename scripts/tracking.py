@@ -45,7 +45,7 @@ unprocessed = listfiles(inputs_folder, {".png", ".tif"})
 imsize = read_image(unprocessed[0]).shape
 
 # Load up model:
-model = config.model("tracking")
+model = config.model("track")
 
 # Process
 while unprocessed:
