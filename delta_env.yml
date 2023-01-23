@@ -3,11 +3,12 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - python>=3.7
-  - scikit-image>=0.18
-  - opencv>=4.5
-  - tensorflow>=2.7,<2.11
-  - ffmpeg-python
-  - numpy>=1.21
-  - pooch>=1.6
-  - tqdm
+  - python >= 3.8
+  - numpy >= 1.21
+  - scipy >= 1.7
+  - pooch >= 1.6
+  - tensorflow >= 2.7, < 2.11
+  - scikit-image >= 0.19
+  - opencv >= 4.6
+  - tqdm >= 4.57
+  - ffmpeg-python >= 0.2
