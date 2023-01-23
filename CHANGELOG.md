@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The function `seg_weights_2D` is faster by a factor 12
 - Upgraded tensorflow dependency to version 2.7
 - Upgraded OpenCV dependency to version 4.5
+- Dropped support for Python 3.7
 ### Removed
 - The function `trainGenerator_seg` was removed.
 - The function `download_assets` was removed, because assets are now downloaded
