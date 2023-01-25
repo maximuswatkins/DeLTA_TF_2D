@@ -6,27 +6,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 ### Added
-- DeLTA now computes the growth rate of the cells
+- DeLTA now computes the growth rate of the cells.
+- It is now possible to specify the number of convolution kernels at each
+  layer when creating a U-Net.
+- Added support for TensorBoard.
 - The function `delta.data.make_weights` can create all of the weight maps
   for a training dataset.
 - The function `delta.utilities.read_image` reads and normalises png, tif and
   more.
 - The function `load_training_dataset_seg` loads training datasets and allows
   to specify validation and test splits.
+- DeLTA's configuration is now its own `Config` object instead of many
+  variables dispersed in `delta.config`.  Configuration files are read with
+  `Config.read`, and the resulting `config` should be passed to `Pipeline`
+  at its creation.
+- Positions can now be loaded with the static method `Position.load`.
+- Methods were added to the class `CroppingBox`: notably `full` (to create a
+  box from a whole reference image) and `crop` (to crop an image according to
+  the box).
+### Changed
+- All unet models return now logits, instead of probabilities, to improve
+  numerical accuracy.
+- The function `seg_weights` is faster by a factor 20.
+- The function `seg_weights_2D` is faster by a factor 12.
+- Upgraded tensorflow dependency to version 2.7.
+- Upgraded OpenCV dependency to version 4.5.
+- Dropped support for Python 3.7.
+- Switched from `setup.py` to `pyproject.toml`.
 - DeLTA assets (models, training sets, evaluation movies) are downloaded
   automatically and cached, thanks to the python package `pooch`.
-- DeLTA's configuration is now a global `Config` object instead of many
-  variables dispersed in `delta.config`.  Configuration files are read with
-  `Config.read` and loaded into memory with `Config.load`.
-### Changed
-- Fixed bug in the computation of cell perimeters
-- Fixed training reproducibility bugs
-- All unet models return now logits, instead of probabilities
-- The function `seg_weights` is faster by a factor 20
-- The function `seg_weights_2D` is faster by a factor 12
-- Upgraded tensorflow dependency to version 2.7
-- Upgraded OpenCV dependency to version 4.5
-- Dropped support for Python 3.7
+- The function `xpreader.getframes` now only takes one position at a time.
+- The functions `extract_poles` and `getpoles` now return a dictionary instead
+  of a list.
+- The function `getrandomcolors` now returns a dictionary instead of a list.
+- The attribute `lineage.cells` is now a dictionary instead of a list.
+- `CroppingBox` is now a `dataclass`, instead of a dictionary.
+- The function `affine_transform` now takes an `angle` argument to perform a
+  rotation.
+- The `label_stack` is now created by `process_tracking_outputs`.
+- The function `roi_features` now returns a dictionary instead of a list.
+- The argument `features` was removed from `extract_features` and
+  `roi_features`: now, every possible feature is always returned.
+### Fixed
+- Fixed bug in the computation of cell perimeters.
+- Fixed training reproducibility bugs by using seeded random generators.
+- Fixed edge case bugs in 2D image stitching.
+- Fixed edge case bug on pole detection of singular cells.
 ### Removed
 - The function `trainGenerator_seg` was removed.
 - The function `download_assets` was removed, because assets are now downloaded
@@ -34,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `load_position` was removed in favor of `Position.load`.
 - The function `load_config` was removed, replaced by `config.Config.read` and
   `config.Config.load`.
+- The function `utils.cropbox` was removed, replaced by `CroppingBox.crop`.
+- The function `singlecell_features` was removed because used only once.
 
 ## [2.0.5] - 2022-03-11
 ### Changed
