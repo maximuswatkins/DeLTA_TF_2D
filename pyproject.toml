@@ -21,7 +21,9 @@ dependencies = [
     "scikit-image >= 0.19",
     "opencv-python >= 4.6",
     "tqdm >= 4.57",
-    "ffmpeg-python>=0.2",
+    "ffmpeg-python >= 0.2",
+    "python-bioformats >= 4.0",
+    "python-javabridge >= 4.0",
 ]
 
 [project.optional-dependencies]

@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The function `roi_features` now returns a dictionary instead of a list.
 - The argument `features` was removed from `extract_features` and
   `roi_features`: now, every possible feature is always returned.
+- `python-bioformats` is again installed automatically now.
 ### Fixed
 - Fixed bug in the computation of cell perimeters.
 - Fixed training reproducibility bugs by using seeded random generators.

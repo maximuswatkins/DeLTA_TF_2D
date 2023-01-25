@@ -22,8 +22,10 @@ from tkinter import filedialog
 from typing import (Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type,
                     Union)
 
+import bioformats
 import cv2
 import ffmpeg
+import javabridge
 import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
@@ -1822,9 +1824,6 @@ class xpreader:
         file_extension = self.filename.suffix
 
         if self.use_bioformats:
-            import bioformats
-            import javabridge
-
             javabridge.start_vm(class_path=bioformats.JARS)
             self.filetype = file_extension.lower()[1:]
             self.filehandle = bioformats.ImageReader(str(self.filename))
@@ -1935,8 +1934,6 @@ class xpreader:
         self.filename = Path(cmdln_arguments[1])
 
         if importlib.util.find_spec("bioformats"):
-            import bioformats
-
             self.use_bioformats = (
                 self.filename.suffix[1:] in bioformats.READABLE_FORMATS
             )
@@ -2037,8 +2034,6 @@ class xpreader:
         """Close the bioformats or tif reader."""
         if self.use_bioformats:
             self.filehandle.close()
-            import javabridge
-
             javabridge.kill_vm()
         elif self.filetype == "tif":  # Nothing to do if sequence directory
             self.filehandle.close()

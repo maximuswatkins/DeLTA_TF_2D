@@ -24,7 +24,7 @@ test:
   before_script:
     - date
     - apt-get update
-    - apt-get install -y libgl1
+    - apt-get install -y libgl1 default-jdk build-essential
     - apt-get clean
     - conda env create --file delta_env.yml
     - source activate delta_env

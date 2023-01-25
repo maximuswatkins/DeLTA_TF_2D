@@ -12,3 +12,7 @@ dependencies:
   - opencv >= 4.6
   - tqdm >= 4.57
   - ffmpeg-python >= 0.2
+  - pip >= 21.1
+  - pip:
+    - python-bioformats >= 4.0
+    - python-javabridge >= 4.0
