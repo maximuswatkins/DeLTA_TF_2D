@@ -609,24 +609,20 @@ class Position:
         # Check if fluo channels are requested in features (fluo1, fluo2, etc):
         fluo_channels = [int(x[4:]) for x in features if x[0:4] == "fluo"]
 
-        # Load fluo images if any:
-        if len(fluo_channels):
-            # Read fluorescence frames:
-            fluo_frames = self.reader.getframes(
-                position=self.position_nb,
-                channels=fluo_channels,
-                frames=frames,
-                squeeze_dimensions=False,
-                rotate=self.rotate,
-            )
-            # Apply drift correction
-            if self.config.drift_correction:
-                for f in range(fluo_frames.shape[1]):
-                    fluo_frames[:, f, :, :], _ = utils.driftcorr(
-                        fluo_frames[:, f, :, :], drift=self.drift_values
-                    )
-        else:
-            fluo_frames = None
+        # Read fluorescence frames:
+        fluo_frames = self.reader.getframes(
+            position=self.position_nb,
+            channels=fluo_channels,
+            frames=frames,
+            squeeze_dimensions=False,
+            rotate=self.rotate,
+        )
+        # Apply drift correction
+        if self.config.drift_correction:
+            for f in range(fluo_frames.shape[1]):
+                fluo_frames[:, f, :, :], _ = utils.driftcorr(
+                    fluo_frames[:, f, :, :], drift=self.drift_values
+                )
 
         # Run through frames:
         for f in frames:
@@ -635,7 +631,7 @@ class Position:
             for roi in self.rois:
                 roi.extract_features(
                     frame=f,
-                    fluo_frames=fluo_frames[f] if fluo_frames is not None else None,
+                    fluo_frames=fluo_frames[f],
                 )
 
         # Now extracting multi-frame features
@@ -1333,7 +1329,7 @@ class ROI:
     def extract_features(
         self,
         frame: int,
-        fluo_frames: Optional[np.ndarray] = None,
+        fluo_frames: np.ndarray,
     ) -> None:
         """
         Extract single cell features.
