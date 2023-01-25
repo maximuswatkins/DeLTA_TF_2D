@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The argument `features` was removed from `extract_features` and
   `roi_features`: now, every possible feature is always returned.
 - `python-bioformats` is again installed automatically now.
+- The `threshold` argument of `binarizerange` is now compulsory, but one can
+  still pass `None` to binarize in the middle of the dynamic range.
 ### Fixed
 - Fixed bug in the computation of cell perimeters.
 - Fixed training reproducibility bugs by using seeded random generators.
