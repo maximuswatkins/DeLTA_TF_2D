@@ -403,9 +403,7 @@ class Position:
             self.rois = [
                 ROI(
                     roi_nb=0,
-                    box=CroppingBox(
-                        xtl=0, ytl=0, xbr=reference.shape[1], ybr=reference.shape[0]
-                    ),
+                    box=CroppingBox.full(reference),
                     config=self.config,
                 )
             ]
@@ -417,14 +415,9 @@ class Position:
                 reference,
                 whole_frame=self.config.whole_frame_drift,
             )
-            self.driftcorbox = CroppingBox(
-                xtl=0,
-                xbr=reference.shape[1],
-                ytl=0,
-                ybr=reference.shape[0]
-                if self.config.whole_frame_drift
-                else max(roi.box.ytl for roi in self.rois),
-            )
+            self.driftcorbox = CroppingBox.full(reference)
+            if not self.config.whole_frame_drift:
+                self.driftcorbox.ybr = max(roi.box.ytl for roi in self.rois)
 
         self._preprocessed = True
 
