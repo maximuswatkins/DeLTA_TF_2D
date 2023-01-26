@@ -1318,7 +1318,8 @@ class Lineage:
             new_pole, old_pole = sorted(
                 list(poles[0]), key=lambda p: p[0], reverse=True
             )
-            cellnum = self.createcell(frame, new_pole=new_pole, old_pole=old_pole)
+            features = CellFeatures(new_pole=new_pole, old_pole=old_pole, length=0, width=0, area=0, perimeter=0, fluo=[], edges="")
+            cellnum = self.createcell(frame, features=features)
             self.cellnumbers[frame][attrib[0]] = cellnum
 
         # Simple tracking event:
@@ -1335,7 +1336,7 @@ class Lineage:
             features = CellFeatures(new_pole=poles[0][1], old_pole=poles[0][0], length=0, width=0, area=0, perimeter=0, fluo=[], edges="")
             features = track_poles(features, prev_old, prev_new)
             # Update:
-            self.updatecell(cellnum, frame, old_pole=features.old_pole, new_pole=features.new_pole)
+            self.updatecell(cellnum, frame, features=features)
 
         # Division event:
         elif len(attrib) == 2:
@@ -1354,16 +1355,14 @@ class Lineage:
             # Create daughter:
             daughternum = self.createcell(
                 frame,
-                old_pole=daughter.old_pole,
-                new_pole=daughter.new_pole,
+                features=daughter,
                 mother=mothernum,
             )
             # Update mother:
             self.updatecell(
                 mothernum,
                 frame,
-                old_pole=mother.old_pole,
-                new_pole=mother.new_pole,
+                features=mother,
                 daughter=daughternum,
             )
             # Update cellnumbers list:
@@ -1377,8 +1376,7 @@ class Lineage:
     def createcell(
         self,
         frame: int,
-        new_pole: Optional[Pole] = None,
-        old_pole: Optional[Pole] = None,
+        features: CellFeatures,
         mother: Optional[int] = None,
     ) -> int:
         """
@@ -1408,8 +1406,8 @@ class Lineage:
                 "mother": mother,
                 "frames": [frame],
                 "daughters": [None],
-                "new_pole": [new_pole],
-                "old_pole": [old_pole],
+                "new_pole": [features.new_pole],
+                "old_pole": [features.old_pole],
             }
         )
         self.cells[new_cell["id"]] = new_cell
@@ -1420,9 +1418,8 @@ class Lineage:
         self,
         cell: int,
         frame: int,
+        features: CellFeatures,
         daughter: Optional[int] = None,
-        new_pole: Optional[Pole] = None,
-        old_pole: Optional[Pole] = None,
     ) -> None:
         """
         Update cell lineage values.
@@ -1448,8 +1445,8 @@ class Lineage:
         """
         self.cells[cell]["frames"] += [frame]  # Update frame number list
         self.cells[cell]["daughters"] += [daughter]
-        self.cells[cell]["old_pole"] += [old_pole]
-        self.cells[cell]["new_pole"] += [new_pole]
+        self.cells[cell]["old_pole"] += [features.old_pole]
+        self.cells[cell]["new_pole"] += [features.new_pole]
 
     def setvalue(
         self, cell: int, frame: int, feature: str, value: Union[int, float, str]
