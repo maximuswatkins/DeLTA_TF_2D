@@ -2127,7 +2127,7 @@ class xpreader:
                 raise ValueError(channels + " is not a valid channel name.")
         elif isinstance(channels, (list, tuple)):
             # If list of ints, nothing to do
-            if all(isinstance(c, str) for c in channels):
+            if channels and all(isinstance(c, str) for c in channels):
                 # refer to channels by list/tuple of names:
                 if self.channelnames is None:
                     raise ValueError("Set channel names first")
@@ -2368,8 +2368,8 @@ def vidwrite(
 
 def roi_features(
     labels_frame: npt.NDArray[np.uint16],
-    fluo_frames: Optional[np.ndarray] = None,
-    roi_box: Optional[CroppingBox] = None,
+    fluo_frames: np.ndarray,
+    roi_box: CroppingBox,
 ) -> Dict[int, CellFeatures]:
     """
     Extract single-cell morphological and fluorescence features.
@@ -2378,14 +2378,12 @@ def roi_features(
     ----------
     labels_frame : 2D array of uint16
         Labels image of numbered cell regions.
-    fluo_frames : 3D array, optional
+    fluo_frames : 3D array
         Array of fluo frames to extract fluorescence from. Dimensions are
         (size_x, size_y, fluo_channels). The number of fluo_channels must match
         the number of fluo features to extract.
-        The default is None.
-    roi_box : CroppingBox, optional
+    roi_box : CroppingBox
         Cropping box to apply shift when looking at full-frame fluo images.
-        The default is None.
 
     Returns
     -------
@@ -2520,7 +2518,7 @@ def cell_perimeter(contour: Contour) -> float:
 def cell_fluo(
     fluo_frames: np.ndarray,
     mask: SegmentationMask,
-    roi_box: Optional[CroppingBox] = None,
+    box: CroppingBox,
 ) -> List[float]:
     """
     Extract mean fluorescence level from mask.
@@ -2542,20 +2540,7 @@ def cell_fluo(
         Mean value per cell for each fluo frame.
 
     """
-    # Pixels where the cell is:
-    pixels = np.where(mask)
-    if roi_box is not None:
-        _pixels = list(pixels)
-        _pixels[0] += roi_box.ytl
-        _pixels[1] += roi_box.xtl
-        pixels = tuple(_pixels)
-
-    # Loop through fluo frames:
-    fluo_values = []
-    for frame in range(fluo_frames.shape[0]):
-        fluo_values += [np.mean(fluo_frames[frame, pixels[0], pixels[1]])]
-
-    return fluo_values
+    return [mask * box.crop(fluo) / mask.sum() for fluo in fluo_frames]
 
 
 #%% Misc
