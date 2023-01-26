@@ -35,7 +35,7 @@ from delta import utilities as utils
 #%% UTILITIES:
 
 
-def binarizerange(array: utils.Image, threshold: Optional[float] = None) -> utils.Image:
+def binarizerange(array: utils.Image, threshold: Optional[float]) -> utils.Image:
     """
     This function will binarize a numpy array by thresholding it.
 
@@ -43,9 +43,9 @@ def binarizerange(array: utils.Image, threshold: Optional[float] = None) -> util
     ----------
     array : 2D numpy array of floating-point numbers
         Input array/image.
-    threshold : float, optional
-        Binarization threshold.
-        By default, the threshold will be the middle of the dynamic range.
+    threshold : float or None
+        Binarization threshold. If None, the threshold will be the middle of
+        the dynamic range.
 
     Returns
     -------
@@ -54,7 +54,7 @@ def binarizerange(array: utils.Image, threshold: Optional[float] = None) -> util
 
     """
     if threshold is None:
-        threshold = (np.amin(array) + np.amax(array)) / 2
+        threshold = (array.min() + array.max()) / 2
     return (array > threshold).astype(np.uint8)
 
 
@@ -114,7 +114,7 @@ def readreshape(
         raise ValueError(f"Resizing method not understood: {method}.")
 
     if binarize:
-        return binarizerange(img).astype(img.dtype)
+        return binarizerange(img, threshold=None).astype(img.dtype)
 
     return img
 
