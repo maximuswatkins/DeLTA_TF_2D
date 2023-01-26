@@ -1054,15 +1054,15 @@ def eucl(p1: npt.NDArray[Any], p2: npt.NDArray[Any]) -> float:
 
 
 def track_poles(
-    poles: Tuple[Pole, Pole], prev_old: Pole, prev_new: Pole
-) -> Tuple[Pole, Pole]:
+    features: CellFeatures, prev_old: Pole, prev_new: Pole
+) -> CellFeatures:
     """
     Track poles of a cell to the previous old and new poles.
 
     Parameters
     ----------
-    poles : Tuple[Pole, Pole]
-        Coordinates for the 2 poles of a single cell
+    features : CellFeatures
+        Cell features object with possibly switched poles.
     prev_old : Pole
         Previous old pole of the cell.
     prev_new : Pole
@@ -1070,40 +1070,34 @@ def track_poles(
 
     Returns
     -------
-    old_pole : Pole
-        Which of the two poles tracked to the previous old pole.
-    new_pole : Pole
-        Which of the two poles tracked to the previous new pole.
+    features : CellFeatures
+        Cell features object with correct poles.
 
     """
     if (
-        eucl(poles[0], prev_old) ** 2 + eucl(poles[1], prev_new) ** 2
-        < eucl(poles[0], prev_new) ** 2 + eucl(poles[1], prev_old) ** 2
+        eucl(features.old_pole, prev_old) ** 2 + eucl(features.new_pole, prev_new) ** 2
+        >= eucl(features.old_pole, prev_new) ** 2 + eucl(features.new_pole, prev_old) ** 2
     ):
-        old_pole = poles[0]
-        new_pole = poles[1]
-    else:
-        old_pole = poles[1]
-        new_pole = poles[0]
+        features.swap_poles()
 
-    return old_pole, new_pole
+    return features
 
 
 def division_poles(
-    poles_cell1: Tuple[Pole, Pole],
-    poles_cell2: Tuple[Pole, Pole],
+    features1: CellFeatures,
+    features2: CellFeatures,
     prev_old: Pole,
     prev_new: Pole,
-) -> Tuple[Tuple[Pole, Pole], Tuple[Pole, Pole], bool]:
+) -> Tuple[CellFeatures, CellFeatures, bool]:
     """
     Identify which poles belong to the mother and which to the daughter.
 
     Parameters
     ----------
-    poles_cell1 : Tuple[Pole, Pole]
-        Poles of one of the 2 cells after division.
-    poles_cell2 : Tuple[Pole, Pole]
-        Poles of the other of the 2 cells after division.
+    features1 : CellFeatures
+        Features of one of the 2 cells after division (with possibly swapped poles).
+    features1 : CellFeatures
+        Features of the other of the 2 cells after division (with possibly swapped poles).
     prev_old : Pole
         Previous old pole of the cell.
     prev_new : Pole
@@ -1111,46 +1105,35 @@ def division_poles(
 
     Returns
     -------
-    Tuple[Tuple[Pole, Pole], Tuple[Pole, Pole], bool]
-        Mother's old pole and new pole, daughter's old pole and new pole, and
-        flag that is True if cell1 is the mother, False if cell2 is the mother
+    mother : CellFeatures
+    daughter : CellFeatures
+    first_cell_is_mother : bool
 
     """
     # Find new new poles (2 closest of the poles of the new cells):
-    min_dist = np.inf
-    for c1 in range(2):
-        for c2 in range(2):
-            dist = eucl(poles_cell1[c1], poles_cell2[c2])
-            if dist < min_dist:
-                min_dist = dist
-                c1_new = c1
-                c2_new = c2
+    old1_to_2 = min(eucl(features1.old_pole, features2.old_pole), eucl(features1.old_pole, features2.new_pole))
+    new1_to_2 = min(eucl(features1.new_pole, features2.old_pole), eucl(features1.new_pole, features2.new_pole))
+    if old1_to_2 < new1_to_2:
+        features1.swap_poles()
+    if eucl(features1.new_pole, features2.old_pole) < eucl(features1.new_pole, features2.new_pole):
+        features2.swap_poles()
+    # Now poles are correctly attributed, we will now determine which cell is the mother
 
     # Track poles closest to old and new pole from previous cell:
     if (
-        eucl(poles_cell1[1 - c1_new], prev_old) ** 2
-        + eucl(poles_cell2[1 - c2_new], prev_new) ** 2
-        < eucl(poles_cell1[1 - c1_new], prev_new) ** 2
-        + eucl(poles_cell2[1 - c2_new], prev_old) ** 2
+        eucl(features1.old_pole, prev_old) ** 2 + eucl(features2.old_pole, prev_new) ** 2
+        < eucl(features1.old_pole, prev_new) ** 2 + eucl(features2.old_pole, prev_old) ** 2
     ):
         # cell 1 is mother, cell 2 is daughter
         first_cell_is_mother = True
-        # Attribute mother:
-        mother_old_new = (poles_cell1[1 - c1_new], poles_cell1[c1_new])
-
-        # Attribute daughter:
-        daughter_old_new = (poles_cell2[1 - c2_new], poles_cell2[c2_new])
+        mother, daughter = features1, features2
 
     else:
         # cell 2 is mother, cell 1 is daughter
         first_cell_is_mother = False
-        # Attribute mother:
-        mother_old_new = (poles_cell2[1 - c2_new], poles_cell2[c2_new])
+        mother, daughter = features2, features1
 
-        # Attribute daughter:
-        daughter_old_new = (poles_cell1[1 - c1_new], poles_cell1[c1_new])
-
-    return (mother_old_new, daughter_old_new, first_cell_is_mother)
+    return (mother, daughter, first_cell_is_mother)
 
 
 # %% Lineage
@@ -1349,9 +1332,10 @@ class Lineage:
             assert isinstance(prev_old, np.ndarray)  # for mypy
             assert isinstance(prev_new, np.ndarray)  # for mypy
             # Find which pole is new vs old:
-            old_pole, new_pole = track_poles(poles[0], prev_old, prev_new)
+            features = CellFeatures(new_pole=poles[0][1], old_pole=poles[0][0], length=0, width=0, area=0, perimeter=0, fluo=[], edges="")
+            features = track_poles(features, prev_old, prev_new)
             # Update:
-            self.updatecell(cellnum, frame, old_pole=old_pole, new_pole=new_pole)
+            self.updatecell(cellnum, frame, old_pole=features.old_pole, new_pole=features.new_pole)
 
         # Division event:
         elif len(attrib) == 2:
@@ -1362,22 +1346,24 @@ class Lineage:
             assert isinstance(prev_old, np.ndarray)  # for mypy
             assert isinstance(prev_new, np.ndarray)  # for mypy
             # Identify mother and daughter poles:
-            mother_poles, daughter_poles, first_cell_is_mother = division_poles(
-                poles[0], poles[1], prev_old, prev_new
+            features1 = CellFeatures(new_pole=poles[0][1], old_pole=poles[0][0], length=0, width=0, area=0, perimeter=0, fluo=[], edges="")
+            features2 = CellFeatures(new_pole=poles[1][1], old_pole=poles[1][0], length=0, width=0, area=0, perimeter=0, fluo=[], edges="")
+            mother, daughter, first_cell_is_mother = division_poles(
+                features1, features2, prev_old, prev_new
             )
             # Create daughter:
             daughternum = self.createcell(
                 frame,
-                old_pole=daughter_poles[0],
-                new_pole=daughter_poles[1],
+                old_pole=daughter.old_pole,
+                new_pole=daughter.new_pole,
                 mother=mothernum,
             )
             # Update mother:
             self.updatecell(
                 mothernum,
                 frame,
-                old_pole=mother_poles[0],
-                new_pole=mother_poles[1],
+                old_pole=mother.old_pole,
+                new_pole=mother.new_pole,
                 daughter=daughternum,
             )
             # Update cellnumbers list:
