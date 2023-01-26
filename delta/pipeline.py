@@ -143,7 +143,6 @@ class Pipeline:
         self,
         positions: Optional[List[int]] = None,
         frames: Optional[List[int]] = None,
-        features: Optional[Tuple[str, ...]] = None,
         clear: bool = True,
     ) -> None:
         """
@@ -156,9 +155,6 @@ class Pipeline:
             The default is None.
         frames : list of int or None, optional
             List of frames to run. If None, all frames are run.
-            The default is None.
-        features : list of str or None, optional
-            List of features to extract. If None, all features are extracted.
             The default is None.
         clear : bool, optional
             Clear variables of each Position object after it has been processed
@@ -176,12 +172,6 @@ class Pipeline:
         if positions is None:
             positions = list(range(self.reader.positions))
 
-        if features is None:
-            features_list = ["length", "width", "area", "perimeter", "edges"]
-            for c in range(1, self.reader.channels):
-                features_list += [f"fluo{c}"]
-            features = tuple(features_list)
-
         # Run through positions:
         for p in positions:
             # Preprocess is not done already:
@@ -197,7 +187,7 @@ class Pipeline:
             self.positions[p].track(frames=frames)
 
             # Extract features:
-            self.positions[p].features(frames=frames, features=features)
+            self.positions[p].features(frames=frames)
 
             # Save to disk and clear memory:
             self.positions[p].save(
@@ -525,13 +515,6 @@ class Position:
     def features(
         self,
         frames: List[int],
-        features: Tuple[str, ...] = (
-            "length",
-            "width",
-            "area",
-            "perimeter",
-            "edges",
-        ),
     ) -> None:
         """
         Extract features for all ROIs in frames.
@@ -540,9 +523,6 @@ class Position:
         ----------
         frames : list of int
             List of frames to run.
-        features : list or tuple of str, optional
-            List of features to extract.
-            The default is ("length", "width", "area", "perimeter", "edges").
 
         Returns
         -------
@@ -551,8 +531,9 @@ class Position:
         """
         self._msg(f"Starting feature extraction ({len(frames)} frames)")
 
-        # Check if fluo channels are requested in features (fluo1, fluo2, etc):
-        fluo_channels = [int(x[4:]) for x in features if x[0:4] == "fluo"]
+        # Assume that brightfield is the first channel and fluorescence
+        # channels are the other ones
+        fluo_channels = list(range(1, self.reader.channels))
 
         # Read fluorescence frames:
         fluo_frames = self.reader.getframes(
