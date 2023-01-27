@@ -16,6 +16,7 @@ from scipy.special import logit
 
 from delta import pipeline, utils
 from delta.config import DEFAULT_CONFIG_2D
+from delta.lineage import CellFeatures
 
 
 @pytest.mark.parametrize("xtl", [-1, 0])
@@ -65,10 +66,12 @@ def test_croppingbox_partial_crop_patch(xtl, xbr, ytl, ybr):
 def test_growthrate_onecell():
     # Cell 0 is on frames 0, 1, 2
     pole = np.zeros(2, dtype=np.int16)
+    feats = CellFeatures(old_pole=pole, new_pole=pole, length=0.0, width=0.0,
+                         area=0.0, perimeter=0.0, fluo=[], edges="")
     lineage = utils.Lineage()
-    lineage.update(cell=None, frame=0, attrib=[0], poles=[[pole, pole]])
-    lineage.update(cell=0, frame=1, attrib=[0], poles=[[pole, pole]])
-    lineage.update(cell=0, frame=2, attrib=[0], poles=[[pole, pole]])
+    lineage.update(cell=None, frame=0, attrib=[0], features=[feats])
+    lineage.update(cell=0, frame=1, attrib=[0], features=[feats])
+    lineage.update(cell=0, frame=2, attrib=[0], features=[feats])
     lineage.setvalue(0, frame=0, feature="length", value=1.0)
     lineage.setvalue(0, frame=1, feature="length", value=1.1)
     lineage.setvalue(0, frame=2, feature="length", value=1.2)
@@ -82,10 +85,12 @@ def test_growthrate_division():
     # Cell 1, born from cell 0 on frame 1, is on frames 1 and 2
     pole = np.zeros(2, dtype=np.int16)
     lineage = utils.Lineage()
-    lineage.update(cell=None, frame=0, attrib=[0], poles=[[pole, pole]])
-    lineage.update(cell=0, frame=1, attrib=[1, 0], poles=[[pole, pole], [pole, pole]])
-    lineage.update(cell=0, frame=2, attrib=[0], poles=[[pole, pole]])
-    lineage.update(cell=1, frame=2, attrib=[1], poles=[[pole, pole]])
+    feats = CellFeatures(old_pole=pole, new_pole=pole, length=0.0, width=0.0,
+                         area=0.0, perimeter=0.0, fluo=[], edges="")
+    lineage.update(cell=None, frame=0, attrib=[0], features=[feats])
+    lineage.update(cell=0, frame=1, attrib=[1, 0], features=[feats, feats])
+    lineage.update(cell=0, frame=2, attrib=[0], features=[feats])
+    lineage.update(cell=1, frame=2, attrib=[1], features=[feats])
     lineage.setvalue(0, frame=0, feature="length", value=2.0)
     lineage.setvalue(0, frame=1, feature="length", value=1.2)
     lineage.setvalue(0, frame=2, feature="length", value=1.3)
@@ -108,9 +113,11 @@ def test_growthrate_division_last():
     # Cell 0 is on frames 0 and 1
     # Cell 1, born from cell 0 on frame 1, is on frame 1
     pole = np.zeros(2, dtype=np.int16)
+    feats = CellFeatures(old_pole=pole, new_pole=pole, length=0.0, width=0.0,
+                         area=0.0, perimeter=0.0, fluo=[], edges="")
     lineage = utils.Lineage()
-    lineage.update(cell=None, frame=0, attrib=[0], poles=[[pole, pole]])
-    lineage.update(cell=0, frame=1, attrib=[1, 0], poles=[[pole, pole], [pole, pole]])
+    lineage.update(cell=None, frame=0, attrib=[0], features=[feats])
+    lineage.update(cell=0, frame=1, attrib=[1, 0], features=[feats, feats])
     lineage.setvalue(0, frame=0, feature="length", value=2.0)
     lineage.setvalue(0, frame=1, feature="length", value=1.2)
     lineage.setvalue(1, frame=1, feature="length", value=1.0)
@@ -129,11 +136,13 @@ def test_growthrate_double_division():
     # Cell 2, born from cell 1 on frame 2, is on frame 2
     # Cell 3, born from cell 0 on frame 2, is on frame 2
     pole = np.zeros(2, dtype=np.uint16)
+    feats = CellFeatures(old_pole=pole, new_pole=pole, length=0.0, width=0.0,
+                         area=0.0, perimeter=0.0, fluo=[], edges="")
     lineage = utils.Lineage()
-    lineage.update(cell=None, frame=0, attrib=[0], poles=[[pole, pole]])
-    lineage.update(cell=0, frame=1, attrib=[1, 0], poles=[[pole, pole], [pole, pole]])
-    lineage.update(cell=1, frame=2, attrib=[1, 0], poles=[[pole, pole], [pole, pole]])
-    lineage.update(cell=0, frame=2, attrib=[2, 3], poles=[[pole, pole], [pole, pole]])
+    lineage.update(cell=None, frame=0, attrib=[0], features=[feats])
+    lineage.update(cell=0, frame=1, attrib=[1, 0], features=[feats, feats])
+    lineage.update(cell=1, frame=2, attrib=[1, 0], features=[feats, feats])
+    lineage.update(cell=0, frame=2, attrib=[2, 3], features=[feats, feats])
     lineage.setvalue(0, frame=0, feature="length", value=2.0)
     lineage.setvalue(0, frame=1, feature="length", value=1.2)
     lineage.setvalue(0, frame=2, feature="length", value=0.8)

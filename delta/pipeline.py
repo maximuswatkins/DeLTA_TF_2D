@@ -20,6 +20,7 @@ from scipy.io import savemat
 from delta import utilities as utils
 from delta.config import Config
 from delta.data import binarizerange, postprocess
+from delta.lineage import CellFeatures
 from delta.utilities import CroppingBox
 
 MODEL = Literal["rois", "seg", "track"]
@@ -1213,16 +1214,14 @@ class ROI:
         # Go through old cells:
         for o in range(attributions.shape[0]):
             attrib = attributions[o, :].nonzero()[0]
-            new_cells_poles = []
-            for n in attrib:
-                new_cells_poles += [poles[n]]
-            self.lineage.update(o, frame, attrib=attrib, poles=new_cells_poles)
+            features = [CellFeatures(old_pole=poles[n][0], new_pole=poles[n][1], length=0, width=0, area=0, perimeter=0, fluo=[], edges="") for n in attrib]
+            self.lineage.update(o, frame, attrib=attrib, features=features)
         # Go through "orphan" cells:
         for n in range(attributions.shape[1]):
             attrib = attributions[:, n].nonzero()[0]
-            new_cells_poles = [poles[n]]
+            features = [CellFeatures(old_pole=poles[n][0], new_pole=poles[n][1], length=0, width=0, area=0, perimeter=0, fluo=[], edges="")]
             if len(attrib) == 0:
-                self.lineage.update(None, frame, attrib=[n], poles=new_cells_poles)
+                self.lineage.update(None, frame, attrib=[n], features=features)
 
         # Recompile label frame with new labels
         if len(self.lineage.cellnumbers) <= frame:

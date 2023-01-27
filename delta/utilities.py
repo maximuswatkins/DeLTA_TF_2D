@@ -1279,7 +1279,7 @@ class Lineage:
         cell: Optional[int],
         frame: int,
         attrib: List[int] = [],
-        poles: List[Tuple[Pole, Pole]] = [],
+        features: List[CellFeatures] = [],
     ) -> None:
         """
         Attribute cell from previous frame to cell(s) in new frame.
@@ -1294,8 +1294,8 @@ class Lineage:
         attrib : list of int, optional
             Cell index(es) in current frame to attribute the previous cell to.
             The default is [].
-        poles : list of tuples of 2 1D numpy arrays, optional
-            List of poles for the cells in the new frame.
+        features : List[CellFeatures]
+            One CellFeature object for each cell id in attrib.
             The default is [].
 
         Returns
@@ -1315,11 +1315,10 @@ class Lineage:
 
         # If no attribution: (new/orphan cell)
         if cell is None and len(attrib) > 0:
-            new_pole, old_pole = sorted(
-                list(poles[0]), key=lambda p: p[0], reverse=True
-            )
-            features = CellFeatures(new_pole=new_pole, old_pole=old_pole, length=0, width=0, area=0, perimeter=0, fluo=[], edges="")
-            cellnum = self.createcell(frame, features=features)
+            assert len(attrib) == 1
+            if features[0].new_pole[0] <= features[0].old_pole[0]:
+                features[0].swap_poles()
+            cellnum = self.createcell(frame, features=features[0])
             self.cellnumbers[frame][attrib[0]] = cellnum
 
         # Simple tracking event:
@@ -1333,10 +1332,9 @@ class Lineage:
             assert isinstance(prev_old, np.ndarray)  # for mypy
             assert isinstance(prev_new, np.ndarray)  # for mypy
             # Find which pole is new vs old:
-            features = CellFeatures(new_pole=poles[0][1], old_pole=poles[0][0], length=0, width=0, area=0, perimeter=0, fluo=[], edges="")
-            features = track_poles(features, prev_old, prev_new)
+            feats = track_poles(features[0], prev_old, prev_new)
             # Update:
-            self.updatecell(cellnum, frame, features=features)
+            self.updatecell(cellnum, frame, features=feats)
 
         # Division event:
         elif len(attrib) == 2:
@@ -1347,10 +1345,8 @@ class Lineage:
             assert isinstance(prev_old, np.ndarray)  # for mypy
             assert isinstance(prev_new, np.ndarray)  # for mypy
             # Identify mother and daughter poles:
-            features1 = CellFeatures(new_pole=poles[0][1], old_pole=poles[0][0], length=0, width=0, area=0, perimeter=0, fluo=[], edges="")
-            features2 = CellFeatures(new_pole=poles[1][1], old_pole=poles[1][0], length=0, width=0, area=0, perimeter=0, fluo=[], edges="")
             mother, daughter, first_cell_is_mother = division_poles(
-                features1, features2, prev_old, prev_new
+                features[0], features[1], prev_old, prev_new
             )
             # Create daughter:
             daughternum = self.createcell(
