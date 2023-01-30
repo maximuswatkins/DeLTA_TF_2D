@@ -1,5 +1,5 @@
 """
-Module for cell and lineage-related objects and functions.
+Cell- and lineage-related objects and functions.
 """
 
 from dataclasses import dataclass

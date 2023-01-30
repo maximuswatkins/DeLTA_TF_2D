@@ -36,7 +36,7 @@ outputs_folder.mkdir(exist_ok=True)
 unprocessed = listfiles(inputs_folder, {".tif", ".png"})
 
 # Load up model:
-model = config.model("segmentation")
+model = config.model("seg")
 
 # Process
 while unprocessed:

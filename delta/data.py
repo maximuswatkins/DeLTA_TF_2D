@@ -4,14 +4,24 @@ Module for data manipulations and input/output operations.
 @author: jblugagne
 """
 
-import copy
-import importlib
 import re
 import warnings
 from collections import Counter
 from pathlib import Path
-from typing import (Any, Callable, Dict, Iterable, Iterator, List, Optional,
-                    Tuple, Union, cast)
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 import cv2
 import numpy as np
@@ -25,19 +35,22 @@ from skimage import io
 from skimage.measure import label
 
 # Try to import elastic deformations, issue warning if not found:
-if importlib.util.find_spec("elasticdeform") is None:
-    warnings.warn("Could not load elastic deformations module.")
-else:
+try:
     import elasticdeform
+except ModuleNotFoundError:
+    warnings.warn("Could not load elastic deformations module.")
 
 from delta import utilities as utils
+from delta.utilities import Image, SegmentationMask
+
+MODE = Literal["training", "evaluation"]
 
 #%% UTILITIES:
 
 
-def binarizerange(array: utils.Image, threshold: Optional[float]) -> utils.Image:
+def binarizerange(array: Image, threshold: Optional[float]) -> Image:
     """
-    This function will binarize a numpy array by thresholding it.
+    Binarize a numpy array by thresholding it.
 
     Parameters
     ----------
@@ -66,8 +79,7 @@ def readreshape(
     method: str = "resize",
 ) -> npt.NDArray[Any]:
     """
-    Read image from disk, format it and return it as an array of
-    floating-point numbers between 0 and 1.
+    Read image from disk, format it and return it as an array of floating-point numbers between 0 and 1.
 
     Parameters
     ----------
@@ -105,7 +117,7 @@ def readreshape(
     if method == "pad":
         # For DeLTA 2D, black space is added if img is smaller than target_size
         fill_shape = np.maximum(np.array(target_size), np.array(i.shape))
-        img = np.zeros(fill_shape)
+        img = np.zeros(fill_shape, dtype=np.float32)
         img[: i.shape[0], : i.shape[1]] = i
     elif method == "resize":
         # For DeLTA mothermachine, all images are resized in 256x32
@@ -114,7 +126,7 @@ def readreshape(
         raise ValueError(f"Resizing method not understood: {method}.")
 
     if binarize:
-        return binarizerange(img, threshold=None).astype(img.dtype)
+        return binarizerange(img, threshold=None)
 
     return img
 
@@ -126,7 +138,7 @@ def postprocess(
     crop: bool = False,
 ) -> npt.NDArray[np.uint8]:
     """
-    A generic binary image cleaning function based on mathematical morphology.
+    Clean segmentation results based on mathematical morphology.
 
     Parameters
     ----------
@@ -175,7 +187,7 @@ def data_augmentation(
     rng: Optional[npr.Generator] = None,
 ) -> List[npt.NDArray[Any]]:
     """
-    Data augmentation function.
+    Create an augmented sample based on data augmentation parameters.
 
     Parameters
     ----------
@@ -248,20 +260,32 @@ def data_augmentation(
     # Apply augmentation operations:
 
     if aug_par.get("illumination_voodoo"):
-        output = [illumination_voodoo(item, rng) if order > 0 else item
-                  for order, item in zip(orderlist, output)]
+        output = [
+            illumination_voodoo(item, rng) if order > 0 else item
+            for order, item in zip(orderlist, output)
+        ]
 
     if aug_par.get("histogram_voodoo"):
-        output = [histogram_voodoo(item, rng) if order > 0 else item
-                  for order, item in zip(orderlist, output)]
+        output = [
+            histogram_voodoo(item, rng) if order > 0 else item
+            for order, item in zip(orderlist, output)
+        ]
 
     if aug_par.get("gaussian_noise"):
-        output = [np.clip(rng.normal(item, aug_par["gaussian_noise"]), 0, 1) if order > 0 else item
-                  for order, item in zip(orderlist, output)]
+        output = [
+            np.clip(rng.normal(item, aug_par["gaussian_noise"]), 0, 1)
+            if order > 0
+            else item
+            for order, item in zip(orderlist, output)
+        ]
 
     if aug_par.get("gaussian_blur"):
-        output = [cv2.GaussianBlur(item, (5, 5), aug_par["gaussian_blur"]) if order > 0 else item
-                  for order, item in zip(orderlist, output)]
+        output = [
+            cv2.GaussianBlur(item, (5, 5), aug_par["gaussian_blur"])
+            if order > 0
+            else item
+            for order, item in zip(orderlist, output)
+        ]
 
     if aug_par.get("elastic_deformation"):
         output = elasticdeform.deform_random_grid(
@@ -294,17 +318,21 @@ def data_augmentation(
     shift_x = rng.uniform(-1.0, 1.0) * aug_par.get("shiftX", 0.0)
     shift_y = rng.uniform(-1.0, 1.0) * aug_par.get("shiftY", 0.0)
 
-    output = [affine_transform(item, zoom=zoom, angle=angle, shift=(shift_x, shift_y), order=order)
-              for order, item in zip(orderlist, output)]
+    output = [
+        affine_transform(
+            item, zoom=zoom, angle=angle, shift=(shift_x, shift_y), order=order
+        )
+        for order, item in zip(orderlist, output)
+    ]
 
     return output
 
 
 def affine_transform(
-    image: utils.Image, zoom: float, angle: float, shift: Tuple[float, float], order: int
-) -> utils.Image:
+    image: Image, zoom: float, angle: float, shift: Tuple[float, float], order: int
+) -> Image:
     """
-    This function applies an affine transformation to an image (zoom, rotation and translation).
+    Apply an affine transformation to an image (zoom, rotation and translation).
 
     Parameters
     ----------
@@ -325,13 +353,12 @@ def affine_transform(
         Zoomed and shifted image of same size as input.
 
     """
-
     # Center of rotation and zoom
     center = (np.array(image.shape[1::-1]) - 1) / 2
     # Affine transform matrix
     matrix = cv2.getRotationMatrix2D(center=center, angle=angle, scale=zoom)
     # Add shift
-    matrix[:, 2] -= [shift[1]*image.shape[1]*zoom, shift[0]*image.shape[0]*zoom]
+    matrix[:, 2] -= [shift[1] * image.shape[1] * zoom, shift[0] * image.shape[0] * zoom]
 
     kwargs = {
         "flags": [cv2.INTER_NEAREST, cv2.INTER_LINEAR][order],
@@ -342,12 +369,12 @@ def affine_transform(
 
 
 def histogram_voodoo(
-    image: utils.Image, rng: npr.Generator, num_control_points: int = 3
-) -> utils.Image:
+    image: Image, rng: npr.Generator, num_control_points: int = 3
+) -> Image:
     """
-    This function kindly provided by Daniel Eaton from the Paulsson lab.
-    It performs an elastic deformation on the image histogram to simulate
-    changes in illumination.
+    Perform a deformation on the image histogram to simulate illumination changes.
+
+    This function was kindly provided by Daniel Eaton from the Paulsson lab.
 
     Parameters
     ----------
@@ -375,11 +402,12 @@ def histogram_voodoo(
 
 
 def illumination_voodoo(
-    image: utils.Image, rng: npr.Generator, num_control_points: int = 5
-) -> utils.Image:
+    image: Image, rng: npr.Generator, num_control_points: int = 5
+) -> Image:
     """
-    This function inspired by the one above.
-    It simulates a variation in illumination along the length of the chamber.
+    Simulate a variation in illumination along the length of the chamber.
+
+    This function was inspired by the one above.
 
     Parameters
     ----------
@@ -427,24 +455,24 @@ class SegmentationDataset(tf.keras.utils.Sequence):
 
     def __init__(
         self,
-        dataset: List[Tuple[utils.Image, utils.SegmentationMask, utils.Image]],
+        dataset: Tuple[List[Image], List[SegmentationMask], List[Image]],
         target_size: Tuple[int, int],
-        mode: str,
+        mode: MODE,
         kw_data_aug: Dict[str, Any],
         crop: bool,
         rng: npr.Generator,
         stack: bool = False,
     ) -> None:
         """
-        Creates a new SegmentationDataset.
+        Create a new SegmentationDataset.
 
         Parameters
         ----------
-        dataset : List[Tuple[utils.Image, utils.SegmentationMask, utils.Image]]
+        dataset : List[Tuple[Image, SegmentationMask, Image]]
             Iterable on (image, segmentation mask, weights) tuples.
         target_size : (int, int)
             Target size of the images (input size of the neural network).
-        mode : str, "training" or "evaluation"
+        mode : MODE
             In "training" mode, data augmentation is applied.  In "evaluation"
             mode it is not.
         kw_data_aug : Dict[str, Any]
@@ -460,6 +488,8 @@ class SegmentationDataset(tf.keras.utils.Sequence):
             raise ValueError('`mode` can only be `"training"` or `"evaluation"`')
         if kw_data_aug and mode == "evaluation":
             raise ValueError("No data augmentation is supported in evaluation mode.")
+        if rng is None and mode == "training":
+            raise ValueError("A rng is required in training mode.")
         images, masks, weights = dataset
         if crop:
             if mode == "training":
@@ -470,9 +500,6 @@ class SegmentationDataset(tf.keras.utils.Sequence):
                 images = [utils.create_windows(img, target_size)[0] for img in images]
                 masks = [utils.create_windows(seg, target_size)[0] for seg in masks]
                 weights = [utils.create_windows(wei, target_size)[0] for wei in weights]
-                self.images = np.concatenate(images)
-                self.masks = np.concatenate(masks)
-                self.weights = np.concatenate(weights)
         else:
             self.images = [
                 cv2.resize(img, target_size[::-1], cv2.INTER_LINEAR) for img in images
@@ -494,13 +521,28 @@ class SegmentationDataset(tf.keras.utils.Sequence):
 
     def __len__(self) -> int:
         """
-        Length of the dataset.
+        Size of the dataset.
+
+        Returns
+        -------
+            length : int
+                Number of samples in the dataset.
         """
         return len(self.images)
 
     def __getitem__(self, idx: int):
         """
         Access a given training sample.
+
+        Arguments
+        ---------
+            idx : int
+                Index of a training sample.
+
+        Returns
+        -------
+            (image, mask, weights) if stack == False
+            (image, np.dstack([mask, weights])) if stack == True
         """
         idx = self.order[idx]
         image, mask, weights = self.images[idx], self.masks[idx], self.weights[idx]
@@ -538,6 +580,8 @@ class SegmentationDataset(tf.keras.utils.Sequence):
 
     def on_epoch_end(self) -> None:
         """
+        Shuffle the samples.
+
         Method executed after each epoch.
         """
         if self.mode == "training":
@@ -559,7 +603,7 @@ def load_training_dataset_seg(
     Tuple[SegmentationDataset, SegmentationDataset, SegmentationDataset],
 ]:
     """
-    Creates new segmentation datasets.
+    Create new segmentation datasets.
 
     Parameters
     ----------
@@ -617,14 +661,14 @@ def load_training_dataset_seg(
             other_imgs,
             target_size,
             mode="evaluation",
-            kw_data_aug=None,
+            kw_data_aug={},
             crop=crop,
-            rng=None,
+            rng=rng,
             stack=stack,
         )
         for other_imgs in datasets[1:]
     ]
-    return [train_ds, *other_dss]
+    return (train_ds, *other_dss)
 
 
 def _load_images_seg(
@@ -632,10 +676,9 @@ def _load_images_seg(
     validation_split: float,
     test_split: float,
     rng: npr.Generator,
-) -> Iterable[Tuple[utils.Image, utils.SegmentationMask, Union[int, utils.Image]]]:
+) -> Iterable[Tuple[List[Image], List[SegmentationMask], List[Union[int, Image]]]]:
     """
-    Loads the training dataset for ROI segmentation, and splits them randomly
-    into non-overlapping splits (training, validation, etc.).
+    Load the training dataset for ROI segmentation and split it randomly into non-overlapping splits.
 
     Parameters
     ----------
@@ -645,13 +688,13 @@ def _load_images_seg(
 
     Returns
     -------
-    datasets: Iterable[Tuple[utils.Image, utils.SegmentationMask, utils.Image]]
+    datasets: Iterable[Tuple[Image, SegmentationMask, Image]]
         The same number of datasets as requested splits.  Each dataset is a
         tuple of (original image, segmentation mask, sample weights).
     """
     with_weights = (dataset_path / "wei").is_dir()
 
-    counter = Counter()
+    counter: Counter[Tuple[np.float32, ...]] = Counter()
     images = []
     masks = []
     if with_weights:
@@ -714,23 +757,24 @@ def _load_images_seg(
 
 
 def random_crop(
-    img: utils.Image,
-    seg: utils.SegmentationMask,
-    wei: utils.Image,
+    img: Image,
+    seg: SegmentationMask,
+    wei: Image,
     target_size: Tuple[int, int],
     rng: npr.Generator,
-) -> Tuple[utils.Image, utils.SegmentationMask, utils.Image]:
+) -> Tuple[Image, SegmentationMask, Image]:
     """
-    Returns a tuple of (image, segmentation mask, weight map) randomly cropped
-    and padded with zeros if necessary.
+    Randomly crop a tuple of (image, segmentation mask, weight map).
+
+    It is padded with zeros if necessary.
 
     Parameters
     ----------
-    img: utils.Image
+    img: Image
         Input image.
-    seg: utils.SegmentationMask
+    seg: SegmentationMask
         Segmentation mask (binary image with 0 for background and 1 for cells).
-    wei: utils.Image
+    wei: Image
         Pixel-wise weights.
     target_size: Tuple[int, int]
         Target size for the resizing.
@@ -739,7 +783,7 @@ def random_crop(
 
     Returns
     -------
-    img, seg, wei: Tuple[utils.Image, utils.SegmentationMask, utils.Image]
+    img, seg, wei: Tuple[Image, SegmentationMask, Image]
         Resized training sample.
     """
     if img.shape == target_size:
@@ -770,7 +814,7 @@ def saveResult_seg(
     multipage: bool = False,
 ) -> None:
     """
-    Saves an array of segmentation output images to disk.
+    Save an array of segmentation output images to disk.
 
     Parameters
     ----------
@@ -800,9 +844,7 @@ def saveResult_seg(
             img = item
         if multipage:
             filename = save_path / files_list[0]
-            io.imsave(
-                filename, img * 255, plugin="tifffile", append=True
-            )
+            io.imsave(filename, img * 255, plugin="tifffile", append=True)
         else:
             if files_list:
                 filename = save_path / files_list[i].name
@@ -815,22 +857,21 @@ def saveResult_seg(
 
 def predictGenerator_seg(
     files_path: Path,
-    files_list: Optional[Union[List[str], Tuple[str, ...]]] = None,
+    files_list: Optional[Sequence[Path]] = None,
     target_size: Tuple[int, int] = (256, 32),
     crop_windows: bool = False,
 ) -> Iterator[np.ndarray]:
     """
-    Get a generator for predicting segmentation on new image files
-    once the segmentation U-Net has been trained.
+    Get a generator for predicting segmentation on new image files once the segmentation U-Net has been trained.
 
     Parameters
     ----------
     files_path : Path
         Path to image files folder.
-    files_list : list/tuple of strings, optional
-        List of file names to read in the folder. If empty, all
+    files_list : list/tuple of Paths, optional
+        List of file names to read in the folder. If None, all
         files in the folder will be read.
-        The default is [].
+        The default is None.
     target_size : tuple of 2 ints, optional
         Size for the images to be resized.
         The default is (256,32).
@@ -849,7 +890,7 @@ def predictGenerator_seg(
 
     def generator(
         files_path: Path,
-        files_list: Iterable[Path],
+        files_list: Sequence[Path],
         target_size: Tuple[int, int],
     ) -> Iterator[np.ndarray]:
         for fname in files_list:
@@ -869,14 +910,14 @@ def predictGenerator_seg(
 
 
 def seg_weights(
-    mask: utils.SegmentationMask,
+    mask: SegmentationMask,
     classweights: Tuple[float, float] = (1, 1),
     w0: float = 12,
     sigma: float = 2,
 ) -> npt.NDArray[np.float32]:
     """
-    This function computes the weight map as described in the original U-Net
-    paper to force the model to learn borders
+    Compute the weight map as described in the original U-Net paper to force the model to learn borders.
+
     (Slow, best to run this offline before training).
 
     Parameters
@@ -923,13 +964,14 @@ def seg_weights(
 
 def make_weights(
     training_dataset_path: Union[str, Path],
-    weights_function: Callable[[utils.SegmentationMask], npt.NDArray[np.float32]],
+    weights_function: Callable[[SegmentationMask], npt.NDArray[np.float32]],
 ) -> None:
     """
-    Create the directory `training_dataset_path/"wei"` and populate it with the
-    image weights for training.  The directory `training_dataset_path` should
-    already contain "img" with the input images and "seg" with the segmentation
-    masks (images with 0 for background pixels and 255 for cell pixels).
+    Create and populate the directory `training_dataset_path/wei` with the image weights for training.
+
+    The directory `training_dataset_path` should already contain "img" with the
+    input images and "seg" with the segmentation masks (images with 0 for
+    background pixels and 255 for cell pixels).
 
     Parameters
     ----------
@@ -937,7 +979,7 @@ def make_weights(
         Directory containing two directories: "img" for the images and "seg"
         for the segmentation masks.  A third directory "wei" will be created
         inside for the weights.
-    weights_function : Callable[utils.SegmentationMask, npt.NDArray[np.float32]],
+    weights_function : Callable[SegmentationMask, npt.NDArray[np.float32]],
         Function that takes a segmentation mask (0 for background and 1 for
         cells) and returns a weight array (non-negative floats).  The weights
         will be normalized by their maximum before being written down as images.
@@ -955,7 +997,7 @@ def make_weights(
         cv2.imwrite(str(training_dataset_path / "wei" / seg_path.name), int_weights)
 
 
-def kernel(n: int) -> utils.SegmentationMask:
+def kernel(n: int) -> SegmentationMask:
     """
     Get kernel for morphological operations.
 
@@ -1006,7 +1048,7 @@ def estimate_seg2D_classweights(
     if sample_size:
         if rng is None:
             rng = npr.default_rng()
-        mask_names = rng.choice(mask_names, sample_size)
+        mask_names = list(rng.choice(mask_names, sample_size))
 
     c1 = 0
     c2 = 0
@@ -1045,11 +1087,10 @@ def estimate_seg2D_classweights(
 
 
 def seg_weights_2D(
-    mask: utils.SegmentationMask, classweights: Tuple[int, int] = (1, 1)
+    mask: SegmentationMask, classweights: Tuple[int, int] = (1, 1)
 ) -> npt.NDArray[np.float32]:
     """
-    Compute custom weightmaps designed for bacterial images
-    where borders are difficult to distinguish.
+    Compute custom weightmaps designed for bacterial images where borders are difficult to distinguish.
 
     Parameters
     ----------
@@ -1115,9 +1156,7 @@ def seg_weights_2D(
 
 def estimateClassweights(gene: Iterator, num_samples: int = 30) -> Tuple[float, ...]:
     """
-    Estimate the class weights to use with the weighted
-    categorical cross-entropy based on the output of the trainGenerator_track
-    output.
+    Estimate the class weights to use with the weighted categorical cross-entropy based on the trainGenerator_track output.
 
     Parameters
     ----------
@@ -1180,7 +1219,7 @@ def trainGenerator_track(
     seed: int = 1,
 ) -> Iterator[Tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]]:
     """
-    Generator for training the tracking U-Net.
+    Create a generato to train the tracking U-Net.
 
     Parameters
     ----------
@@ -1254,23 +1293,23 @@ def trainGenerator_track(
             filename = rng.choice(image_names)
 
             # Read images:
-            img: utils.Image = readreshape(
+            img: Image = readreshape(
                 filename, target_size=target_size, order=1, method=resize_method
             )
-            seg: utils.SegmentationMask = readreshape(
+            seg: SegmentationMask = readreshape(
                 seg_path / filename.name,
                 target_size=target_size,
                 binarize=True,
                 order=0,
                 method=resize_method,
             )
-            previmg: utils.Image = readreshape(
+            previmg: Image = readreshape(
                 previmg_path / filename.name,
                 target_size=target_size,
                 order=1,
                 method=resize_method,
             )
-            segall: utils.SegmentationMask = readreshape(
+            segall: SegmentationMask = readreshape(
                 segall_path / filename.name,
                 target_size=target_size,
                 binarize=True,
@@ -1278,7 +1317,7 @@ def trainGenerator_track(
                 method=resize_method,
             )
 
-            track: utils.SegmentationMask = readreshape(
+            track: SegmentationMask = readreshape(
                 track_path / filename.name,
                 target_size=target_size,
                 binarize=True,
@@ -1308,8 +1347,8 @@ def trainGenerator_track(
             )
 
             if crop_windows:
-                cb, fb = utils.gettrackingboxes(seg, seg.shape, target_size)
                 shape = cast(Tuple[int, int], seg.shape)  # for mypy
+                cb, fb = utils.gettrackingboxes(seg, shape, target_size)
                 shiftY, shiftX = utils.getshiftvalues(shift_cropbox, shape, cb, rng)
             else:
                 cb = utils.CroppingBox.full(seg)
@@ -1346,8 +1385,7 @@ def getfnfromprototype(
     cellnb: Optional[int] = None,
 ) -> Path:
     """
-    Generate full filename for specific frame based on file path,
-    prototype, fileorder, and filenamesindexing.
+    Generate full filename for specific frame based on file path, prototype, fileorder, and filenamesindexing.
 
     Parameters
     ----------
@@ -1405,8 +1443,7 @@ def predictCompilefromseg_track(
     List[Tuple[utils.CroppingBox, utils.CroppingBox]],
 ]:
     """
-    Compile an inputs array for tracking prediction with the tracking U-Net,
-    directly from U-Net segmentation masks saved to disk.
+    Compile an inputs array for tracking prediction with the tracking U-Net, directly from U-Net segmentation masks saved to disk.
 
     Parameters
     ----------
@@ -1570,7 +1607,7 @@ def predictCompilefromseg_track(
 
 
 def tracking_weights(
-    track: np.ndarray, segall: utils.SegmentationMask, halo_distance: int = 50
+    track: np.ndarray, segall: SegmentationMask, halo_distance: int = 50
 ) -> npt.NDArray[np.float32]:
     """
     Compute weights for tracking training sets.

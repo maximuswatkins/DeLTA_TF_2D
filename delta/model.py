@@ -1,5 +1,5 @@
 """
-Module for model definitions and loss/metrics functions definitions.
+Model and loss/metrics functions definitions.
 
 @author: jblugagne
 """
@@ -8,8 +8,14 @@ from typing import Dict, List, Optional, Tuple
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import backend as K
-from tensorflow.keras.layers import (Concatenate, Conv2D, Dropout, Input,
-                                     MaxPool2D, UpSampling2D)
+from tensorflow.keras.layers import (
+    Concatenate,
+    Conv2D,
+    Dropout,
+    Input,
+    MaxPool2D,
+    UpSampling2D,
+)
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.python.ops import math_ops
@@ -22,6 +28,7 @@ def pixelwise_weighted_binary_crossentropy_seg(
 ) -> tf.Tensor:
     """
     Pixel-wise weighted binary cross-entropy loss.
+
     The code is adapted from the Keras TF backend.
     (see their github).
 
@@ -61,6 +68,7 @@ def pixelwise_weighted_binary_crossentropy_track(
 ) -> tf.Tensor:
     """
     Pixel-wise weighted binary cross-entropy loss.
+
     The code is adapted from the Keras TF backend.
     (see their github).
 
@@ -98,8 +106,7 @@ def pixelwise_weighted_binary_crossentropy_track(
 
 def unstack_acc(seg_weights: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
     """
-    Unstacks the mask from the weights in the output tensor for
-    segmentation and computes binary accuracy.
+    Compute binary accuracy from a stacked tensor with mask and weight map.
 
     Parameters
     ----------
@@ -129,7 +136,8 @@ def _unet(
     dropout: float = 0.0,
 ) -> tf.Tensor:
     """
-    A recursive function to create a U-Net.
+    Create a U-Net recursively.
+
     The number of filters at each level are specified with the `filters` argument.
 
     Parameters
@@ -209,7 +217,7 @@ def unet(
     filters: Optional[List[int]] = None,
 ) -> Model:
     """
-    Generic U-Net declaration.
+    Create a U-Net.
 
     Parameters
     ----------

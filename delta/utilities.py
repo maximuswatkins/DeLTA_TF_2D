@@ -1,5 +1,5 @@
 """
-Module for utility functions and class definitions that are used in pipeline.py.
+Utility functions and class definitions that are used in pipeline.py.
 
 A few functions are redundant from data.py, but we keep the files separate
 to minimize the risk of unforeseen bugs.
@@ -8,7 +8,6 @@ to minimize the risk of unforeseen bugs.
 """
 
 import datetime
-import importlib
 import re
 import subprocess
 import sys
@@ -19,8 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
-from typing import (Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type,
-                    Union)
+from typing import Any, Dict, Iterable, List, Literal, Optional, overload, Sequence, Tuple, Type, Union
 
 import bioformats
 import cv2
@@ -71,13 +69,23 @@ class CroppingBox:
     @staticmethod
     def full(image: np.ndarray):
         """
-        Returns a cropping box set to the full size of the image.
+        Return a cropping box set to the full size of the image.
+
+        Arguments
+        ---------
+            image : np.ndarray
+                Image to use as reference for the bounding box.
+
+        Returns
+        -------
+            box : CroppingBox
+                Cropping box adjusted to the full size of the image.
         """
         return CroppingBox(xtl=0, ytl=0, xbr=image.shape[1], ybr=image.shape[0])
 
     def crop(self, image: np.ndarray):
         """
-        Crops an image according to the cropping box.
+        Crop an image according to the cropping box.
 
         Pads with zeros if a part of the box falls outside of the image.
 
@@ -105,7 +113,7 @@ class CroppingBox:
 
     def patch(self, image: np.ndarray, patch: np.ndarray):
         """
-        Applies a patch on an image at the position specified by the box.
+        Apply a patch on an image at the position specified by the box.
 
         Parts of the box may fall outside of the image.
 
@@ -197,7 +205,7 @@ class Cell(Dict):
 
 def to_integer_values(frame: Image, dtype: Type[object]) -> Image:
     """
-    Returns an image with integer-valued pixels of the given size.
+    Return an image with integer-valued pixels of the given size.
 
     Parameters
     ----------
@@ -216,6 +224,7 @@ def to_integer_values(frame: Image, dtype: Type[object]) -> Image:
 def deskew(image: Image) -> float:
     """
     Compute the rotation angle to apply to the image to remove its rotation.
+
     You can skip rotation correction if your chambers are about +/- 1 degrees of horizontal.
 
     Parameters
@@ -273,37 +282,38 @@ def imrotate(frame: npt.NDArray[Any], rotate: float) -> npt.NDArray[Any]:
     return frame
 
 
+# TODO: refactor this (maybe separate drift computation and application)
 def driftcorr(
     img: Image,
     template: Optional[Image] = None,
     box: Optional[CroppingBox] = None,
     drift: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-) -> Tuple[Image, Tuple[int, int]]:
+) -> Tuple[Image, Union[Tuple[int, int], Tuple[List[int], List[int]]]]:
     """
-    Compute drift between current frame and the reference, and return corrected
-    image.
+    Compute and correct drift between current frame and the reference.
 
     Parameters
     ----------
     img : 2D or 3D numpy array of uint8/uint16/floats
         The frames to correct drfit for.
-    template : None or 2D numpy array of uint8/uint16/floats, optional
+    template : 2D numpy array of uint8/uint16/floats, optional
         The template for drift correction (see getDriftTemplate()).
-        default is None.
-    box : None or CroppingBox, optional
+        Default is None.
+    box : CroppingBox, optional
         A cropping box to extract the part of the frame to compute drift
         correction over.
-        default is None.
-    drift : None or tuple of 2 numpy arrays, optional
+        Default is None.
+    drift : tuple of 2 numpy arrays, optional
         Pre-computed drift to apply to the img stack. If this is None, you must
         provide a template and box.
-        default it None.
+        Default is None.
 
     Returns
     -------
-    2D/3D numpy array, tuple of len 2
-        Drift-corrected image and drift.
-
+    image : 2D/3D numpy array
+        Drift-corrected image.
+    xcorr, ycorr : float, float
+        Drift used.
     """
     if len(img.shape) == 2:
         twoDflag = True
@@ -325,6 +335,8 @@ def driftcorr(
 
     for i in range(img.shape[0]):
         if drift is None:
+            if box is None:
+                raise ValueError("If `drift` is None, a box must be provided.")
             frame = to_integer_values(img[i], np.uint8)
             driftcorrimg = box.crop(frame)
             res = cv2.matchTemplate(driftcorrimg, template, cv2.TM_CCOEFF_NORMED)
@@ -343,7 +355,7 @@ def getDriftTemplate(
     chamberboxes: List[CroppingBox], img: Image, whole_frame: bool = False
 ) -> Optional[Image]:
     """
-    This function retrieves a region above the chambers to use as drift template.
+    Retrieve a region above the chambers to use as drift template.
 
     Parameters
     ----------
@@ -427,8 +439,8 @@ def opencv_areafilt(
 
 
 def create_windows(
-    image: Image, target_size: Tuple[int, int] = (512, 512), min_overlap: int = 24
-) -> Tuple[npt.NDArray[np.float32], List[Tuple[int, int]], List[Tuple[int, int]]]:
+    image: npt.NDArray, target_size: Tuple[int, int] = (512, 512), min_overlap: int = 24
+) -> Tuple[npt.NDArray, npt.NDArray[np.int32], npt.NDArray[np.int32]]:
     """
     Crop input image into windows of set size.
 
@@ -481,7 +493,8 @@ def create_windows(
             image[sy : sy + target_size[0], sx : sx + target_size[1]]
             for sy in starts_y
             for sx in starts_x
-        ]
+        ],
+        dtype=image.dtype,
     )
     loc_x = np.vstack((starts_x, starts_x + target_size[1])) - pad_x // 2
     loc_y = np.vstack((starts_y, starts_y + target_size[0])) - pad_y // 2
@@ -550,8 +563,7 @@ def gettrackingboxes(
     target_size: Tuple[int, int],
 ) -> Tuple[CroppingBox, CroppingBox]:
     """
-    Get a crop box and a fill box around a cell that fits the tracking target
-    size.
+    Get a crop box and a fill box around a cell that fits the tracking target size.
 
     Parameters
     ----------
@@ -571,7 +583,6 @@ def gettrackingboxes(
         the cropped out image.
 
     """
-
     cx, cy = getcentroid(cell)
 
     xtl = int(max(cx - target_size[1] / 2, 0))
@@ -597,6 +608,7 @@ def getshiftvalues(
     shift: int, img_shape: Tuple[int, int], cb: CroppingBox, rng: npr.Generator
 ) -> Tuple[int, int]:
     """
+    Get shift values.
 
     Parameters
     ----------
@@ -633,8 +645,9 @@ def getshiftvalues(
 
 def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
     """
-    wrapper for CV2's findContours() because it
-    keeps changing signatures.
+    Find contours of morphological components of a segmentation mask.
+
+    This is a wrapper of CV2's findContours() because it keeps changing signatures.
 
     Parameters
     ----------
@@ -658,8 +671,7 @@ def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
 
 def getROIBoxes(chambersmask: SegmentationMask) -> List[CroppingBox]:
     """
-    Extract the bounding boxes of the chambers in the binary mask
-    produced by the chambers identification unet.
+    Extract the bounding boxes of the chambers in the binary mask produced by the ROI segmentation model.
 
     Parameters
     ----------
@@ -696,7 +708,7 @@ def getROIBoxes(chambersmask: SegmentationMask) -> List[CroppingBox]:
 
 def label_seg(
     seg: SegmentationMask,
-    cellnumbers: Optional[List[int]] = None,
+    cellnumbers: Optional[Sequence[int]] = None,
 ) -> Labels:
     """
     Label cells in segmentation mask.
@@ -731,22 +743,18 @@ def label_seg(
     return labels
 
 
-#### These prototypes help mypy understand the return type of the function
-#    but can only be used from Python 3.8 because of typing.Literal
-#
-#
-# @overload
-# def getcellsinframe(
-#     labels: Labels, return_contours: Literal[True], background: int = 0
-# ) -> Tuple[List[int], List[Contour]]:
-#     ...
-#
-#
-# @overload
-# def getcellsinframe(
-#     labels: Labels, return_contours: Literal[False] = False, background: int = 0
-# ) -> List[int]:
-#     ...
+@overload
+def getcellsinframe(
+    labels: Labels, return_contours: Literal[True]
+) -> Tuple[List[int], List[Contour]]:
+    ...
+
+
+@overload
+def getcellsinframe(
+    labels: Labels, return_contours: Literal[False] = False
+) -> List[int]:
+    ...
 
 
 def getcellsinframe(
@@ -770,7 +778,6 @@ def getcellsinframe(
         List of cv2 contours for each cell. Returned if return_contours==True.
 
     """
-
     cellids, ind = np.unique(labels, return_index=True)
 
     # Sorting along Y axis & removing background
@@ -850,9 +857,7 @@ def getpoles(
     """
     # No label provided:
     if labels is None:
-        lbls = label_seg(seg)
-        assert isinstance(lbls, np.ndarray)  # needed for mypy on Python < 3.8
-        labels = lbls
+        labels = label_seg(seg)
 
     # Get poles using skeleton method:
     skel = skeletonize(seg, method="lee")
@@ -884,10 +889,10 @@ def getpoles(
 
 def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
     """
-    This function was adapted from stackoverflow
-    #https://stackoverflow.com/questions/26537313/how-can-i-find-endpoints-of-binary-skeleton-image-in-opencv.
+    Filter out the poles of a skeleton.
 
-    It uses a kernel to filter out the poles
+    This function was adapted from stackoverflow:
+        https://stackoverflow.com/q/26537313
 
     Parameters
     ----------
@@ -917,6 +922,8 @@ def extrema_poles(
     cellmask: SegmentationMask, scaling: Optional[Tuple[float, float]] = None
 ) -> Tuple[Pole, Pole]:
     """
+    Find 2 poles per cell with the extrema method.
+
     A slower and more rudimentary version of poles finding but that is
     guaranteed to find exactly 2 poles.
 
@@ -948,6 +955,8 @@ def extrema_poles(
 
 def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
     """
+    Select only 2 poles out of possibly more than 2.
+
     Sometimes the skeleton produces more than 2 poles.
     Thus function selects only 2 poles in the skeleton.
 
@@ -1005,7 +1014,7 @@ def extract_poles(
 
     """
     locations = end_img.nonzero()
-    poles = defaultdict(list)
+    poles: defaultdict[int, List[Pole]] = defaultdict(list)
 
     for p in range(len(locations[0])):
         cellid = labels[locations[0][p], locations[1][p]] - 1
@@ -1031,7 +1040,7 @@ def eucl(p1: npt.NDArray[Any], p2: npt.NDArray[Any]) -> float:
         Euclidean distance between p1 and p2.
 
     """
-    return np.linalg.norm(p1 - p2)
+    return np.linalg.norm(p1 - p2).astype(float)
 
 
 def track_poles(
@@ -1162,7 +1171,6 @@ def getTrackingScores(
         segmentation mask for each new-old cell.
 
     """
-
     # Compile scores:
     scores = np.zeros([outputs.shape[0], labels.max()], dtype=np.float32)
     for o, output in enumerate(outputs):
@@ -1237,9 +1245,7 @@ def getAttributions(scores: npt.NDArray[np.float32]) -> npt.NDArray[np.bool_]:
 
 
 class Lineage:
-    """
-    Class for cell lineages contained in each ROI.
-    """
+    """Class for cell lineages contained in each ROI."""
 
     def __init__(self) -> None:
         """
@@ -1250,11 +1256,11 @@ class Lineage:
         None.
 
         """
-        self.cells = {}
-        """List of single-cell dictionaries
+        self.cells: Dict[int, Cell] = {}
+        """Dict of cellid to single-cell dictionaries
         Each dictionary will contain single-cell lineage and extracted feature
         properties"""
-        self.cellnumbers = []
+        self.cellnumbers: List[List[int]] = []
         "List of cells present in FOV at each timepoint"
 
     def __eq__(self, other) -> bool:
@@ -1592,6 +1598,7 @@ class Lineage:
         # If the cell has a daughter at next frame, we consider this branch as well.
         idaughter = self.getvalue(cell, frame + 1, "daughters")
         if idaughter is not None:
+            assert isinstance(idaughter, int)
             value += self.getfuturevalue(
                 idaughter, frame=frame + 1, feature=feature, df=df - 1
             )
@@ -1628,7 +1635,7 @@ class Lineage:
 
         return self.cells[cell][feature][i]
 
-    def growthrate(self, cell: int, frame: int, feature: str) -> float:
+    def growthrate(self, cell: int, frame: int, feature: str) -> Optional[float]:
         """
         Compute exponential growth rate of a given feature for the given cell at the given frame.
 
@@ -1646,11 +1653,12 @@ class Lineage:
 
         Returns
         -------
-        float
+        Optional[float]
             Growth rate of the feature at frame.
         """
         value_fm1 = self.getpastvalue(cell, frame, feature)
         value_f = self.getvalue(cell, frame, feature)
+        assert isinstance(value_f, int) or isinstance(value_f, float)
         value_fp1 = self.getfuturevalue(cell, frame, feature)
         if (
             value_fm1 is not None
@@ -1703,14 +1711,11 @@ def getxppathdialog(ask_folder: bool = False) -> str:
 
 
 class xpreader:
-    """
-    Class to read experiment files from bioformats-compatible files or from
-    file sequences in folders.
-    """
+    """Class to read experiment files from bioformats-compatible files or from file sequences in folders."""
 
     def __init__(
         self,
-        filename: Union[Path, str] = None,
+        filename: Optional[Union[Path, str]] = None,
         channelnames: Optional[Tuple[str]] = None,
         use_bioformats: bool = False,
         prototype: Optional[str] = None,
@@ -1723,7 +1728,7 @@ class xpreader:
 
         Parameters
         ----------
-        filename : String or None
+        filename : Path or str, optional
             Path to experiment file or directory. If the path leads to a
             directory, the experiment folder is expected to contain exclusively
             single-page tif images. If None, an interactive selection dialog
@@ -1776,7 +1781,7 @@ class xpreader:
 
         """
         # Set default parameters
-        self.filename = filename
+        self.filename = None if not filename else Path(filename)
         "File or folder name for the experiment"
         self.use_bioformats = use_bioformats
         "Flag to use the Bio-Formats library to read file"
@@ -1806,15 +1811,14 @@ class xpreader:
         # Retrieve command line arguments (if any)
         cmdln_arguments = sys.argv
 
-        if filename is None:
+        if self.filename is None:
             if len(cmdln_arguments) >= 2:
                 # If command line arguments were passed
                 self._command_line_init(cmdln_arguments)
             else:
                 # Interactive selection and pop up window:
                 self._interactive_init()
-
-        self.filename = Path(self.filename)
+            assert self.filename is not None
 
         self.channelnames = channelnames
 
@@ -1919,7 +1923,7 @@ class xpreader:
 
     def _command_line_init(self, cmdln_arguments: List[str]) -> None:
         """
-        Initialization routine if command line arguments were passed.
+        Initialize the reader if command line arguments were passed.
 
         Parameters
         ----------
@@ -1933,10 +1937,10 @@ class xpreader:
         """
         self.filename = Path(cmdln_arguments[1])
 
-        if importlib.util.find_spec("bioformats"):
-            self.use_bioformats = (
-                self.filename.suffix[1:] in bioformats.READABLE_FORMATS
-            )
+        self.use_bioformats = (
+            self.filename.suffix[1:] in bioformats.READABLE_FORMATS
+        )
+
         i = 2
         while i < len(cmdln_arguments):
             if cmdln_arguments[i] == "--bio-formats":
@@ -2040,8 +2044,7 @@ class xpreader:
 
     def getfilenamefromprototype(self, position: int, channel: int, frame: int) -> Path:
         """
-        Generate full filename for specific frame based on file path,
-        prototype, fileorder, and filenamesindexing.
+        Generate full filename for specific frame based on file path, prototype, fileorder, and filenamesindexing.
 
         Parameters
         ----------
@@ -2139,11 +2142,13 @@ class xpreader:
                         raise ValueError(channel + " is not a valid channel name.")
                 channels = channels_list
         elif not isinstance(channels, (list, tuple)):
+            assert isinstance(channels, int)
             channels = [channels]
 
         if frames is None:  # No frames specified: load all
             frames = list(range(self.timepoints))
         elif not isinstance(frames, (list, tuple)):
+            assert isinstance(frames, int)
             if frames == -1:  # Read new frames from files watcher:
                 if self.watchfiles:
                     if len(channels) > 1:
@@ -2199,16 +2204,14 @@ class xpreader:
 
 
 class files_watcher(Thread):
-    """
-    Daemon to watch experiment files and signal new ones (not functional yet).
-    """
+    """Daemon to watch experiment files and signal new ones (not functional yet)."""
 
     def __init__(self, reader: xpreader) -> None:
         super().__init__()
         self.daemon = True
         self.reader = reader
-        self.old = []
-        self.new = []
+        self.old: List[List[int]] = []
+        self.new: List[List[int]] = []
 
     def run(self) -> None:
         """Run the file watcher."""
@@ -2265,7 +2268,7 @@ class files_watcher(Thread):
 
 
 def getrandomcolors(
-    cellids: Iterable, seed: int = 0
+    cellids: Sequence[int], seed: int = 0
 ) -> Dict[int, Tuple[float, float, float]]:
     """
     Generate list of random hsv colors.
@@ -2283,7 +2286,6 @@ def getrandomcolors(
         Dictionary of cellids to colors (RGB values in [0,1]).
 
     """
-
     # XXX: Is this necessary?
     if len(cellids) == 0:
         return {}
@@ -2392,15 +2394,15 @@ def roi_features(
     """
     # Cell numbers and contours:
     cellids, contours = getcellsinframe(labels_frame, return_contours=True)
-    assert isinstance(cellids, list)  # needed for mypy on Python < 3.8
-    assert isinstance(contours, list)  # needed for mypy on Python < 3.8
 
     cell_features = {}
     # Loop through cells in image, extract single-cell features:
     for cellid, contour in zip(cellids, contours):
         mask = labels_frame == cellid + 1
 
-        fluo_values = cell_fluo(fluo_frames, mask, roi_box) if fluo_frames is not None else []
+        fluo_values = (
+            cell_fluo(fluo_frames, mask, roi_box) if fluo_frames is not None else []
+        )
 
         width, length = cell_width_length(contour)
 
@@ -2548,7 +2550,7 @@ def cell_fluo(
 
 def read_image(filename: Path) -> np.ndarray:
     """
-    Returns the image as a numpy array of np.float32 rescaled between 0 and 1.
+    Return the image as a numpy array of np.float32 rescaled between 0 and 1.
 
     Parameters
     ----------
@@ -2588,8 +2590,7 @@ def findfirst(mylist: List) -> Optional[int]:
 
 def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
     """
-    Returns a sorted list of filenames in `directory` that have one of the
-    specified extensions.
+    Return a sorted list of filenames in `directory` that have one of the specified extensions.
 
     Parameters
     ----------
@@ -2608,7 +2609,12 @@ def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
 
 def tensorboard_callback() -> TensorBoard:
     """
-    Returns a callback for TensorBoard logging.
+    Return a callback for TensorBoard logging.
+
+    Returns
+    -------
+    TensorBoard
+        TensorBoard callback.
     """
     try:
         branch = (
