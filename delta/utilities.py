@@ -993,9 +993,7 @@ def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
     return (poles[i_max], poles[j_max])
 
 
-def extract_poles(
-    end_img: npt.NDArray[np.bool_], labels: Labels
-) -> Dict[int, List[Pole]]:
+def extract_poles(end_img: SegmentationMask, labels: Labels) -> Dict[int, List[Pole]]:
     """
     Extract poles per cell from ends image.
 
@@ -1013,12 +1011,10 @@ def extract_poles(
         poles but sometimes the detection fails.
 
     """
-    locations = end_img.nonzero()
     poles: defaultdict[int, List[Pole]] = defaultdict(list)
 
-    for p in range(len(locations[0])):
-        cellid = labels[locations[0][p], locations[1][p]] - 1
-        poles[cellid] += [np.array([locations[0][p], locations[1][p]], dtype=np.int16)]
+    for r, c, lbl in zip(*end_img.nonzero(), labels[end_img]):
+        poles[lbl - 1].append(np.array([r, c], dtype=np.int16))
 
     return dict(poles)
 
