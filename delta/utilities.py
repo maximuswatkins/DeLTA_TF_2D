@@ -2542,7 +2542,7 @@ def cell_fluo(
         Mean value per cell for each fluo frame.
 
     """
-    return [mask * box.crop(fluo) / mask.sum() for fluo in fluo_frames]
+    return [np.sum(mask * box.crop(fluo)) / mask.sum() for fluo in fluo_frames]
 
 
 #%% Misc
