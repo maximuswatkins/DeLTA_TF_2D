@@ -45,7 +45,7 @@ from delta.utilities import Image, SegmentationMask
 
 MODE = Literal["training", "evaluation"]
 
-#%% UTILITIES:
+# %% UTILITIES:
 
 
 def binarizerange(array: Image, threshold: Optional[float]) -> Image:
@@ -179,7 +179,7 @@ def postprocess(
     return np.squeeze(outputs)
 
 
-#%% DATA AUGMENTATION
+# %% DATA AUGMENTATION
 def data_augmentation(
     images_input: List[npt.NDArray[Any]],
     aug_par: Dict[str, Any],
@@ -447,7 +447,7 @@ def illumination_voodoo(
     return newimage
 
 
-#%% SEGMENTATION FUNCTIONS:
+# %% SEGMENTATION FUNCTIONS:
 
 
 class SegmentationDataset(tf.keras.utils.Sequence):
@@ -1054,7 +1054,6 @@ def estimate_seg2D_classweights(
     c2 = 0
 
     for mask_name in mask_names:
-
         mask = utils.read_image(mask_name)
         # Extract all pixels that include the cells and its border (no background)
         border = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel(20))
@@ -1201,7 +1200,7 @@ def estimateClassweights(gene: Iterator, num_samples: int = 30) -> Tuple[float, 
     return class_weights
 
 
-#%% TRACKING FUNCTIONS
+# %% TRACKING FUNCTIONS
 
 
 def trainGenerator_track(
@@ -1284,7 +1283,6 @@ def trainGenerator_track(
     rng = npr.default_rng(seed)
 
     while True:
-
         X[:, :, :, :] = 0
         Y[:, :, :, :] = 0
 
@@ -1527,7 +1525,6 @@ def predictCompilefromseg_track(
             cha = None
 
         if fra > 1:
-
             prevframename = getfnfromprototype(
                 prototype, fileorder, position=pos, chamber=cha, frame=fra - 1
             )

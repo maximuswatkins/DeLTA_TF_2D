@@ -1,8 +1,8 @@
 test:
   stage: test
-  
+
   image: continuumio/miniconda3:latest
-  
+
   rules:
     - if: '$CI_MERGE_REQUEST_LABELS =~ /tests::block/'
       when: never
@@ -12,7 +12,7 @@ test:
       when: always
     - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"'
       when: always
-      
+
   cache:
       key: assets-cache
       paths:
@@ -29,7 +29,7 @@ test:
     - conda env create --file delta_env.yml
     - source activate delta_env
     - pip install pytest pytest-order
-    
+
   script:
     - date
     - pytest -k "not test_train"
@@ -38,16 +38,16 @@ deploy:
   stage: deploy
 
   image: python:latest
-  
+
   variables:
     TWINE_USERNAME: $PRODUCTION_USERNAME
     TWINE_PASSWORD: $PRODUCTION_PASSWORD
-  
+
   script:
     - pip install twine
     - python setup.py sdist bdist_wheel
     - twine check dist/*
     - twine upload dist/*
- 
+
   only:
     - tags

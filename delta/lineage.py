@@ -24,12 +24,12 @@ class CellFeatures:
     area: float
     """Cell area, in square pixels. Sum of pixels inside the contour."""
     perimeter: float
-    """Cell perimeter length, in pixels. Sum of pixels along the contour as 
+    """Cell perimeter length, in pixels. Sum of pixels along the contour as
     computed by opencv's ``arcLength()`` function"""
     fluo: List[float]
     """Average (mean) fluorescence level(s) within cell contour."""
     edges: str
-    """String describing image edges touched by the cell. Can be a combination 
+    """String describing image edges touched by the cell. Can be a combination
     of the following: '-x', '+x', '-y', '+y'. Empty otherwise."""
     growthrate_length: float = np.nan
     """Growth rate of the cell length, see documentation."""

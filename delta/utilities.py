@@ -19,9 +19,18 @@ from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
 from typing import (
-    Any, Dict, Iterable, List, Literal, Optional, overload, Sequence, 
-    Tuple, Type, Union
-    )
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+    overload,
+)
 
 import bioformats
 import cv2
@@ -190,7 +199,11 @@ class Cell(Dict):
         eq_daughters = self["daughters"] == other["daughters"]
         eq_new_pole = np.array_equal(self["new_pole"], other["new_pole"])
         eq_old_pole = np.array_equal(self["old_pole"], other["old_pole"])
-        eq_fluo = [np.allclose(self[fluo], other[fluo]) for fluo in self.keys() if fluo.startswith("fluo")]
+        eq_fluo = [
+            np.allclose(self[fluo], other[fluo])
+            for fluo in self.keys()
+            if fluo.startswith("fluo")
+        ]
         return all(
             [
                 eq_keys,
@@ -205,7 +218,7 @@ class Cell(Dict):
         )
 
 
-#%% Image correction
+# %% Image correction
 
 
 def to_integer_values(frame: Image, dtype: Type[object]) -> Image:
@@ -440,7 +453,7 @@ def opencv_areafilt(
     return image
 
 
-#%% Image cropping & stitching
+# %% Image cropping & stitching
 
 
 def create_windows(
@@ -548,7 +561,6 @@ def stitch_pic(
     index = 0
     for ly, y_start, y_end in zip(loc_y, middles_y, middles_y[1:]):
         for lx, x_start, x_end in zip(loc_x, middles_x, middles_x[1:]):
-
             res_crop_y = -(ly[1] - y_end) if ly[1] - y_end > 0 else None
             res_crop_x = -(lx[1] - x_end) if lx[1] - x_end > 0 else None
             stitch[y_start:y_end, x_start:x_end] = results[
@@ -645,7 +657,7 @@ def getshiftvalues(
     return shiftY, shiftX
 
 
-#%% Masks, labels, objects identification
+# %% Masks, labels, objects identification
 
 
 def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
@@ -832,7 +844,7 @@ def getcentroid(contour: np.ndarray) -> Tuple[int, int]:
     return cx, cy
 
 
-#%% Poles
+# %% Poles
 
 
 def getpoles(
@@ -863,7 +875,7 @@ def getpoles(
     # Get poles using skeleton method:
     skel = skeletonize(seg, method="lee")
     ends_map = skeleton_poles(skel)
-    poles |= extract_poles(ends_map, labels) # Set union with empty poles dict
+    poles |= extract_poles(ends_map, labels)  # Set union with empty poles dict
 
     clean_poles = {}
 
@@ -1141,7 +1153,7 @@ def division_poles(
     return (mother_old_new, daughter_old_new, first_cell_is_mother)
 
 
-#%% Lineage
+# %% Lineage
 
 
 def getTrackingScores(
@@ -1172,7 +1184,6 @@ def getTrackingScores(
     # Compile scores:
     scores = np.zeros([outputs.shape[0], labels.max()], dtype=np.float32)
     for o, output in enumerate(outputs):
-
         # Find pixels with more than 5% probability
         nz_y, nz_x = list((output > logit(0.05)).nonzero())
 
@@ -1672,7 +1683,7 @@ class Lineage:
         return None
 
 
-#%% Image files
+# %% Image files
 
 
 def getxppathdialog(ask_folder: bool = False) -> str:
@@ -1935,9 +1946,7 @@ class xpreader:
         """
         self.filename = Path(cmdln_arguments[1])
 
-        self.use_bioformats = (
-            self.filename.suffix[1:] in bioformats.READABLE_FORMATS
-        )
+        self.use_bioformats = self.filename.suffix[1:] in bioformats.READABLE_FORMATS
 
         i = 2
         while i < len(cmdln_arguments):
@@ -2214,10 +2223,8 @@ class files_watcher(Thread):
     def run(self) -> None:
         """Run the file watcher."""
         while True:
-
             # Run through monitored positions:
             for p in range(self.reader.positions):
-
                 if len(self.old) <= p:  # Position added / not done yet
                     # Append empty lists to the end:
                     self.old += [[] for _ in range(p + 1 - len(self.old))]
@@ -2225,7 +2232,6 @@ class files_watcher(Thread):
 
                 # Run through monitored channels:
                 for channel in range(self.reader.channels):
-
                     if len(self.old[p]) <= channel:
                         # Append empty lists to the end:
                         self.old[p] += [
@@ -2262,7 +2268,7 @@ class files_watcher(Thread):
         return newfiles
 
 
-#%% Saving & Loading results
+# %% Saving & Loading results
 
 
 def getrandomcolors(
@@ -2363,7 +2369,7 @@ def vidwrite(
     process.wait()
 
 
-#%% Feature extraction
+# %% Feature extraction
 
 
 def roi_features(
@@ -2541,7 +2547,7 @@ def cell_fluo(
     return [np.sum(mask * box.crop(fluo)) / mask.sum() for fluo in fluo_frames]
 
 
-#%% Misc
+# %% Misc
 
 
 def read_image(filename: Path) -> np.ndarray:

@@ -59,7 +59,7 @@ def test_croppingbox_partial_crop_patch(xtl, xbr, ytl, ybr):
     np.testing.assert_array_equal(patched_img, img)
 
 
-#%% Test growth rate
+# %% Test growth rate
 
 
 def test_growthrate_onecell():
@@ -164,7 +164,7 @@ def test_growthrate_double_division():
     )
 
 
-#%% Test deskew
+# %% Test deskew
 
 
 @pytest.mark.parametrize(
@@ -180,7 +180,7 @@ def test_deskew(filename, angle0):
         assert np.abs(utils.deskew(image) + angle) <= 0.25
 
 
-#%% Eval create_windows
+# %% Eval create_windows
 
 
 @pytest.mark.order(2)
@@ -384,7 +384,7 @@ def test_cell_perimeter():
     np.testing.assert_allclose(utils.cell_perimeter(contours[0]), perimeter)
 
 
-#%% Eval find_contours
+# %% Eval find_contours
 
 
 def rand_mask(image_size, max_dots=100, max_radius=30, seed=None):
@@ -614,6 +614,7 @@ def test_extract_poles_loop():
     for k in solution.keys():
         assert np.array_equal(poles[k], solution[k])
 
+
 def test_getpoles():
     labels = np.array(
         [
@@ -638,7 +639,6 @@ def test_getpoles():
     assert poles.keys() == solution.keys()
     for k in solution.keys():
         assert np.array_equal(poles[k], solution[k])
-
 
 
 @pytest.mark.parametrize("seed", range(1000))  # Run it 1000 times
@@ -761,9 +761,8 @@ def test_division_poles(seed):
     assert np.all(daughter_new == daughter_poles_out[1])
 
 
-#%% Make sure contour coloring and cv2 colormap work
+# %% Make sure contour coloring and cv2 colormap work
 def _base_test_color(max_dots, seed=None):
-
     # Get random mask and RGB frame:
     mask = rand_mask((2048, 2048), max_dots=max_dots, seed=seed)
     frame = np.repeat(mask[:, :, np.newaxis].astype(np.float64), 3, axis=2)
@@ -788,7 +787,6 @@ def _base_test_color(max_dots, seed=None):
 
 
 def _evaluate_color_nb(mask, frame):
-
     # Get cell contours:
     contours = utils.find_contours(mask)
 
@@ -809,7 +807,7 @@ def test_color_contours(max_dots, seed):
     _evaluate_color_nb(mask, frame)
 
 
-#%% Test xpreader
+# %% Test xpreader
 
 
 class Test_xpreader:
@@ -851,7 +849,6 @@ class Test_xpreader:
         pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
     def test_2D_tif_xpreader_filename_noresfolder(self):
-
         sys.argv = [sys.argv[0]]
 
         # Init reader
@@ -861,7 +858,6 @@ class Test_xpreader:
         pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
     def test_2D_tif_xpreader_filename_and_resfolder(self):
-
         sys.argv = [sys.argv[0]]
 
         # Init reader
@@ -875,7 +871,6 @@ class Test_xpreader:
         )
 
     def test_moma_tif_xpreader_filename_noresfolder(self):
-
         sys.argv = [sys.argv[0]]
 
         # Init reader
@@ -978,4 +973,3 @@ def test_cell_fluo():
     fluos = utils.cell_fluo(fluo_frames, mask, box)
     expected = (1 + 2 + 3 + 7 + 12 + 13 + 16 + 17) / 8
     np.testing.assert_allclose(fluos, [expected, expected + 100])
-

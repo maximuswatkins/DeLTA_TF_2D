@@ -16,7 +16,6 @@ test_folder = Path(__file__).parent
 
 @pytest.mark.order(2)
 def test_rois_script():
-
     script = test_folder.parent / "scripts/segmentation_rois.py"
 
     inputs_folder = test_folder / "data/movie_mothermachine_tif"

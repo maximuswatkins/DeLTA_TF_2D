@@ -20,7 +20,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.python.ops import math_ops
 
-#%% Losses/metrics
+# %% Losses/metrics
 
 
 def pixelwise_weighted_binary_crossentropy_seg(
@@ -206,7 +206,7 @@ def _unet(
     return conv5
 
 
-#%% Models
+# %% Models
 # Generic unet declaration:
 def unet(
     input_size: Tuple[int, int, int] = (256, 32, 1),

@@ -2,11 +2,11 @@
 Model module
 =================
 
-`Source code <https://gitlab.com/dunloplab/delta/-/blob/master/delta/model.py>`_ | 
-:doc:`API <../_generated/delta.model>` 
+`Source code <https://gitlab.com/dunloplab/delta/-/blob/master/delta/model.py>`_ |
+:doc:`API <../_generated/delta.model>`
 
 This module contains the declaration of the U-Nets in Keras / Tensorflow as
-well as the loss functions we used to train them. See our publications for 
+well as the loss functions we used to train them. See our publications for
 descriptions of the models and losses.
 
 | For the seminal paper describing the structure of the U-Net models:

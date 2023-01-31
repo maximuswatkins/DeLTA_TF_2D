@@ -9,8 +9,8 @@ the machine's GPU, and passed
 all our tests with pytest.
 
 If you had to tweak library versions, or even if you
-had a smooth installation process, feel free to 
-share your environment list with us via gitlab's issues 
+had a smooth installation process, feel free to
+share your environment list with us via gitlab's issues
 so we can list it here.
 
 .. contents:: Table of Contents
@@ -386,7 +386,7 @@ Kindly provided by Mark Aronson. See issue #11 on gitlab
 	# Name                    Version                   Build  Channel
 	_libgcc_mutex             0.1                 conda_forge    conda-forge
 	_openmp_mutex             4.5                       1_gnu    conda-forge
-	_tflow_select             2.1.0                       gpu  
+	_tflow_select             2.1.0                       gpu
 	absl-py                   0.15.0             pyhd8ed1ab_0    conda-forge
 	alabaster                 0.7.12                     py_0    conda-forge
 	appdirs                   1.4.4              pyh9f0ad1d_0    conda-forge
@@ -431,7 +431,7 @@ Kindly provided by Mark Aronson. See issue #11 on gitlab
 	cryptography              2.5              py37hb7f436b_1    conda-forge
 	cudatoolkit               10.0.130             hf841e97_9    conda-forge
 	cudnn                     7.6.5.32             ha8d7eb6_1    conda-forge
-	cupti                     10.0.130                      0  
+	cupti                     10.0.130                      0
 	curl                      7.64.0               h646f8bb_0    conda-forge
 	cycler                    0.11.0             pyhd8ed1ab_0    conda-forge
 	cytoolz                   0.11.2           py37h5e8e339_1    conda-forge
@@ -647,12 +647,12 @@ Kindly provided by Mark Aronson. See issue #11 on gitlab
 	sphinxcontrib-serializinghtml 1.1.5              pyhd8ed1ab_0    conda-forge
 	spyder                    5.1.5            py37h89c1867_1    conda-forge
 	spyder-kernels            2.1.3            py37h89c1867_0    conda-forge
-	sqlite                    3.33.0               h62c20be_0  
-	tensorboard               2.0.0              pyhb38c66f_1  
-	tensorflow                2.0.0           gpu_py37h768510d_0  
-	tensorflow-base           2.0.0           gpu_py37h0ec5d1f_0  
-	tensorflow-estimator      2.0.0              pyh2649769_0  
-	tensorflow-gpu            2.0.0                h0d30ee6_0  
+	sqlite                    3.33.0               h62c20be_0
+	tensorboard               2.0.0              pyhb38c66f_1
+	tensorflow                2.0.0           gpu_py37h768510d_0
+	tensorflow-base           2.0.0           gpu_py37h0ec5d1f_0
+	tensorflow-estimator      2.0.0              pyh2649769_0
+	tensorflow-gpu            2.0.0                h0d30ee6_0
 	termcolor                 1.1.0                      py_2    conda-forge
 	testpath                  0.5.0              pyhd8ed1ab_0    conda-forge
 	textdistance              4.2.2              pyhd8ed1ab_0    conda-forge
@@ -1263,11 +1263,11 @@ Oct 28, 2021
 	zipp                      3.6.0              pyhd8ed1ab_0    conda-forge
 	zlib                      1.2.11            h8ffe710_1013    conda-forge
 	zstd                      1.5.0                h6255e5f_0    conda-forge
-	
+
 Windows 10 conda yml install, TF 2.3
 --------------------------------------
 
-install date: End of 2020	
+install date: End of 2020
 
 `conda list` output::
 
@@ -1549,4 +1549,3 @@ install date: End of 2020
 	zipp                      3.4.1              pyhd8ed1ab_0    conda-forge
 	zlib                      1.2.11            h62dcd97_1010    conda-forge
 	zstd                      1.4.9                h6255e5f_0    conda-forge
-
