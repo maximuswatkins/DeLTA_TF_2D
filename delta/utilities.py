@@ -862,7 +862,8 @@ def getpoles(
     # Get poles using skeleton method:
     skel = skeletonize(seg, method="lee")
     ends_map = skeleton_poles(skel)
-    poles = extract_poles(ends_map, labels)
+    poles: Dict[int, List[Pole]] = {i - 1: [] for i in np.unique(labels)[1:]}
+    poles |= extract_poles(ends_map, labels)
 
     clean_poles = {}
 
@@ -887,7 +888,7 @@ def getpoles(
     }
 
 
-def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
+def skeleton_poles(skel: SegmentationMask) -> SegmentationMask:
     """
     Filter out the poles of a skeleton.
 
