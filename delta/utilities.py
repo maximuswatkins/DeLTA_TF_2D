@@ -18,7 +18,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
-from typing import Any, Dict, Iterable, List, Literal, Optional, overload, Sequence, Tuple, Type, Union
+from typing import (
+    Any, Dict, Iterable, List, Literal, Optional, overload, Sequence, 
+    Tuple, Type, Union
+    )
 
 import bioformats
 import cv2
@@ -187,6 +190,7 @@ class Cell(Dict):
         eq_daughters = self["daughters"] == other["daughters"]
         eq_new_pole = np.array_equal(self["new_pole"], other["new_pole"])
         eq_old_pole = np.array_equal(self["old_pole"], other["old_pole"])
+        eq_fluo = [np.allclose(self[fluo], other[fluo]) for fluo in self.keys() if fluo.startswith("fluo")]
         return all(
             [
                 eq_keys,
@@ -196,6 +200,7 @@ class Cell(Dict):
                 eq_daughters,
                 eq_new_pole,
                 eq_old_pole,
+                *eq_fluo,
             ]
         )
 
@@ -858,11 +863,14 @@ def getpoles(
     # No label provided:
     if labels is None:
         labels = label_seg(seg)
+    
+    # Init list of empty poles dictionaries:
+    poles: Dict[int, List[Pole]] = {i - 1: [] for i in np.unique(labels)[1:]}
 
     # Get poles using skeleton method:
     skel = skeletonize(seg, method="lee")
     ends_map = skeleton_poles(skel)
-    poles = extract_poles(ends_map, labels)
+    poles |= extract_poles(ends_map, labels) # Set union with empty poles dict
 
     clean_poles = {}
 
@@ -887,7 +895,7 @@ def getpoles(
     }
 
 
-def skeleton_poles(skel: SegmentationMask) -> npt.NDArray[np.bool_]:
+def skeleton_poles(skel: SegmentationMask) -> SegmentationMask:
     """
     Filter out the poles of a skeleton.
 
@@ -993,9 +1001,7 @@ def two_poles(poles: List[Pole]) -> Tuple[Pole, Pole]:
     return (poles[i_max], poles[j_max])
 
 
-def extract_poles(
-    end_img: npt.NDArray[np.bool_], labels: Labels
-) -> Dict[int, List[Pole]]:
+def extract_poles(end_img: SegmentationMask, labels: Labels) -> Dict[int, List[Pole]]:
     """
     Extract poles per cell from ends image.
 
@@ -1013,12 +1019,11 @@ def extract_poles(
         poles but sometimes the detection fails.
 
     """
-    locations = end_img.nonzero()
     poles: defaultdict[int, List[Pole]] = defaultdict(list)
 
-    for p in range(len(locations[0])):
-        cellid = labels[locations[0][p], locations[1][p]] - 1
-        poles[cellid] += [np.array([locations[0][p], locations[1][p]], dtype=np.int16)]
+    # Append pole locations to poles defaultdict:
+    for r, c, lbl in zip(*end_img.nonzero(), labels[end_img]):
+        poles[lbl - 1].append(np.array([r, c], dtype=np.int16))
 
     return dict(poles)
 
@@ -2542,7 +2547,7 @@ def cell_fluo(
         Mean value per cell for each fluo frame.
 
     """
-    return [mask * box.crop(fluo) / mask.sum() for fluo in fluo_frames]
+    return [np.sum(mask * box.crop(fluo)) / mask.sum() for fluo in fluo_frames]
 
 
 #%% Misc

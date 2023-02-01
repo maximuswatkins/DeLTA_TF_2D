@@ -510,6 +510,129 @@ def test_extract_poles():
         assert np.array_equal(poles[k], solution[k])
 
 
+def test_extract_poles_not2():
+    labels = np.array(
+        [
+            [1, 1, 1, 0, 2, 2],
+            [1, 1, 1, 0, 2, 2],
+            [1, 1, 1, 0, 0, 0],
+            [1, 1, 1, 0, 3, 3],
+            [1, 1, 1, 0, 3, 3],
+        ]
+    )
+    skel = np.array(
+        [
+            [0, 1, 0, 0, 1, 0],
+            [0, 0, 1, 0, 0, 1],
+            [1, 1, 1, 0, 0, 0],
+            [0, 0, 1, 0, 1, 0],
+            [0, 0, 1, 0, 0, 0],
+        ],
+        dtype=np.bool_,
+    )
+    mask_poles = utils.skeleton_poles(skel)
+    poles = utils.extract_poles(mask_poles, labels)
+    solution = {
+        0: [np.array([0, 1]), np.array([2, 0]), np.array([4, 2])],
+        1: [np.array([0, 4]), np.array([1, 5])],
+        2: [np.array([3, 4])],
+    }
+    assert poles.keys() == solution.keys()
+    for k in solution.keys():
+        assert np.array_equal(poles[k], solution[k])
+
+
+def test_extract_poles_missing():
+    labels = np.array(
+        [
+            [1, 1, 0, 2, 2, 2],
+            [1, 1, 0, 2, 2, 2],
+            [1, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 5, 5],
+            [3, 3, 3, 0, 5, 5],
+        ]
+    )
+    skel = np.array(
+        [
+            [0, 1, 0, 1, 1, 0],
+            [1, 0, 0, 0, 0, 1],
+            [0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0],
+            [1, 1, 1, 0, 0, 1],
+        ],
+        dtype=np.bool_,
+    )
+    mask_poles = utils.skeleton_poles(skel)
+    poles = utils.extract_poles(mask_poles, labels)
+    solution = {
+        0: [np.array([0, 1]), np.array([2, 1])],
+        1: [np.array([0, 3]), np.array([1, 5])],
+        2: [np.array([4, 0]), np.array([4, 2])],
+        4: [np.array([3, 4]), np.array([4, 5])],
+    }
+    assert poles.keys() == solution.keys()
+    for k in solution.keys():
+        assert np.array_equal(poles[k], solution[k])
+
+
+def test_extract_poles_loop():
+    labels = np.array(
+        [
+            [1, 1, 1, 0, 2, 2],
+            [1, 1, 1, 0, 2, 2],
+            [1, 1, 1, 0, 0, 0],
+            [0, 0, 0, 0, 4, 4],
+            [3, 3, 3, 0, 4, 4],
+        ]
+    )
+    skel = np.array(
+        [
+            [0, 1, 0, 0, 1, 0],
+            [1, 0, 1, 0, 0, 1],
+            [0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0],
+            [1, 1, 1, 0, 0, 1],
+        ],
+        dtype=np.bool_,
+    )
+    mask_poles = utils.skeleton_poles(skel)
+    poles = utils.extract_poles(mask_poles, labels)
+    solution = {
+        1: [np.array([0, 4]), np.array([1, 5])],
+        2: [np.array([4, 0]), np.array([4, 2])],
+        3: [np.array([3, 4]), np.array([4, 5])],
+    }
+    assert poles.keys() == solution.keys()
+    for k in solution.keys():
+        assert np.array_equal(poles[k], solution[k])
+
+def test_getpoles():
+    labels = np.array(
+        [
+            [1, 1, 1, 0, 2, 2],
+            [1, 1, 1, 0, 2, 2],
+            [1, 1, 1, 0, 0, 0],
+            [1, 1, 1, 0, 3, 3],
+            [1, 1, 1, 0, 3, 3],
+            [0, 0, 0, 0, 3, 3],
+            [0, 4, 4, 4, 0, 3],
+            [0, 4, 0, 4, 0, 0],
+            [0, 4, 4, 4, 0, 0],
+        ]
+    )
+    poles = utils.getpoles(labels > 0, labels)
+    solution = {
+        0: [np.array([0, 0]), np.array([4, 2])],
+        1: [np.array([0, 4]), np.array([1, 5])],
+        2: [np.array([3, 4]), np.array([6, 5])],
+        3: [np.array([6, 1]), np.array([8, 3])],
+    }
+    assert poles.keys() == solution.keys()
+    for k in solution.keys():
+        assert np.array_equal(poles[k], solution[k])
+
+
+
 @pytest.mark.parametrize("seed", range(1000))  # Run it 1000 times
 def test_track_poles(seed):
     rng = npr.default_rng(seed)
@@ -833,3 +956,37 @@ def test_getTrackingScores():
     outputs = TRACKING_OUTPUTS
     scores = utils.getTrackingScores(labels, outputs)
     np.testing.assert_allclose(scores, [[2 / 3, 1, 0], [1, 2 / 3, 1 / 2]])
+
+
+def test_cell_fluo():
+    fluo_frames = np.array(
+        [
+            [
+                [0, 1, 2, 3, 4],
+                [5, 6, 7, 8, 9],
+                [10, 11, 12, 13, 14],
+                [15, 16, 17, 18, 19],
+            ],
+            [
+                [100, 101, 102, 103, 104],
+                [105, 106, 107, 108, 109],
+                [110, 111, 112, 113, 114],
+                [115, 116, 117, 118, 119],
+            ],
+        ],
+        dtype=np.float32,
+    )
+    mask = np.array(
+        [
+            [False, True, True, True, False],
+            [False, False, True, False, False],
+            [False, False, True, True, False],
+            [False, True, True, False, False],
+        ],
+        dtype=bool,
+    )
+    box = utils.CroppingBox.full(mask)
+    fluos = utils.cell_fluo(fluo_frames, mask, box)
+    expected = (1 + 2 + 3 + 7 + 12 + 13 + 16 + 17) / 8
+    np.testing.assert_allclose(fluos, [expected, expected + 100])
+
