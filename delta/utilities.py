@@ -190,6 +190,7 @@ class Cell(Dict):
         eq_daughters = self["daughters"] == other["daughters"]
         eq_new_pole = np.array_equal(self["new_pole"], other["new_pole"])
         eq_old_pole = np.array_equal(self["old_pole"], other["old_pole"])
+        eq_fluo = [np.allclose(self[fluo], other[fluo]) for fluo in self.keys() if fluo.startswith("fluo")]
         return all(
             [
                 eq_keys,
@@ -199,6 +200,7 @@ class Cell(Dict):
                 eq_daughters,
                 eq_new_pole,
                 eq_old_pole,
+                *eq_fluo,
             ]
         )
 
