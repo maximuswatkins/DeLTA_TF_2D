@@ -2398,9 +2398,7 @@ def roi_features(
     for cellid, contour in zip(cellids, contours):
         mask = labels_frame == cellid + 1
 
-        fluo_values = (
-            cell_fluo(fluo_frames, mask, roi_box) if fluo_frames is not None else []
-        )
+        fluo_values = cell_fluo(fluo_frames, mask, roi_box)
 
         width, length = cell_width_length(contour)
 
