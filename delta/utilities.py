@@ -18,7 +18,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
-from typing import Any, Dict, Iterable, List, Literal, Optional, overload, Sequence, Tuple, Type, Union
+from typing import (
+    Any, Dict, Iterable, List, Literal, Optional, overload, Sequence, 
+    Tuple, Type, Union
+    )
 
 import bioformats
 import cv2
@@ -858,12 +861,14 @@ def getpoles(
     # No label provided:
     if labels is None:
         labels = label_seg(seg)
+    
+    # Init list of empty poles dictionaries:
+    poles: Dict[int, List[Pole]] = {i - 1: [] for i in np.unique(labels)[1:]}
 
     # Get poles using skeleton method:
     skel = skeletonize(seg, method="lee")
     ends_map = skeleton_poles(skel)
-    poles: Dict[int, List[Pole]] = {i - 1: [] for i in np.unique(labels)[1:]}
-    poles |= extract_poles(ends_map, labels)
+    poles |= extract_poles(ends_map, labels) # Set union with empty poles dict
 
     clean_poles = {}
 
@@ -1014,6 +1019,7 @@ def extract_poles(end_img: SegmentationMask, labels: Labels) -> Dict[int, List[P
     """
     poles: defaultdict[int, List[Pole]] = defaultdict(list)
 
+    # Append pole locations to poles defaultdict:
     for r, c, lbl in zip(*end_img.nonzero(), labels[end_img]):
         poles[lbl - 1].append(np.array([r, c], dtype=np.int16))
 
