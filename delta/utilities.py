@@ -836,9 +836,7 @@ def getcentroid(contour: np.ndarray) -> Tuple[int, int]:
 
 
 def getpoles(
-    seg: SegmentationMask,
-    labels: Optional[Labels] = None,
-    scaling: Optional[Tuple[float, float]] = None,
+    seg: SegmentationMask, labels: Labels, scaling: Optional[Tuple[float, float]] = None
 ) -> Dict[int, Tuple[Pole, Pole]]:
     """
     Get cell poles.
@@ -847,9 +845,8 @@ def getpoles(
     ----------
     seg : 2D array of uint8
         Cell segmentation mask.
-    labels : 2D array of int, optional
-        Cell labels map. If None, label_seg() will be applied to seg
-        The default is None.
+    labels : 2D array of int
+        Cell labels map.
     scaling : tuple of floats, optional
         Scaling to apply in both directions to rescale poles' positions to
         original image size (if resizing was applied)
@@ -860,10 +857,6 @@ def getpoles(
         Dictionary of cellid to poles. Each cell has exactly 2 poles.
 
     """
-    # No label provided:
-    if labels is None:
-        labels = label_seg(seg)
-    
     # Init list of empty poles dictionaries:
     poles: Dict[int, List[Pole]] = {i - 1: [] for i in np.unique(labels)[1:]}
 
@@ -2405,9 +2398,7 @@ def roi_features(
     for cellid, contour in zip(cellids, contours):
         mask = labels_frame == cellid + 1
 
-        fluo_values = (
-            cell_fluo(fluo_frames, mask, roi_box) if fluo_frames is not None else []
-        )
+        fluo_values = cell_fluo(fluo_frames, mask, roi_box)
 
         width, length = cell_width_length(contour)
 
