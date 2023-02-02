@@ -1,0 +1,27 @@
+name: delta_dev
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  # dev
+  - pytest >= 7.0
+  - pytest-order >= 1.0
+  - sphinx >= 5.0
+  - numpydoc >= 1.4
+  # /dev
+  - python >= 3.8
+  - numpy >= 1.21
+  - scipy >= 1.7
+  - pooch >= 1.6
+  - tensorflow >= 2.7, < 2.11
+  - scikit-image >= 0.19
+  - opencv >= 4.6
+  - tqdm >= 4.57
+  - ffmpeg-python >= 0.2
+  - pip >= 21.1
+  - pip:
+    # dev
+    - pre-commit >= 3.0
+    # /dev
+    - python-bioformats >= 4.0
+    - python-javabridge >= 4.0
