@@ -184,7 +184,6 @@ class Pipeline:
 
         # Run through positions:
         for p in positions:
-
             # Preprocess is not done already:
             if not self.positions[p]._preprocessed:
                 self.positions[p].preprocess(
@@ -721,7 +720,10 @@ class Position:
             return
 
         # Initialize data structure/dict:
-        data: Dict[str, Any] = {"moviedimensions": moviedimensions, "tifffile": str(xpfile)}
+        data: Dict[str, Any] = {
+            "moviedimensions": moviedimensions,
+            "tifffile": str(xpfile),
+        }
 
         # Proc dict/structure:
         data["proc"] = {
@@ -837,7 +839,6 @@ class Position:
         assert isinstance(frames, list)  # FIXME: what happens if frames is None?
         # Run through frames, compile movie:
         for f, fnb in enumerate(frames):
-
             frame = trans_frames[f]
 
             # RGB-ify:
@@ -855,7 +856,6 @@ class Position:
             )
 
             for r, roi in enumerate(self.rois):
-
                 # Get chamber-specific variables:
                 colors = utils.getrandomcolors(list(roi.lineage.cells.keys()), seed=r)
                 fr = roi.label_stack[fnb]
@@ -869,7 +869,6 @@ class Position:
 
                 # Run through cells in labelled frame:
                 for c, cell in enumerate(cells):
-
                     # Draw contours:
                     frame = cv2.drawContours(
                         frame,
@@ -909,7 +908,6 @@ class Position:
 
                     # Plot division arrow:
                     if daughter is not None:
-
                         newpole = roi.lineage.getvalue(cell, fnb, "new_pole")
                         daupole = roi.lineage.getvalue(daughter, fnb, "new_pole")
                         # Plot arrow:
@@ -1147,7 +1145,6 @@ class ROI:
         # Run through contours and compile inputs:
         boxes = []
         for c, cell in enumerate(prev_cell_contours):
-
             draw_offset: Optional[Tuple[float, float]]
             if self.config.crop_windows:
                 curr_img = self.img_stack[frame]

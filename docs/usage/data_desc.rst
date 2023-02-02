@@ -2,25 +2,25 @@
 Training with the data module
 ==============================
 
-`Source <https://gitlab.com/dunloplab/delta/-/blob/master/delta/data.py>`_ | 
-:doc:`API <../_generated/delta.data>` 
+`Source <https://gitlab.com/dunloplab/delta/-/blob/master/delta/data.py>`_ |
+:doc:`API <../_generated/delta.data>`
 
-The Data module contains functions and generators to read and pre-process 
+The Data module contains functions and generators to read and pre-process
 training sets files, perform data augmentation operations, and
-feed inputs into the U-Net models for training, as well as functions and generators 
-to pre-process inputs for prediction. In addition a few functions are provided for 
+feed inputs into the U-Net models for training, as well as functions and generators
+to pre-process inputs for prediction. In addition a few functions are provided for
 light post-processing and saving results to disk.
 
 This module was implemented a while ago and many functions are redundant with
-some from the :doc:`utilities module <utils_desc>`. However, we decided not to 
-merge or modify this module for reproducibility purposes. Note that it might 
+some from the :doc:`utilities module <utils_desc>`. However, we decided not to
+merge or modify this module for reproducibility purposes. Note that it might
 get re-written at some point in the future.
 
 Training generators and datasets
 ---------------------------------
 
 The module contains 2 generator functions to be used for training the segmentation
-and tracking U-Nets, namely 
+and tracking U-Nets, namely
 :doc:`trainGenerator_seg() <../_generated/delta.data.trainGenerator_seg>` and
 :doc:`trainGenerator_track() <../_generated/delta.data.trainGenerator_track>`.
 
@@ -33,10 +33,10 @@ For segmentation, the structure of the training sets is:
 
 * `img` folder [Input]: movie frames
     Microscopy images to use as training inputs. So far
-    we've been exclusively using phase contrast images, but these could be 
+    we've been exclusively using phase contrast images, but these could be
     replaced by bright field or fluorescence images, or even a mix of the three
 * `seg` folder [Output]: Segmentation ground-truth
-    Segmentation groundtruth to train the the U-Net 
+    Segmentation groundtruth to train the the U-Net
     against to try and learn how to segment the cells
 * `wei` folder [Output]: Weight maps, optional
     Pixel-wise weight maps. These are used to multiply the
@@ -61,7 +61,7 @@ For tracking, the structure is:
     Segmentation images of all cells at the current time point.
 * `mot_dau` folder [Output]: Tracking ground-truth
     Tracking maps for the tracking U-Net to be trained against. Outlines the
-    tracking of the 'seed' cell into the current time point, or if it divided, 
+    tracking of the 'seed' cell into the current time point, or if it divided,
     of both cells that resulted from the division.
 * `wei` folder [Output]: Weight maps, optional
     Pixel-wise weight maps. These are used to multiply the
@@ -73,11 +73,11 @@ For tracking, the structure is:
 
 .. note::
     The folder names do not need to strictly follow this nomenclature or
-    even all be grouped under the same folder as the path to each folder is 
+    even all be grouped under the same folder as the path to each folder is
     passed as an input to the training generators.
 
-See :ref:`Training scripts <training_scripts>` for examples use of the generators. 
-For an example of datasets structure, check out your 
+See :ref:`Training scripts <training_scripts>` for examples use of the generators.
+For an example of datasets structure, check out your
 :doc:`downloaded training sets <assets_desc>`.
 
 Data augmentation
@@ -86,7 +86,7 @@ Data augmentation
 A key element to making the U-Nets able to generalize to completely new experiments
 and images is data augmentation. These operations modify the original training
 samples in order to not only artificially inflate the size of the training sets
-but also to force the models to learn to make predictions in sub-optimal or 
+but also to force the models to learn to make predictions in sub-optimal or
 different imaging conditions, for example via the addition of noise or changes
 in the image histograms.
 
@@ -97,56 +97,56 @@ ranges.
 
 The operations names and their parameters are:
 
-* illumination_voodoo: bool. 
-    Whether to apply the `illumination voodoo` operation. It simulates a 
+* illumination_voodoo: bool.
+    Whether to apply the `illumination voodoo` operation. It simulates a
     variation in illumination along the Y axis.
-* histogram_voodoo: bool. 
-    Whether to apply the histogram voodoo operation. It performs an elastic 
+* histogram_voodoo: bool.
+    Whether to apply the histogram voodoo operation. It performs an elastic
     deformation on the image histogram to simulate changes in illumination.
-* elastic_deformation: dict. 
-    If key exists, the elastic deformation operation is applied. 
-    The parameters are given as a dict. sigma values are 
-    given under the sigma key, deformation points are given under 
+* elastic_deformation: dict.
+    If key exists, the elastic deformation operation is applied.
+    The parameters are given as a dict. sigma values are
+    given under the sigma key, deformation points are given under
     the points key. For example: {'sigma': 25, 'points': 5}
-    You will need to install the 
+    You will need to install the
     `elasticdeform <https://pypi.org/project/elasticdeform/>`_ module via pip
-    to be able to use this operation. Beware that it may cause some cell 
-    borders to disappear and as such can degrade performance. 
-    See elasticdeform's doc for more information on the sigma and points 
+    to be able to use this operation. Beware that it may cause some cell
+    borders to disappear and as such can degrade performance.
+    See elasticdeform's doc for more information on the sigma and points
     parameters.
-* gaussian_noise: float. 
-    Apply gaussian noise to the image. The sigma value of the 
+* gaussian_noise: float.
+    Apply gaussian noise to the image. The sigma value of the
     gaussian noise is uniformly sampled between 0 and +gaussian_noise.
 * gaussian_blur: float.
     Apply gaussian blur to the image. The sigma value is the
     standard deviation of the kernel in the x and y direction.
 * horizontal_flip: bool.
-    Whether to flip the images horizontally. Input images have a 
+    Whether to flip the images horizontally. Input images have a
     50% chance of being flipped
-* vertical_flip: bool. 
-    Whether to flip the images vertically. Input images have a 50% 
+* vertical_flip: bool.
+    Whether to flip the images vertically. Input images have a 50%
     chance of being flippedtrainGenerator_track
-* rotations90d: bool. 
-    Whether to randomly rotate the images in 90° increments. 
+* rotations90d: bool.
+    Whether to randomly rotate the images in 90° increments.
     Each 90° rotation has a 25% chance of happening
-* rotation: int or float. 
-    Range of random rotation to apply, in degrees. The angle is uniformly 
+* rotation: int or float.
+    Range of random rotation to apply, in degrees. The angle is uniformly
     sampled in the range [-rotation, +rotation]
 * zoom: float.
-    Range of random "zoom" to apply. The image is randomly zoomed 
-    by a factor that is sampled from an exponential distribution 
+    Range of random "zoom" to apply. The image is randomly zoomed
+    by a factor that is sampled from an exponential distribution
     with a lamba of 3/zoom. The random factor is clipped at +zoom.
-* shiftX: int/float. 
-    The range of random image translation shift to apply along X, in pixels. A uniformly 
+* shiftX: int/float.
+    The range of random image translation shift to apply along X, in pixels. A uniformly
     sampled shift between [-shiftX, +shiftX] is applied
-* shiftY: int/float. 
-    The range of random image translation shift to apply along Y, in pixels. A uniformly 
+* shiftY: int/float.
+    The range of random image translation shift to apply along Y, in pixels. A uniformly
     sampled shift between [-shiftY, +shiftY] is applied
 
-Note that one extra data augmentation operation, for tracking, is executed at 
+Note that one extra data augmentation operation, for tracking, is executed at
 the level of the generator, and not by the `data_augmentation()` function:
 Different image translation shifts are applied for images from the previous time point
-and for images of the current time point. This is meant to simulate random shifts and drift 
+and for images of the current time point. This is meant to simulate random shifts and drift
 in the
 field of view over time, which often happen in timelapse movies for a variety of reasons.
 
@@ -164,14 +164,14 @@ prediction generators
 :doc:`predictGenerator_seg() <../_generated/delta.data.predictGenerator_seg>` and
 :doc:`predictCompilefromseg_track() <../_generated/delta.data.predictCompilefromseg_track>`
 can read and compile evaluation data to feed into the trained models. Please
-note that these are not used in any way by the :doc:`pipeline <pipeline_desc>` 
+note that these are not used in any way by the :doc:`pipeline <pipeline_desc>`
 module and are only intended for quick evaluation and explanation purposes.
 
-`predictGenerator_seg` simply reads an image files sequence in order from a 
+`predictGenerator_seg` simply reads an image files sequence in order from a
 folder, crops or resizes images to fit the U-Net input size, and then yields
 those images.
 
-`predictCompilefromseg_track` is a little more complicated however. It reads 
+`predictCompilefromseg_track` is a little more complicated however. It reads
 image sequences in both an inputs image folder, and in a segmentation folder.
 As such it is intended to be used after segmentation predictions have been made
 and saved to disk. The generator uses the file names to infer the position, roi, and

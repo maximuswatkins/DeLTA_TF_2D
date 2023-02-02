@@ -72,7 +72,6 @@ def test_train_moma_rois():
 
 @pytest.mark.parametrize("presets, batch_size", [("2D", 1), ("mothermachine", 3)])
 def test_train_seg(presets, batch_size):
-
     # Load config
     if presets == "2D":
         config = DEFAULT_CONFIG_2D

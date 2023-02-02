@@ -79,7 +79,7 @@ def test_postprocess_minsize():
             [1, 1, 0, 0, 0, 0],
             [0, 0, 1, 1, 0, 0],
         ],
-        dtype=np.float32
+        dtype=np.float32,
     )
     mask = data.postprocess(preds, crop=True, min_size=4)
     minsize = np.array(
@@ -110,7 +110,7 @@ def test_postprocess_opening():
             [0, 1, 1, 1, 1, 1, 0],
             [0, 1, 1, 1, 1, 0, 0],
         ],
-        dtype=np.float32
+        dtype=np.float32,
     )
     mask = data.postprocess(preds, crop=False, min_size=None, square_size=3)
     minsize = np.array(
@@ -132,17 +132,18 @@ def test_postprocess_opening():
 
 @pytest.mark.parametrize(
     "shiftX, shiftY",
-     [
-         (0.6, 1.6),
-         (0.6, 2.0),
-         (0.6, 2.4),
-         (1.0, 1.6),
-         (1.0, 2.0),
-         (1.0, 2.4),
-         (1.4, 1.6),
-         (1.4, 2.0),
-         (1.4, 2.4),
-     ])
+    [
+        (0.6, 1.6),
+        (0.6, 2.0),
+        (0.6, 2.4),
+        (1.0, 1.6),
+        (1.0, 2.0),
+        (1.0, 2.4),
+        (1.4, 1.6),
+        (1.4, 2.0),
+        (1.4, 2.4),
+    ],
+)
 def test_affine_transform_shift_order0(shiftX, shiftY):
     img = np.array(
         [
@@ -157,9 +158,15 @@ def test_affine_transform_shift_order0(shiftX, shiftY):
             [0, 1, 1, 1, 1, 1, 0],
             [0, 1, 1, 1, 1, 0, 0],
         ],
-        dtype=np.uint8
+        dtype=np.uint8,
     )
-    actual = data.affine_transform(img, zoom=1.0, angle=0.0, shift=(shiftX/img.shape[0], shiftY/img.shape[1]), order=0)
+    actual = data.affine_transform(
+        img,
+        zoom=1.0,
+        angle=0.0,
+        shift=(shiftX / img.shape[0], shiftY / img.shape[1]),
+        order=0,
+    )
     # 1 up, 2 left
     truth = np.array(
         [
@@ -192,7 +199,7 @@ def test_affine_transform_zoom_order0():
             [0, 1, 1, 1, 1, 1, 0, 1],
             [0, 1, 1, 1, 1, 0, 0, 0],
         ],
-        dtype=np.uint8
+        dtype=np.uint8,
     )
     actual = data.affine_transform(img, zoom=2.0, angle=0.0, shift=(0, 0), order=0)
     truth = np.array(
@@ -226,9 +233,15 @@ def test_affine_transform_zoomshift_order0():
             [0, 1, 1, 1, 1, 1, 0, 1],
             [0, 1, 1, 1, 1, 0, 0, 0],
         ],
-        dtype=np.uint8
+        dtype=np.uint8,
     )
-    actual = data.affine_transform(img, zoom=2.0, angle=0.0, shift=(1.0/img.shape[0], 2.0/img.shape[1]), order=0)
+    actual = data.affine_transform(
+        img,
+        zoom=2.0,
+        angle=0.0,
+        shift=(1.0 / img.shape[0], 2.0 / img.shape[1]),
+        order=0,
+    )
     truth = np.array(
         [
             [1, 1, 1, 1, 0, 0, 0, 0],

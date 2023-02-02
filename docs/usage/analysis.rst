@@ -4,7 +4,7 @@ Results analysis
 
 Here are a few examples on how the data can be analyzed. These
 examples are not necessarily interesting in their results
-but they demonstrate various ways to analyze data from the output 
+but they demonstrate various ways to analyze data from the output
 files. The MAT files can also be loaded and analyzed in Matlab,
 and the general logic of the analysis would be the same
 although there are some minor differences in how to index
@@ -21,10 +21,10 @@ from the pickle file::
     processor = delta.pipeline.Pipeline(reader, reload=True)
 
 .. note::
-    There are many ways to reload the pickle file to memory. 
+    There are many ways to reload the pickle file to memory.
     See :doc:`output files <outputs>`
 
-Then, for the first and only position, retrieve the lineage for 
+Then, for the first and only position, retrieve the lineage for
 the region of interest (ie the whole frame)::
 
     lin = processor.positions[0].rois[0].lineage
@@ -35,17 +35,17 @@ Check which cells are present in the first frame::
 
 Plot each cell's length over time, with different colors
 for the first cells::
-    
+
     import matplotlib.pyplot as plt
 
     for cell in lin.cells:
         if cell['id'] not in first_cells:
             plt.plot(cell['frames'],cell['length'],color=[.5,.5,.5])
-    
+
     for cnb in first_cells:
         cell = lin.cells[cnb]
         plt.plot(cell['frames'],cell['length'])
-    
+
     plt.xlabel('frame #')
     plt.ylabel('length (pixels)')
     plt.show()
@@ -56,26 +56,26 @@ You should get this:
     :alt: A plot of the imaged cell's length over time. The two initial cells are colored while others are gray.
     :align: center
 
-You can also display which cells are descended from 
+You can also display which cells are descended from
 either of the first two cells on the last frame.
 
 First define a function to retrieve which of the first two cells is the
 ancestor::
 
     def which_first(lineage, cell_nb, first_cells):
-        
+
         # Get cell dict:
         cell = lineage.cells[cell_nb]
-        
+
         # If orphan or reached one of the first two cells:
         if cell['mother'] is None or cell['mother'] in first_cells:
             return cell['mother']
-        
+
         # Otherwise go up the lineage tree:
         else:
             return which_first(lineage, cell['mother'], first_cells)
 
-Then go over every cell of the last frame 
+Then go over every cell of the last frame
 to reconstruct the image based on each cells' ancestry::
 
     import numpy as np
@@ -92,10 +92,10 @@ to reconstruct the image based on each cells' ancestry::
 
     # Go over cells in last frame:
     for cnb in lin.cellnumbers[-1]:
-        
+
         # Which initial cell is ancestor?
         ancestor = which_first(lin, cnb, first_cells)
-        
+
         # Pick color based on ancestor:
         if ancestor is None:
             if cnb==0:
@@ -108,7 +108,7 @@ to reconstruct the image based on each cells' ancestry::
             color=[200,60,60]
         elif ancestor==1:
             color=[60,60,200]
-        
+
         # Color in the cell:
         for c, val in enumerate(color):
             color_image[:,:,c][labels==cnb+1]=val
@@ -126,7 +126,7 @@ Mother machine from MAT file
 ----------------------------------------------------------------
 
 .. note::
-    Here we are loading the MAT file in python. Because this 
+    Here we are loading the MAT file in python. Because this
     format is originally intended for Matlab, some indexes need
     to be decreased by 1 in a few places. The logic presented here
     is otherwise applicable to Matlab
@@ -168,7 +168,7 @@ Which should give you:
     :alt: A plot of a mother's cell fluorescence over time (blue) and of its daughters (gray)
     :align: center
 
-And we can also reconstruct the whole field of view and color cells based on 
+And we can also reconstruct the whole field of view and color cells based on
 their generation::
 
     import numpy as np
@@ -176,7 +176,7 @@ their generation::
 
     # Function to count number of generations:
     def generation(lineage, cell_nb):
-        
+
         if lineage[cell_nb-1]['mother']==0: # No -1 in Matlab
             return 0
         else:
@@ -198,23 +198,23 @@ their generation::
 
     # Go over ROIs/chambers:
     for roi, roi_pos in zip(reloaded['res'],reloaded['proc']['chambers']):
-        
+
         # Chamber lineage:
         lin = roi['lineage']
-        
+
         # Labels image for frame:
         labels = roi['labelsstack_resized'][frame]
-        
+
         # Cells present in frame:
         cells = np.unique(labels)[1:]
-        
+
         # Go over each cell:
         for cell in cells:
-            
+
             # Get generation and color:
             cell_gen = generation(lin, cell)
             color = colormap(cell_gen)
-            
+
             # Draw cell:
             pixels = np.where(labels==cell)
             for c, val in enumerate(color[0:3]):

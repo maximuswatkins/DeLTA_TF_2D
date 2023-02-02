@@ -2,10 +2,10 @@
 Utilities module
 =================
 
-`Source <https://gitlab.com/dunloplab/delta/-/blob/master/delta/utilities.py>`_ | 
-:doc:`API <../_generated/delta.utilities>` 
+`Source <https://gitlab.com/dunloplab/delta/-/blob/master/delta/utilities.py>`_ |
+:doc:`API <../_generated/delta.utilities>`
 
-The utilities module contains many functions used in several different parts of 
+The utilities module contains many functions used in several different parts of
 the code. The most important elements are described below.
 
 
@@ -15,10 +15,10 @@ The XPreader class
 --------------------
 
 The :doc:`xpreader class <../_generated/delta.utilities.xpreader>` is used to
-read experiment files. This can either be 
+read experiment files. This can either be
 `Bio-Formats <https://www.openmicroscopy.org/bio-formats/>`_ compatible files
 such as the open format OME-TIFF, Nikon's .nd2 format, Olympus's .oib format,
-Zeiss's .czi format and many more. Or it can be a folder containing separate 
+Zeiss's .czi format and many more. Or it can be a folder containing separate
 image files for all positions, imaging channels, and timepoints.
 
 In order to read Bio-Formats compatible files, please use the `use_bioformats`
@@ -27,25 +27,25 @@ flag::
     reader = delta.utilities.xpreader('/path/to/file.nd2', use_bioformats=True)
 
 .. note::
-    python-bioformats, the wrapper for the original java Bioformats library, 
-    is maintained by the 
-    `CellProfiler <https://github.com/CellProfiler/python-bioformats>`_ team 
-    which they kindly make available to the community. While it has been 
+    python-bioformats, the wrapper for the original java Bioformats library,
+    is maintained by the
+    `CellProfiler <https://github.com/CellProfiler/python-bioformats>`_ team
+    which they kindly make available to the community. While it has been
     working flawlessly in our hands so far, they can not guarantee that it will
     always work for other applications than CellProfiler.
 
-In order to read data from an experiment stored in a folder, the xpreader 
+In order to read data from an experiment stored in a folder, the xpreader
 object can be called with 3 optional arguments that describe the structure of
 the data under the folder:
 
-* `prototype`: This argument describes the structure of the folder with a C-style / printf 
-    formatted string. For example, if all image files are under the same 
+* `prototype`: This argument describes the structure of the folder with a C-style / printf
+    formatted string. For example, if all image files are under the same
     top-level folder with names such as `PositionXX_ChannelXX_FrameXXXXXX.tif` the
     prototype would be `Position%02d_Channel%02d_Frame%06d.tif. But sub-folders
     can also be part of the prototype, like `Channel%01d/Position%03d/IMG_%09d.tiff`.
 * `fileorder`: Order of the 3 indexes in the prototype, `p` for 'Position',
     `c` for 'channel', and `t` for 'timepoint'. The order can be any combination
-    of these three letters. 'p', 'ct', 'cpt', or 'pctcpt' would all work, if 
+    of these three letters. 'p', 'ct', 'cpt', or 'pctcpt' would all work, if
     the prototype has enough fields (and of course if the files actually exist).
     For example the last example could work with the absurd prototype:
     `Pos%03d_Channel%05d/Timepoint%07d/Chan_%02d/IMG_%09d.tif`
@@ -80,9 +80,9 @@ The following examples are all valid::
         filenamesindexing=1
         )
 
-If the filenames do not in fact correspond to the prototype, fileorder, and 
+If the filenames do not in fact correspond to the prototype, fileorder, and
 indexing, the xpreader may still initialize without raising an exception. To
-make sure it has identified files in the folder properly, check that the 
+make sure it has identified files in the folder properly, check that the
 following properties are correct::
 
     reader.positions
@@ -92,17 +92,17 @@ following properties are correct::
 .. note::
     The reader can not use channel names instead of channel numbers when resolving
     filenames. You can have files named 'Position02/Channel1/Frame001042.tif'
-    and 'Position02/Channel2/Frame001042.tif' but you can not use names like 
+    and 'Position02/Channel2/Frame001042.tif' but you can not use names like
     'Position02/Trans/Frame001042.tif' and 'Position02/GFP/Frame001042.tif'.
-    
+
 .. _lineage:
 
 The Lineage class
 -------------------
 
 The main purpose of :doc:`Lineage objects <../_generated/delta.utilities.Lineage>`
-is to maintain a list of dictionaries under the `cells` attribute that represent 
-the lineage information 
+is to maintain a list of dictionaries under the `cells` attribute that represent
+the lineage information
 and the extracted features data of each single cell within an :doc:`ROI <pipeline_desc>`.
 
 A single-cell dictionary will look like this::
@@ -128,24 +128,24 @@ With the following *lineage-related* keys:
 * `frames`: The movie frames where this cell is present
 * `id`: The cell number in the lineage list (0-based indexing)
 * `mother`: The cell that spawned this cell (None if unknown)
-* `new_pole`: The position of the new pole of the cell over time. This is 
+* `new_pole`: The position of the new pole of the cell over time. This is
   the pole that was closer to the septum when division occurred
-* `old_pole`: The position of the old pole of the cell over time. This is 
+* `old_pole`: The position of the old pole of the cell over time. This is
   the pole that was further from the septum when division occurred
 
 And the following *extracted feature* keys:
 
-* `area`: Total area of the cell, as computed by 
+* `area`: Total area of the cell, as computed by
   :doc:`cell_area() <../_generated/delta.utilities.cell_area>`
-* `edges`: Edges of the image touched by the cell, as computed by 
+* `edges`: Edges of the image touched by the cell, as computed by
   :doc:`image_edges() <../_generated/delta.utilities.image_edges>`
-* `fluoN`: Average fluorescence for channel #N of the cell, as computed by 
+* `fluoN`: Average fluorescence for channel #N of the cell, as computed by
   :doc:`cell_fluo() <../_generated/delta.utilities.cell_fluo>`
-* `length`: Cell length, as computed by 
+* `length`: Cell length, as computed by
   :doc:`cell_width_length() <../_generated/delta.utilities.cell_width_length>`
-* `perimeter`: Cell perimeter, as computed by 
+* `perimeter`: Cell perimeter, as computed by
   :doc:`cell_perimeter() <../_generated/delta.utilities.cell_perimeter>`
-* `width`: Cell width, as computed by 
+* `width`: Cell width, as computed by
   :doc:`cell_width_length() <../_generated/delta.utilities.cell_width_length>`
 
 .. note::
@@ -154,10 +154,10 @@ And the following *extracted feature* keys:
     future, but we will not touch the lineage information structure.
 
 .. note::
-    Old pole and new pole are assigned randomly for the cells present at the 
+    Old pole and new pole are assigned randomly for the cells present at the
     beginning of the movie.
 
-If you want to access a specific value in time for a specific cell, you can use 
+If you want to access a specific value in time for a specific cell, you can use
 the `getvalue()` method::
 
     timepoint=81
@@ -171,7 +171,7 @@ Or you can change a value with setvalue::
 
 We are currently working on methods that would allow to also re-assign lineage
 information and propagate those changes to the rest of the lineage tree as part
-of our effort to generate post-processing GUIs, but 
+of our effort to generate post-processing GUIs, but
 these methods are a work in progress and need to be extensively tested before
 they can be used.
 

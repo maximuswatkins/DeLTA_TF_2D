@@ -49,6 +49,9 @@ packages = ["delta"]
 [tool.setuptools-git-versioning]
 enabled = true
 
+[tool.isort]
+profile = "black"
+
 [tool.ruff]
 target-version = "py38"
 # We use numpy docstring convention, this implements it

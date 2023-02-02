@@ -49,7 +49,7 @@ Click on the signatures below to get a complete description.
    .. autosummary::
        :toctree:
    {% for item in exceptions %}
-      {{ item }}    
+      {{ item }}
    {%- endfor %}
    {% endif %}
    {% endblock %}

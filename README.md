@@ -24,7 +24,7 @@ Version 1:
 --------------------------
 ## Contributions
 
-A big thank you to the following people who shared their data and training 
+A big thank you to the following people who shared their data and training
 sets with us, they help us make DeLTA more generalizable:
 
 - [Simon van Vliet](https://vanvlietlab.ch/) at University of Basel
@@ -33,5 +33,5 @@ sets with us, they help us make DeLTA more generalizable:
 - [Shuai Yang](http://jin.isynbio.siat.ac.cn/wordpress/?p=476) in [Fan Jin's group](http://jin.isynbio.siat.ac.cn/wordpress/) at Shenzhen Institutes of Advanced Technology
 - [Jordi van Gestel](https://scholar.google.ch/citations?user=73pVatUAAAAJ&hl=en) and [Noam Golan](https://www.eldarmicrolab.com/team) in [Avigdor Eldar's group](https://www.eldarmicrolab.com/) at Tel-Aviv University
 
-Please reach out if you have created your own sets and think they would be 
+Please reach out if you have created your own sets and think they would be
 helpful to the community!

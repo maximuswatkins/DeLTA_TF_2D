@@ -3,16 +3,16 @@ Output files
 
 By default, the :doc:`pipeline <pipeline_desc>` will save 3 files per processed
 position: A pickle file that can be used to reload the corresponding `Position`
-object, a "legacy" Matlab MAT file that contains the main output data of the 
-`Position` object (ie, :ref:`Lineage objects <lineage>`, label stacks, and 
+object, a "legacy" Matlab MAT file that contains the main output data of the
+`Position` object (ie, :ref:`Lineage objects <lineage>`, label stacks, and
 other parameters relevant to data analysis), and an MP4 movie file to quickly
 check the quality of the segmentation and tracking.
 
 Pickle file
 ------------
-The :doc:`Position class <../_generated/delta.pipeline.Position>` 
-objects can be saved as pickle files. This means that all 
-information about the position can be retrieved and further processed, and the 
+The :doc:`Position class <../_generated/delta.pipeline.Position>`
+objects can be saved as pickle files. This means that all
+information about the position can be retrieved and further processed, and the
 underlying :ref:`Lineage class <lineage>` objects can be used for data analysis.
 
 You can reload the pickle file for any position with the following::
@@ -20,7 +20,7 @@ You can reload the pickle file for any position with the following::
     from delta.pipeline import Position
     pos = Position.load('/path/to/PositionXXXXXX.pkl')
 
-Although this will not allow you to have access to the corresponding 
+Although this will not allow you to have access to the corresponding
 experimental images and to run most processing operations. You can set the
 necessary attributes with e.g.::
 
@@ -47,17 +47,17 @@ avoid this problem can be::
 
     reader = delta.utilities.xpreader('/path/to/file/or/folder')
     processor = delta.pipeline.Pipeline(reader)
-    
+
     # Load single position:
     processor.positions[6] = Position.load('/path/to/Position000006.pkl')
-    
+
     # Do something, for example:
     import matplotlib.pyplot as plt
     plt.plot(
         processor.positions[6].rois[0].lineage.cells[0]['frames'],
         processor.positions[6].rois[0].lineage.cells[0]['length']
         )
-    
+
     # Remove data from memory once you're done:
     processor.positions[6].clear()
 
@@ -81,7 +81,7 @@ equivalencies can be used for data structures:
 
 Because this was originally written for Matlab only, the data structure is not optimal
 for python, especially when it comes to indexing: A lot of elements use 1-based
-indexing when python indexing is usually 0-based. We try to be as clear as 
+indexing when python indexing is usually 0-based. We try to be as clear as
 possible about these cases here. The notes about 0-based & 1-based indexing can
 generally be ignored if the data is loaded in Matlab.
 
@@ -95,7 +95,7 @@ For each position, the data structure is as follows:
     |
     |
     |---moviedimensions : 1D array of int
-    |       Dimensions of the experiment movie stored as [Y, X, Channels, 
+    |       Dimensions of the experiment movie stored as [Y, X, Channels,
     |       timepoints].
     |
     |---tiffile : str
@@ -119,7 +119,7 @@ For each position, the data structure is as follows:
     |               are timepoints -by- 2.
     |
     |---res : list of dict
-            List of dictionaries containing data relevant to segmentation and 
+            List of dictionaries containing data relevant to segmentation and
             lineages for each chamber in the FOV.
             Fields:
             |
@@ -146,8 +146,8 @@ For each position, the data structure is as follows:
                     |
                     |---daughters : 1D array of float32
                     |       Daughter cells over time. 0 if no division happened at
-                    |       timepoint, otherwise daughters are indexed with 1-based 
-                    |       indexes: In python, daughter D corresponds to 
+                    |       timepoint, otherwise daughters are indexed with 1-based
+                    |       indexes: In python, daughter D corresponds to
                     |       cell/item #D-1 in lineage list.
                     |
                     |---edges : array of str
@@ -157,7 +157,7 @@ For each position, the data structure is as follows:
                     |       Mean fluorescence value over time.
                     |
                     |---frames : 1D array of float32
-                    |       Frame numbers / timepoints where the cell is present. 
+                    |       Frame numbers / timepoints where the cell is present.
                     |       Frame numbers use 1-based indexing: In python, Frame
                     |       number F here corresponds to frame/timepoint #F-1 in
                     |       labelsstack for example.
@@ -179,17 +179,17 @@ For each position, the data structure is as follows:
                     |
                     |---mother : int
                     |       Mother cell number for this cell. 0 if no mother
-                    |       detected (eg first timepoint), 1-based indexing 
-                    |       otherwise: In python, mother M is cell/item #M-1 in 
+                    |       detected (eg first timepoint), 1-based indexing
+                    |       otherwise: In python, mother M is cell/item #M-1 in
                     |       this lineage list.
                     |
                     |---new_pole : 2D array of float32
-                    |       Position of the new pole of the cell, over time. 
+                    |       Position of the new pole of the cell, over time.
                     |       Note that positions are given as (Y, X) vectors.
                     |       Dimensions are timepoints -by- 2.
                     |
                     |---old_pole : 2D array of float32
-                    |       Position of the old pole of the cell, over time. 
+                    |       Position of the old pole of the cell, over time.
                     |       Note that positions are given as (Y, X) vectors.
                     |       Dimensions are timepoints -by- 2.
                     |
@@ -206,7 +206,7 @@ MP4 movie file
 ------------------
 
 This one is straight-forward: An MP4 movie file with h264 codecs is saved to
-disk with the other save files for quick checking of outputs quality. The 
+disk with the other save files for quick checking of outputs quality. The
 relevant functions that create and write the movie are
 :doc:`results_movie <../_generated/delta.pipeline.Position.results_movie>`
 and :doc:`vidwrite <../_generated/delta.utilities.vidwrite>`

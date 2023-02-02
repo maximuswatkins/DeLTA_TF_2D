@@ -2,17 +2,17 @@
 Configuration files
 =================================
 
-`Source code <https://gitlab.com/dunloplab/delta/-/blob/master/delta/config.py>`_ | 
-:doc:`API <../_generated/delta.config>` 
+`Source code <https://gitlab.com/dunloplab/delta/-/blob/master/delta/config.py>`_ |
+:doc:`API <../_generated/delta.config>`
 
-The config.py module loads JSON configuration files, and is then used to 
-parameterize multiple operations throughout the 
-:doc:`pipeline <pipeline_desc>` , :doc:`data <data_desc>`, :doc:`models <model_desc>` 
-and :doc:`utilities <utils_desc>` modules. It is also used in the 
+The config.py module loads JSON configuration files, and is then used to
+parameterize multiple operations throughout the
+:doc:`pipeline <pipeline_desc>` , :doc:`data <data_desc>`, :doc:`models <model_desc>`
+and :doc:`utilities <utils_desc>` modules. It is also used in the
 :doc:`example scripts <scripts>` although these values can be changed.
 
-The :doc:`assets <assets_desc>` module can automatically write config files based 
-on downloaded assets, but you can also write your own JSON config files if you 
+The :doc:`assets <assets_desc>` module can automatically write config files based
+on downloaded assets, but you can also write your own JSON config files if you
 want to change default config values. JSON files can be opened with any text
 editor, and are fairly readable. For more information on each parameter, check
 out the API.
@@ -29,30 +29,30 @@ Presets and configuration levels
 --------------------------------
 If an explicit path to a JSON configuration file is not provided to `load_config()`,
 the function will look for config files based on 2 other arguments: `presets`
-and `config_level`. Presets can be either '2D' or 'mothermachine', and 
-`load_config()` will look for files named 'config_2D.json' or 
+and `config_level`. Presets can be either '2D' or 'mothermachine', and
+`load_config()` will look for files named 'config_2D.json' or
 'config_mothermachine.json' accordingly::
 
     delta.config.load_config(presets='2D')
     delta.config.load_config(presets='mothermachine')
-    
-Note that you can use different preset names, but the 'config_<presets>.json' 
+
+Note that you can use different preset names, but the 'config_<presets>.json'
 file must exist in the local or global folder.
 
-By default, `load_config()` will look for the relevant config file in two 
-different locations: 
+By default, `load_config()` will look for the relevant config file in two
+different locations:
 
-#. | First, it will look into a 'local' folder which is under 
-     the current user's personal home folder, in a .delta hidden config folder. 
+#. | First, it will look into a 'local' folder which is under
+     the current user's personal home folder, in a .delta hidden config folder.
      For example on a typical linux/osx installation this would be
-     `/home/yourusername/.delta/`, and under a typical windows installation this would 
+     `/home/yourusername/.delta/`, and under a typical windows installation this would
      be `C:\\Users\\yourusername\\.delta\\`
    | Because the exact path will vary depending
      on which user is calling `load_config()`, this can be a good way for each user on
      the same system to have their own personal config file that they can tweak
      independently.
 
-#. | Then, if it did not find the relevant config file, it will look into a 
+#. | Then, if it did not find the relevant config file, it will look into a
      'global' folder that resides under the delta installation folder in the 'assets'
      subfolder. For example under our cluster conda install, this would be under
      `/project/dunlopgroup/.conda/envs/delta_conda2/lib/python3.9/site-packages/delta/assets/config`
@@ -85,7 +85,7 @@ You can also change configuration parameters after loading::
     delta.config.min_cell_area = 0
     delta.config.save_format = ('pickle',)
 
-Note that for tensorflow-related parameters `TF_CPP_MIN_LOG_LEVEL` and 
+Note that for tensorflow-related parameters `TF_CPP_MIN_LOG_LEVEL` and
 `memory_growth_limit`, modifying them after loading may not actually change
 tensorflow's behavior. You will probably need to re-import DeLTA and make the
 changes in the JSON config file.
@@ -95,7 +95,7 @@ Old config imports
 
 If you try to import a config file that was generated for an older version of
 DeLTA, you may get a warning message if the parameters in the file do not match
-the parameters for the new version of DeLTA. This does not necessarily mean that 
+the parameters for the new version of DeLTA. This does not necessarily mean that
 the entire software will not work so we allow the load to continue, but it is
 probably better for you to update that file or re-generate one with the
 :doc:`assets downloader <assets_desc>`

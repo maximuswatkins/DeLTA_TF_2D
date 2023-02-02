@@ -17,7 +17,6 @@ from delta.config import DEFAULT_CONFIG_2D
 
 @pytest.mark.order(2)
 def test_pipeline_tif_stack():
-
     # 'Pretend' arguments were passed to the cmd line:
     sys.argv = [sys.argv[0]]
     xpfolder = Path(__file__).parent / "data/movie_2D_tif"
