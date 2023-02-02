@@ -528,7 +528,10 @@ class Position:
             i = 0
             for iroi, nbcells, boxes in references:
                 self.rois[iroi].process_tracking_outputs(
-                    y[i : i + nbcells], frame=frame, boxes=boxes, fluo_frames=fluo_frames[frame],
+                    y[i : i + nbcells],
+                    frame=frame,
+                    boxes=boxes,
+                    fluo_frames=fluo_frames[frame],
                 )
                 i += nbcells
 

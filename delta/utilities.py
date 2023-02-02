@@ -199,7 +199,11 @@ class Cell(Dict):
         eq_new_pole = np.array_equal(self["new_pole"], other["new_pole"])
         eq_old_pole = np.array_equal(self["old_pole"], other["old_pole"])
         no_fluo: List[List] = [[] for _ in range(len(self["daughters"]))]
-        eq_fluo = [np.allclose(self.get(fluo, no_fluo), other.get(fluo, no_fluo)) for fluo in self.keys() if fluo.startswith("fluo")]
+        eq_fluo = [
+            np.allclose(self.get(fluo, no_fluo), other.get(fluo, no_fluo))
+            for fluo in self.keys()
+            if fluo.startswith("fluo")
+        ]
         e = all(
             [
                 eq_id,
@@ -1052,9 +1056,7 @@ def eucl(p1: npt.NDArray[Any], p2: npt.NDArray[Any]) -> float:
     return np.linalg.norm(p1 - p2).astype(float)
 
 
-def track_poles(
-    features: CellFeatures, prev_old: Pole, prev_new: Pole
-) -> CellFeatures:
+def track_poles(features: CellFeatures, prev_old: Pole, prev_new: Pole) -> CellFeatures:
     """
     Track poles of a cell to the previous old and new poles.
 
@@ -1075,7 +1077,8 @@ def track_poles(
     """
     if (
         eucl(features.old_pole, prev_old) ** 2 + eucl(features.new_pole, prev_new) ** 2
-        >= eucl(features.old_pole, prev_new) ** 2 + eucl(features.new_pole, prev_old) ** 2
+        >= eucl(features.old_pole, prev_new) ** 2
+        + eucl(features.new_pole, prev_old) ** 2
     ):
         features.swap_poles()
 
@@ -1110,18 +1113,28 @@ def division_poles(
 
     """
     # Find new new poles (2 closest of the poles of the new cells):
-    old1_to_2 = min(eucl(features1.old_pole, features2.old_pole), eucl(features1.old_pole, features2.new_pole))
-    new1_to_2 = min(eucl(features1.new_pole, features2.old_pole), eucl(features1.new_pole, features2.new_pole))
+    old1_to_2 = min(
+        eucl(features1.old_pole, features2.old_pole),
+        eucl(features1.old_pole, features2.new_pole),
+    )
+    new1_to_2 = min(
+        eucl(features1.new_pole, features2.old_pole),
+        eucl(features1.new_pole, features2.new_pole),
+    )
     if old1_to_2 < new1_to_2:
         features1.swap_poles()
-    if eucl(features1.new_pole, features2.old_pole) < eucl(features1.new_pole, features2.new_pole):
+    if eucl(features1.new_pole, features2.old_pole) < eucl(
+        features1.new_pole, features2.new_pole
+    ):
         features2.swap_poles()
     # Now poles are correctly attributed, we will now determine which cell is the mother
 
     # Track poles closest to old and new pole from previous cell:
     if (
-        eucl(features1.old_pole, prev_old) ** 2 + eucl(features2.old_pole, prev_new) ** 2
-        < eucl(features1.old_pole, prev_new) ** 2 + eucl(features2.old_pole, prev_old) ** 2
+        eucl(features1.old_pole, prev_old) ** 2
+        + eucl(features2.old_pole, prev_new) ** 2
+        < eucl(features1.old_pole, prev_new) ** 2
+        + eucl(features2.old_pole, prev_old) ** 2
     ):
         # cell 1 is mother, cell 2 is daughter
         first_cell_is_mother = True

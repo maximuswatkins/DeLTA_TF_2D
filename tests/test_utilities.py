@@ -66,8 +66,16 @@ def test_croppingbox_partial_crop_patch(xtl, xbr, ytl, ybr):
 def test_growthrate_onecell():
     # Cell 0 is on frames 0, 1, 2
     pole = np.zeros(2, dtype=np.int16)
-    feats = CellFeatures(old_pole=pole, new_pole=pole, length=0.0, width=0.0,
-                         area=0.0, perimeter=0.0, fluo=[], edges="")
+    feats = CellFeatures(
+        old_pole=pole,
+        new_pole=pole,
+        length=0.0,
+        width=0.0,
+        area=0.0,
+        perimeter=0.0,
+        fluo=[],
+        edges="",
+    )
     lineage = utils.Lineage()
     lineage.update(cell=None, frame=0, attrib=[0], features=[feats])
     lineage.update(cell=0, frame=1, attrib=[0], features=[feats])
@@ -85,8 +93,16 @@ def test_growthrate_division():
     # Cell 1, born from cell 0 on frame 1, is on frames 1 and 2
     pole = np.zeros(2, dtype=np.int16)
     lineage = utils.Lineage()
-    feats = CellFeatures(old_pole=pole, new_pole=pole, length=0.0, width=0.0,
-                         area=0.0, perimeter=0.0, fluo=[], edges="")
+    feats = CellFeatures(
+        old_pole=pole,
+        new_pole=pole,
+        length=0.0,
+        width=0.0,
+        area=0.0,
+        perimeter=0.0,
+        fluo=[],
+        edges="",
+    )
     lineage.update(cell=None, frame=0, attrib=[0], features=[feats])
     lineage.update(cell=0, frame=1, attrib=[1, 0], features=[feats, feats])
     lineage.update(cell=0, frame=2, attrib=[0], features=[feats])
@@ -113,8 +129,16 @@ def test_growthrate_division_last():
     # Cell 0 is on frames 0 and 1
     # Cell 1, born from cell 0 on frame 1, is on frame 1
     pole = np.zeros(2, dtype=np.int16)
-    feats = CellFeatures(old_pole=pole, new_pole=pole, length=0.0, width=0.0,
-                         area=0.0, perimeter=0.0, fluo=[], edges="")
+    feats = CellFeatures(
+        old_pole=pole,
+        new_pole=pole,
+        length=0.0,
+        width=0.0,
+        area=0.0,
+        perimeter=0.0,
+        fluo=[],
+        edges="",
+    )
     lineage = utils.Lineage()
     lineage.update(cell=None, frame=0, attrib=[0], features=[feats])
     lineage.update(cell=0, frame=1, attrib=[1, 0], features=[feats, feats])
@@ -136,8 +160,16 @@ def test_growthrate_double_division():
     # Cell 2, born from cell 1 on frame 2, is on frame 2
     # Cell 3, born from cell 0 on frame 2, is on frame 2
     pole = np.zeros(2, dtype=np.uint16)
-    feats = CellFeatures(old_pole=pole, new_pole=pole, length=0.0, width=0.0,
-                         area=0.0, perimeter=0.0, fluo=[], edges="")
+    feats = CellFeatures(
+        old_pole=pole,
+        new_pole=pole,
+        length=0.0,
+        width=0.0,
+        area=0.0,
+        perimeter=0.0,
+        fluo=[],
+        edges="",
+    )
     lineage = utils.Lineage()
     lineage.update(cell=None, frame=0, attrib=[0], features=[feats])
     lineage.update(cell=0, frame=1, attrib=[1, 0], features=[feats, feats])
@@ -682,9 +714,16 @@ def test_track_poles(seed):
         if np.all(new_new >= 0) and np.all(new_old >= 0):
             break
 
-    features = CellFeatures(old_pole=new_old, new_pole=new_new, length=0.0,
-                            width=0.0, area=0.0, perimeter=0.0, fluo=[],
-                            edges="")
+    features = CellFeatures(
+        old_pole=new_old,
+        new_pole=new_new,
+        length=0.0,
+        width=0.0,
+        area=0.0,
+        perimeter=0.0,
+        fluo=[],
+        edges="",
+    )
     if rng.random() < 0.5:
         features.swap_poles()
 
@@ -739,13 +778,29 @@ def test_division_poles(seed):
     daughter_new = (daughter_old + sep2dau).astype(np.int16)
 
     # Randomly assign poles to the input lists:
-    mother = CellFeatures(old_pole=mother_old, new_pole=mother_new, length=0.0,
-                          width=0.0, area=0.0, perimeter=0.0, fluo=[], edges="")
+    mother = CellFeatures(
+        old_pole=mother_old,
+        new_pole=mother_new,
+        length=0.0,
+        width=0.0,
+        area=0.0,
+        perimeter=0.0,
+        fluo=[],
+        edges="",
+    )
     if rng.random() < 0.5:
         mother.swap_poles()
 
-    daughter = CellFeatures(old_pole=daughter_old, new_pole=daughter_new, length=0.0,
-                            width=0.0, area=0.0, perimeter=0.0, fluo=[], edges="")
+    daughter = CellFeatures(
+        old_pole=daughter_old,
+        new_pole=daughter_new,
+        length=0.0,
+        width=0.0,
+        area=0.0,
+        perimeter=0.0,
+        fluo=[],
+        edges="",
+    )
     if rng.random() < 0.5:
         daughter.swap_poles()
 
