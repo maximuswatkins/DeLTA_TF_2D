@@ -67,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `config.Config.load`.
 - The function `utils.cropbox` was removed, replaced by `CroppingBox.crop`.
 - The function `singlecell_features` was removed because used only once.
+- The method `ROI.extract_features` was removed: features are now extracted
+  during tracking.
 
 ## [2.0.5] - 2022-03-11
 ### Changed

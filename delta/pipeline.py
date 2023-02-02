@@ -477,6 +477,25 @@ class Position:
         """
         self._msg(f"Starting tracking ({len(frames)} frames)")
 
+        # Assume that brightfield is the first channel and fluorescence
+        # channels are the other ones
+        fluo_channels = list(range(1, self.reader.channels))
+
+        # Read fluorescence frames:
+        fluo_frames = self.reader.getframes(
+            position=self.position_nb,
+            channels=fluo_channels,
+            frames=frames,
+            squeeze_dimensions=False,
+            rotate=self.rotate,
+        )
+        # Apply drift correction
+        if self.config.drift_correction:
+            for f in range(fluo_frames.shape[1]):
+                fluo_frames[:, f, :, :], _ = utils.driftcorr(
+                    fluo_frames[:, f, :, :], drift=self.drift_values
+                )
+
         for frame in frames:
             self._msg(f"Tracking - frame {frame}/{len(frames)} ")
 
@@ -509,7 +528,7 @@ class Position:
             i = 0
             for iroi, nbcells, boxes in references:
                 self.rois[iroi].process_tracking_outputs(
-                    y[i : i + nbcells], frame=frame, boxes=boxes
+                    y[i : i + nbcells], frame=frame, boxes=boxes, fluo_frames=fluo_frames[frame],
                 )
                 i += nbcells
 
@@ -531,35 +550,6 @@ class Position:
 
         """
         self._msg(f"Starting feature extraction ({len(frames)} frames)")
-
-        # Assume that brightfield is the first channel and fluorescence
-        # channels are the other ones
-        fluo_channels = list(range(1, self.reader.channels))
-
-        # Read fluorescence frames:
-        fluo_frames = self.reader.getframes(
-            position=self.position_nb,
-            channels=fluo_channels,
-            frames=frames,
-            squeeze_dimensions=False,
-            rotate=self.rotate,
-        )
-        # Apply drift correction
-        if self.config.drift_correction:
-            for f in range(fluo_frames.shape[1]):
-                fluo_frames[:, f, :, :], _ = utils.driftcorr(
-                    fluo_frames[:, f, :, :], drift=self.drift_values
-                )
-
-        # Run through frames:
-        for f in frames:
-            self._msg(f"Feature extraction - frame {f}/{len(frames)}")
-            # Run through ROIs and extract features:
-            for roi in self.rois:
-                roi.extract_features(
-                    frame=f,
-                    fluo_frames=fluo_frames[f],
-                )
 
         # Now extracting multi-frame features
         for roi in self.rois:
@@ -1175,6 +1165,7 @@ class ROI:
         self,
         y: np.ndarray,
         frame: int,
+        fluo_frames: np.ndarray,
         boxes: Optional[List[Tuple[CroppingBox, CroppingBox]]] = None,
     ) -> None:
         """
@@ -1209,17 +1200,37 @@ class ROI:
         # Get poles:
         poles = utils.getpoles(self.seg_stack[frame], labels, scaling=self.scaling)
 
+        if not self.config.crop_windows:
+            resize = (
+                self.box.xbr - self.box.xtl,
+                self.box.ybr - self.box.ytl,
+            )
+            labels = cv2.resize(labels, resize, interpolation=cv2.INTER_NEAREST)
+
+        # Extract features for all cells in the ROI:
+        extracted_features = utils.roi_features(
+            labels,
+            fluo_frames=fluo_frames,
+            roi_box=self.box,
+        )
+
+        assert poles.keys() == extracted_features.keys()
+
+        for cellid, (old_pole, new_pole) in poles.items():
+            extracted_features[cellid].old_pole = old_pole
+            extracted_features[cellid].new_pole = new_pole
+
         # Update lineage:
         self.lineage.update(None, frame)
         # Go through old cells:
         for o in range(attributions.shape[0]):
             attrib = attributions[o, :].nonzero()[0]
-            features = [CellFeatures(old_pole=poles[n][0], new_pole=poles[n][1], length=0, width=0, area=0, perimeter=0, fluo=[], edges="") for n in attrib]
+            features = [extracted_features[n] for n in attrib]
             self.lineage.update(o, frame, attrib=attrib, features=features)
         # Go through "orphan" cells:
         for n in range(attributions.shape[1]):
             attrib = attributions[:, n].nonzero()[0]
-            features = [CellFeatures(old_pole=poles[n][0], new_pole=poles[n][1], length=0, width=0, area=0, perimeter=0, fluo=[], edges="")]
+            features = [extracted_features[n]]
             if len(attrib) == 0:
                 self.lineage.update(None, frame, attrib=[n], features=features)
 
@@ -1239,46 +1250,3 @@ class ROI:
 
         assert len(self.label_stack) == frame
         self.label_stack.append(labels)
-
-    def extract_features(
-        self,
-        frame: int,
-        fluo_frames: np.ndarray,
-    ) -> None:
-        """
-        Extract single cell features.
-
-        Parameters
-        ----------
-        frame : int
-            The frame to extract for.
-        fluo_frames : 3D array, optional
-            Fluorescent images to extract fluo from. Dimensions are
-            (channels, size_y, size_x).
-            The default is None.
-
-        Returns
-        -------
-        None.
-
-        """
-        if len(self.label_stack) <= frame:
-            raise ValueError(
-                f"Asked for frame {frame} but label_stack has only {len(self.label_stack)} frames"
-            )
-
-        # Extract features for all cells in the ROI:
-        extracted_features = utils.roi_features(
-            self.label_stack[frame],
-            fluo_frames=fluo_frames,
-            roi_box=self.box,
-        )
-
-        # Add feature values to lineage for each cell:
-        for cellid, features in extracted_features.items():
-            for feature_name, feature_val in features.__dict__.items():
-                if feature_name == "fluo":
-                    for ifluo, fluo in enumerate(feature_val, start=1):
-                        self.lineage.setvalue(cellid, frame, f"fluo{ifluo}", fluo)
-                elif feature_name not in ["new_pole", "old_pole"]:
-                    self.lineage.setvalue(cellid, frame, feature_name, feature_val)

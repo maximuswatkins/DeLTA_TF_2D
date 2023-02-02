@@ -192,21 +192,16 @@ class Cell(Dict):
     old_pole: List[Optional[Pole]]
 
     def __eq__(self, other) -> bool:
-        eq_keys = self.keys() == other.keys()
         eq_id = self["id"] == other["id"]
         eq_mother = self["mother"] == other["mother"]
         eq_frames = self["frames"] == other["frames"]
         eq_daughters = self["daughters"] == other["daughters"]
         eq_new_pole = np.array_equal(self["new_pole"], other["new_pole"])
         eq_old_pole = np.array_equal(self["old_pole"], other["old_pole"])
-        eq_fluo = [
-            np.allclose(self[fluo], other[fluo])
-            for fluo in self.keys()
-            if fluo.startswith("fluo")
-        ]
-        return all(
+        no_fluo: List[List] = [[] for _ in range(len(self["daughters"]))]
+        eq_fluo = [np.allclose(self.get(fluo, no_fluo), other.get(fluo, no_fluo)) for fluo in self.keys() if fluo.startswith("fluo")]
+        e = all(
             [
-                eq_keys,
                 eq_id,
                 eq_mother,
                 eq_frames,
@@ -216,6 +211,10 @@ class Cell(Dict):
                 *eq_fluo,
             ]
         )
+        if not e:
+            print(self)
+            print(other)
+        return e
 
 
 # %% Image correction
@@ -1404,6 +1403,14 @@ class Lineage:
                 "daughters": [None],
                 "new_pole": [features.new_pole],
                 "old_pole": [features.old_pole],
+                "length": [features.length],
+                "width": [features.width],
+                "area": [features.area],
+                "perimeter": [features.perimeter],
+                "fluo": [features.fluo],
+                "edges": [features.edges],
+                "growthrate_length": [features.growthrate_length],
+                "growthrate_area": [features.growthrate_area],
             }
         )
         self.cells[new_cell["id"]] = new_cell
@@ -1439,10 +1446,18 @@ class Lineage:
         None.
 
         """
-        self.cells[cell]["frames"] += [frame]  # Update frame number list
+        self.cells[cell]["frames"] += [frame]
         self.cells[cell]["daughters"] += [daughter]
         self.cells[cell]["old_pole"] += [features.old_pole]
         self.cells[cell]["new_pole"] += [features.new_pole]
+        self.cells[cell]["length"] += [features.length]
+        self.cells[cell]["width"] += [features.width]
+        self.cells[cell]["area"] += [features.area]
+        self.cells[cell]["perimeter"] += [features.perimeter]
+        self.cells[cell]["fluo"] += [features.fluo]
+        self.cells[cell]["edges"] += [features.edges]
+        self.cells[cell]["growthrate_length"] += [features.growthrate_length]
+        self.cells[cell]["growthrate_area"] += [features.growthrate_area]
 
     def setvalue(
         self, cell: int, frame: int, feature: str, value: Union[int, float, str]
