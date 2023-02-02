@@ -53,6 +53,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The function `getpoles`'s argument `labels` is now compulsory.
 - No need to specify `features` to `Pipeline.process` anymore: they are
   always all returned.
+- The functions `track_poles` and `division_poles` (from `utilities`), and
+  `createcell`, `updatecell` and `update` (from `Lineage`) changed their
+  parameters to now take a `CellFeatures` object instead of a couple of poles.
 ### Fixed
 - Fixed bug in the computation of cell perimeters.
 - Fixed training reproducibility bugs by using seeded random generators.
