@@ -333,34 +333,42 @@ def test_create_windows_stitch_pic(image_shape):
     np.testing.assert_array_equal(stitched_image, image)
 
 
-def test_label_seg():
-    mask = np.array(
-        [
-            [1, 1, 1, 0, 1, 1],
-            [1, 1, 1, 0, 0, 1],
-            [0, 0, 0, 0, 1, 1],
-            [1, 1, 0, 0, 0, 0],
-            [1, 1, 0, 1, 1, 0],
-            [0, 0, 0, 0, 1, 0],
-            [0, 1, 1, 0, 1, 1],
-            [0, 0, 0, 0, 0, 1],
-        ]
-    )
-    solution = np.array(
-        [
-            [1, 1, 1, 0, 2, 2],
-            [1, 1, 1, 0, 0, 2],
-            [0, 0, 0, 0, 2, 2],
-            [3, 3, 0, 0, 0, 0],
-            [3, 3, 0, 5, 5, 0],
-            [0, 0, 0, 0, 5, 0],
-            [0, 4, 4, 0, 5, 5],
-            [0, 0, 0, 0, 0, 5],
-        ],
-        dtype=np.uint16,
-    )
-    assert np.array_equal(utils.label_seg(mask), solution)
-    labels = [18, 93, 21, 9, 7]
+@pytest.mark.parametrize(
+    "solution",
+    [
+        np.array(
+            [
+                [1, 1, 1, 0, 2, 2],
+                [1, 1, 1, 0, 0, 2],
+                [0, 0, 0, 0, 2, 2],
+                [3, 3, 0, 0, 0, 0],
+                [3, 3, 0, 5, 5, 0],
+                [0, 0, 0, 0, 5, 0],
+                [0, 4, 4, 0, 5, 5],
+                [0, 0, 0, 0, 0, 5],
+            ],
+            dtype=np.uint16,
+        ),
+        np.array(
+            [
+                [2, 2, 0, 0, 0],
+                [2, 2, 0, 1, 1],
+                [2, 2, 0, 0, 0],
+                [0, 2, 0, 0, 3],
+                [0, 0, 0, 0, 3],
+                [4, 4, 4, 0, 3],
+                [0, 0, 4, 0, 0],
+                [6, 0, 0, 0, 5],
+                [6, 6, 0, 0, 0],
+            ],
+            dtype=np.uint16,
+        ),
+    ],
+)
+def test_label_seg(solution):
+    mask = (solution > 0).astype(np.uint8)
+    np.testing.assert_array_equal(utils.label_seg(mask), solution)
+    labels = [int(x) for x in npr.default_rng(seed=1).choice(1000, solution.max())]
     for oldlabel, newlabel in enumerate(labels):
         solution[solution == oldlabel + 1] = newlabel
     assert np.array_equal(utils.label_seg(mask, cellnumbers=labels), solution)
@@ -801,24 +809,6 @@ def test_color_contours(max_dots, seed):
     _evaluate_color_nb(mask, frame)
 
 
-def test_label_seg():
-    labels = np.array(
-        [
-            [2, 2, 0, 0, 0],
-            [2, 2, 0, 1, 1],
-            [2, 2, 0, 0, 0],
-            [0, 2, 0, 0, 3],
-            [0, 0, 0, 0, 3],
-            [4, 4, 4, 0, 3],
-            [0, 0, 4, 0, 0],
-            [6, 0, 0, 0, 5],
-            [6, 6, 0, 0, 0],
-        ]
-    )
-    seg = (labels > 0).astype(np.uint8)
-    np.testing.assert_allclose(utils.label_seg(seg), labels)
-
-
 #%% Test xpreader
 
 
@@ -940,7 +930,6 @@ def test_getTrackingScores_no_new_cells():
     labels = 0 * UNTRACKED_LABELS
     outputs = TRACKING_OUTPUTS
     scores = utils.getTrackingScores(labels, outputs)
-    print(scores)
     np.testing.assert_allclose(scores, np.zeros((2, 0), dtype=np.float32))
 
 
