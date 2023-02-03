@@ -51,6 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `threshold` argument of `binarizerange` is now compulsory, but one can
   still pass `None` to binarize in the middle of the dynamic range.
 - The function `getpoles`'s argument `labels` is now compulsory.
+- No need to specify `features` to `Pipeline.process` anymore: they are
+  always all returned.
+- The functions `track_poles` and `division_poles` (from `utilities`), and
+  `createcell`, `updatecell` and `update` (from `Lineage`) changed their
+  parameters to now take a `CellFeatures` object instead of a couple of poles.
 ### Fixed
 - Fixed bug in the computation of cell perimeters.
 - Fixed training reproducibility bugs by using seeded random generators.
@@ -65,6 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `config.Config.load`.
 - The function `utils.cropbox` was removed, replaced by `CroppingBox.crop`.
 - The function `singlecell_features` was removed because used only once.
+- The method `ROI.extract_features` was removed: features are now extracted
+  during tracking.
 
 ## [2.0.5] - 2022-03-11
 ### Changed
