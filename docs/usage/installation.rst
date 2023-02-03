@@ -12,10 +12,6 @@ necessary libraries and create a dedicated environment. However, we have been
 able to setup environments with pip too.
 
 .. note::
-    DeLTA does not automatically install python-bioformats anymore. You will
-    need to install it specifically
-
-.. note::
     DeLTA does not come packaged with spyder anymore. If you want to add it to
     your environment you will have to do so specifically
 
@@ -117,9 +113,8 @@ Again, if you want to use python-bioformats, run::
     (delta_env)$ pip install python-bioformats
 
 .. note::
-    conda sometimes takes a long time to resolve the environment. Lately we
-    have had better luck using
-    `mamba <https://mamba.readthedocs.io/en/latest/>`_ instead
+    The file ``delta_dev.yml`` is another environment file meant for people
+    who want to :doc:`contribute to development <contribute>`.
 
 Install with pip
 -----------------

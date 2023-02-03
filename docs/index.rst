@@ -54,7 +54,9 @@ download our :doc:`latest models <usage/assets_desc>`, and run the
 :doc:`pipeline <usage/pipeline_desc>` on our data or your own.
 
 See also our :doc:`example scripts <usage/scripts>` and
-:doc:`results analysis examples <usage/analysis>`
+:doc:`results analysis examples <usage/analysis>`.
+
+Finally, you can :doc:`contribute to DeLTA <usage/contribute>`.
 
 Contents
 ----------
@@ -72,6 +74,7 @@ Contents
     usage/model_desc
     usage/scripts
     usage/analysis
+    usage/contribute
 
 API
 ----
