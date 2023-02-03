@@ -43,6 +43,8 @@ class Pipeline:
         ----------
         xpreader : object
             utilities xpreader object.
+        config : Config
+            DeLTA configuration.
         resfolder : str or Path, optional
             Path to folder to save results to.
             The default is None.
@@ -222,10 +224,8 @@ class Position:
             utilities xpreader object.
         models : Dict[str, tf.keras.Model]
             U-Net models.
-        drift_correction : bool, optional
-            Flag to perform drift correction. The default is True.
-        crop_windows : bool, optional
-            Flag to crop out windows. The default is False.
+        config : Config
+            DeLTA configuration.
 
         Returns
         -------
@@ -915,6 +915,7 @@ class ROI:
         box : CroppingBox
             CroppingBox for ROI.
         config : Config
+            DeLTA configuration.
 
         Returns
         -------
@@ -1040,7 +1041,7 @@ class ROI:
 
         Parameters
         ----------
-        y : 4D array
+        logits : 4D array
             Segmentation output array. Dimensions are
             (windows, *self.config.target_size_seg, 1).
         frame : int or None, optional

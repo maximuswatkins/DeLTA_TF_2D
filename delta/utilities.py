@@ -468,7 +468,7 @@ def create_windows(
 
     Parameters
     ----------
-    img : 2D array
+    image : 2D array
         Input image.
     target_size : tuple, optional
         Dimensions of the windows to crop out. The default is (512, 512).
@@ -626,7 +626,7 @@ def gettrackingboxes(
 
 
 def getshiftvalues(
-    shift: int, img_shape: Tuple[int, int], cb: CroppingBox, rng: npr.Generator
+    shift: int, img_shape: Tuple[int, int], cropbox: CroppingBox, rng: npr.Generator
 ) -> Tuple[int, int]:
     """
     Get shift values.
@@ -650,12 +650,12 @@ def getshiftvalues(
         Number of pixels to shift cropbox in the x direction.
 
     """
-    upperY = np.min((shift, img_shape[0] - cb.ybr))
-    lowerY = np.min((shift, cb.ytl))
+    upperY = np.min((shift, img_shape[0] - cropbox.ybr))
+    lowerY = np.min((shift, cropbox.ytl))
     shiftY = round(rng.uniform(-lowerY, upperY))
 
-    upperX = np.min((shift, img_shape[1] - cb.xbr))
-    lowerX = np.min((shift, cb.xtl))
+    upperX = np.min((shift, img_shape[1] - cropbox.xbr))
+    lowerX = np.min((shift, cropbox.xtl))
     shiftX = round(rng.uniform(-lowerX, upperX))
 
     return shiftY, shiftX
@@ -949,6 +949,9 @@ def extrema_poles(
     ----------
     cellmask : 2D array of int
         Segmentation mask of a single cell.
+    scaling : Optional[Tuple[float, float]]
+        Scaling to apply in both directions to rescale poles' positions to
+        original image size (if resizing was applied).
 
     Returns
     -------
@@ -1779,11 +1782,12 @@ class xpreader:
             positions, then channels, then timepoints. You can use the same
             letter multiple times, like 'pcpt'.
             The default is 'pct'
-        filenamesindexing = int
+        filenamesindexing : int
             Selects between 0-based or 1-based indexing in the filename. If
             1, position 0 will be referenced as position 1 in the filename.
             The default is 1
-
+        watchfiles : bool
+            Not functional yet.
 
         Raises
         ------
@@ -2541,7 +2545,7 @@ def cell_fluo(
         (channels, size_y, size_x).
     mask : 2D numpy array of bool
         Mask of the region to extract (typically a single cell).
-    roi_box : CroppingBox, optional
+    box : CroppingBox, optional
         Cropping box to apply shift when looking at full-frame fluo images.
         The default is None.
 
