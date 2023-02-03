@@ -894,6 +894,7 @@ def getpoles(
     if not scaling:
         return clean_poles
 
+    # Apply image scaling to poles before returning:
     return {
         cellid: (
             np.round(p1 * scaling).astype(np.int16),
@@ -1098,7 +1099,7 @@ def division_poles(
     ----------
     features1 : CellFeatures
         Features of one of the 2 cells after division (with possibly swapped poles).
-    features1 : CellFeatures
+    features2 : CellFeatures
         Features of the other of the 2 cells after division (with possibly swapped poles).
     prev_old : Pole
         Previous old pole of the cell.
@@ -1328,6 +1329,7 @@ class Lineage:
         # If no attribution: (new/orphan cell)
         if cell is None and len(attrib) > 0:
             assert len(attrib) == 1
+            # Arbitrarily set "higher" pole as old pole:
             if features[0].new_pole[0] <= features[0].old_pole[0]:
                 features[0].swap_poles()
             cellnum = self.createcell(frame, features=features[0])
@@ -1394,10 +1396,8 @@ class Lineage:
         ----------
         frame : int
             Frame that the cell first appears (1-based indexing).
-        new_pole : tuple of int, optional
-            Coordinates of the new pole
-        old_pole : tuple of int, optional
-            Coordinates of the old pole
+        features : CellFeatures
+            CellFeatures object to instanciate from.
         mother : int or None, optional
             Number of the mother cell in the lineage (1-based indexing).
             The default is None. (ie unknown mother)
@@ -1446,13 +1446,11 @@ class Lineage:
             Cell number in lineage.
         frame : int
             Frame / timepoint number.
+        features : CellFeatures
+            CellFeatures object to update from.
         daughter : int or None, optional
             Daughter cell number if division just happened.
             The default is None.
-        new_pole : list, optional
-            New pole location. The default is None.
-        old_pole : list, optional
-            Old pole location. The default is None.
 
         Returns
         -------

@@ -1183,6 +1183,8 @@ class ROI:
             (previous_cells, *self.config.target_size_track, 1).
         frame : int
             The frame to process for.
+        fluo_frames : 4D array
+            Fluorescent frames. Dimensions are (time, channels, Y, X).
         boxes : List of tuples of 2 dicts or None
             Crop and fill boxes to re-place outputs in the ROI
 
@@ -1203,6 +1205,7 @@ class ROI:
         # Get poles:
         poles = utils.getpoles(self.seg_stack[frame], labels, scaling=self.scaling)
 
+        # Resize labels if not using crop windows:
         if not self.config.crop_windows:
             resize = (
                 self.box.xbr - self.box.xtl,
@@ -1217,8 +1220,10 @@ class ROI:
             roi_box=self.box,
         )
 
+        # Make sure the same cell_ids are present in both dicts
         assert poles.keys() == extracted_features.keys()
 
+        # Assign poles to extracted features:
         for cellid, (old_pole, new_pole) in poles.items():
             extracted_features[cellid].old_pole = old_pole
             extracted_features[cellid].new_pole = new_pole
