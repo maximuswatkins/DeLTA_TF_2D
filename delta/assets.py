@@ -127,6 +127,21 @@ def download_demo_movie(presets: PRESETS) -> Path:
 
 
 def download_model(presets: PRESETS, model: MODEL) -> Path:
+    """
+    Return the path of the downloaded model, after downloading it if needed.
+
+    Parameters
+    ----------
+    presets: PRESETS
+        2D or mothermachine
+    model: MODEL
+        seg, track or rois
+
+    Returns
+    -------
+    path: Path
+        Path of the downloaded model.
+    """
     filename = {
         ("2D", "seg"): "unet_pads_seg.hdf5",
         ("2D", "track"): "unet_pads_track.hdf5",

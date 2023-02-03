@@ -192,6 +192,7 @@ class Cell(Dict):
     old_pole: List[Optional[Pole]]
 
     def __eq__(self, other) -> bool:
+        """Equality function for Cell."""
         eq_id = self["id"] == other["id"]
         eq_mother = self["mother"] == other["mother"]
         eq_frames = self["frames"] == other["frames"]
@@ -1269,6 +1270,7 @@ class Lineage:
         "List of cells present in FOV at each timepoint"
 
     def __eq__(self, other) -> bool:
+        """Equality function for Lineage."""
         eq_cells = self.cells == other.cells
         eq_cellnumbers = self.cellnumbers == other.cellnumbers
         eq_cellnumbers_empty = all(not x for x in self.cellnumbers) and all(

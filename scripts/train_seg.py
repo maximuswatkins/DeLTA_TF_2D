@@ -1,5 +1,5 @@
 """
-This script trains the cell segmentation U-Net.
+Train the cell segmentation U-Net.
 
 @author: jblugagne
 """

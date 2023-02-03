@@ -394,7 +394,7 @@ def unet_rois(
     filters: Optional[List[int]] = None,
 ) -> Model:
     """
-    ROIs segmentation U-Net.
+    Segmentation U-Net for ROIs.
 
     Parameters
     ----------

@@ -1,5 +1,5 @@
 """
-This script simply runs the DeLTA pipeline on a demo movie.
+Run the DeLTA pipeline on a demo movie.
 
 In order to use on bioformats-compatible files such .nd2, .czi, .oib, ome-tiff
  etc files please install python-bioformats first.

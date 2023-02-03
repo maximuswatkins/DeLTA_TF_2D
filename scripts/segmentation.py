@@ -1,5 +1,6 @@
 """
-This script runs the segmentation U-Net
+Run the segmentation U-Net.
+
 For mother machine data, it runs on images of cropped out and resized single
 chambers as fed to it in Pipeline processing.
 
