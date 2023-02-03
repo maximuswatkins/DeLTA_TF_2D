@@ -151,6 +151,10 @@ def postprocess(
         Remove objects smaller than this minimum area value. If None, the
         operation is not performed.
         The default is None.
+    crop : bool
+        If `True`, the images are cropped (randomly in training mode and
+        with overlapping tiles in evaluation mode).  If `False`, the images
+        are simply resized to the target size.
 
     Returns
     -------
@@ -243,6 +247,10 @@ def data_augmentation(
         Note that the histogram voodoo operation is only applied to images with
         a non-zero order.
         The default is 0.
+    rng : Optional[npr.Generator]
+        Numpy random number generator to use for data augmentation.  If None,
+        one will be created from entropy with `npr.default_rng()`.
+        The default is None.
 
     Returns
     -------
@@ -483,6 +491,12 @@ class SegmentationDataset(tf.keras.utils.Sequence):
             are simply resized to the target size.
         rng : npr.Generator
             Random number generator.
+        stack : bool
+            If `True`, samples are shown in the form (`image`, `labels_weights`)
+            where `labels_weights` is a stacked array of the labels and the
+            weight map.  This is to use the custom loss and densities.
+            If `False`, samples are shown in the form (`image`, `labels`, `weights`).
+            The default is False.
         """
         if mode not in ["training", "evaluation"]:
             raise ValueError('`mode` can only be `"training"` or `"evaluation"`')
@@ -685,6 +699,15 @@ def _load_images_seg(
     dataset_path: Path
         Path of the training dataset, containing `img` (input images) and `seg`
         (segmentation weights).
+    validation_split : float
+        Proportion of samples to be retained for the validation set (as a
+        number between 0 and 1).
+    test_split : float
+        Proportion of samples to be retained for the test set (as a number
+        between 0 and 1).
+    rng : npr.Generator
+        Numpy random number generator to use to randomly attribute samples to
+        datasets.
 
     Returns
     -------
