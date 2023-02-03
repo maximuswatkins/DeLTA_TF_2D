@@ -1,5 +1,5 @@
 """
-This script trains the tracking U-Net.
+Train the tracking U-Net.
 
 @author: jblugagne
 """

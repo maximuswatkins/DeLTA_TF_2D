@@ -250,6 +250,7 @@ class Position:
         self._pickle_skip: Tuple[str, ...] = ("reader", "models", "_pickle_skip")
 
     def __eq__(self, other) -> bool:
+        """Equality function for Position."""
         eq_position_nb = self.position_nb == other.position_nb
         eq_rois = self.rois == other.rois
         eq_drift_values = np.array_equal(self.drift_values, other.drift_values)
@@ -946,6 +947,7 @@ class ROI:
             )
 
     def __eq__(self, other) -> bool:
+        """Equality function for ROI."""
         print(f"ROI {self.roi_nb}")
         eq_roi_nb = self.roi_nb == other.roi_nb
         if not eq_roi_nb:

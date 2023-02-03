@@ -1,5 +1,5 @@
 """
-This script will run the rois identification/segmentation U-Net.
+Run the rois identification/segmentation U-Net.
 
 To see how to extract roi images with this segmentation mask, see the
 preprocessing section of pipeline.py and getROIBoxes() in utilities.py

@@ -1,6 +1,4 @@
-"""
-Cell- and lineage-related objects and functions.
-"""
+"""Cell- and lineage-related objects and functions."""
 
 from dataclasses import dataclass
 from typing import List
@@ -13,6 +11,8 @@ Pole = npt.NDArray[np.int16]
 
 @dataclass
 class CellFeatures:
+    """Container for cell features of a given cell at a given frame."""
+
     new_pole: Pole
     """Location of "Young" cell pole created after division of the septum."""
     old_pole: Pole
@@ -37,4 +37,11 @@ class CellFeatures:
     """Growth rate of the cell area, see documentation."""
 
     def swap_poles(self) -> None:
+        """
+        Swap the new and old poles of the cell, in place.
+
+        Returns
+        -------
+        None
+        """
         self.new_pole, self.old_pole = self.old_pole, self.new_pole

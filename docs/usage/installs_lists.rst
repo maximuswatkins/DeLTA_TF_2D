@@ -708,7 +708,7 @@ Windows 10 conda yml install - TF 2.6
 install: 2022-08-16
 
 `conda list` output::
-    
+
     # packages in environment at C:\Users\jeanbaptiste\Anaconda3\envs\delta_env_dev3:
     #
     # Name                    Version                   Build  Channel

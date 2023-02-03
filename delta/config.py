@@ -8,7 +8,7 @@ import os
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Optional, Tuple, Union
+from typing import Any, Dict, Literal, Optional, Tuple, Union
 
 import tensorflow as tf
 
@@ -212,6 +212,16 @@ class Config:
         return keras_model
 
     def apply_tensorflow_config(self):
+        """
+        Apply the tensorflow-relevant parts of the config object.
+
+        These are currently the ``TF_CPP_MIN_LOG_LEVEL`` environment variable,
+        and the ``memory_growth_limit`` parameter.
+
+        Returns
+        -------
+        None
+        """
         # Tensorflow technical parameters:
         # Debugging messages level from Tensorflow ('0' = most verbose to '3' = not verbose)
         os.environ["TF_CPP_MIN_LOG_LEVEL"] = str(self.tensorflow_log_level)
@@ -295,7 +305,22 @@ DEFAULT_CONFIG_MOTHERMACHINE = Config(
 )
 
 
-def read_json(json_file: Path):
+def read_json(json_file: Path) -> Dict[str, Any]:
+    """
+    Read a JSON file containing a configuration.
+
+    This function converts the lists to tuples and the paths to ``Path``s.
+
+    Parameters
+    ----------
+    json_file: Path
+        Path of the file to read.
+
+    Returns
+    -------
+    variables: Dict[str, Any]
+        Dictionary representing the JSON.
+    """
     # Load file:
     print(f"Loading configuration from: {json_file}")
     with json_file.open("r") as file:
@@ -312,6 +337,23 @@ def read_json(json_file: Path):
 
 
 def write_json(obj: Any, path: Path) -> None:
+    """
+    Write a configuration to a JSON file.
+
+    This function transforms the ``Path``s to ``str``.
+
+    Parameters
+    ----------
+    obj: Any
+        Object to convert (typically ``Config``).
+    path: Path
+        Path of the file to write.
+
+    Returns
+    -------
+    None
+    """
+
     class PathEncoder(json.JSONEncoder):
         def default(self, obj: Any):
             if isinstance(obj, Path):

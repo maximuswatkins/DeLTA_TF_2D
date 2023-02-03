@@ -1,5 +1,5 @@
 """
-This script trains the chambers segmentation U-Net.
+Train the chambers segmentation U-Net.
 
 @author: jblugagne
 """

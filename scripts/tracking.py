@@ -1,5 +1,6 @@
 """
-This script runs the tracking U-Net on data out of the segmentation U-Net.
+Run the tracking U-Net on data out of the segmentation U-Net.
+
 Please make sure you have run the segmentation script first.
 
 Images are processed in batches of 512, although the number of actual samples
