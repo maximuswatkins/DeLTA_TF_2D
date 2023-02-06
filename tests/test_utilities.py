@@ -904,7 +904,7 @@ class Test_xpreader:
         sys.argv.append("1")
 
         sys.argv.append("--prototype")
-        # Currently there is a typo where it is chanel not channel
+        # Currently there is a typo where channel is missing an n
         sys.argv.append("Position%02dChanel%02dFrame%06d.tif")
 
         # Init reader

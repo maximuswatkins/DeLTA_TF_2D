@@ -51,9 +51,9 @@ You can build the documentation locally with the following commands::
 However, we use `readthedocs.org <https://readthedocs.org/>`_ to automatically
 build them and host them for us:
 
-* The ``dev`` branch is monitored and publically available under
+* The ``dev`` branch is monitored and publicly available under
   `delta.readthedocs.io/en/latest/ <https://delta.readthedocs.io/en/latest/>`_
-* The ``main`` branch is monitored and publically available under
+* The ``main`` branch is monitored and publicly available under
   `delta.readthedocs.io/en/stable/ <https://delta.readthedocs.io/en/stable/>`_
 * The ``docs`` branch is monitored, but is "hidden" and is meant for us to write
   or test the docs. It is available under
