@@ -14,6 +14,7 @@ import pytest
 from scipy.ndimage import binary_fill_holes
 from scipy.special import logit
 
+import delta
 from delta import pipeline, utils
 from delta.config import DEFAULT_CONFIG_2D
 from delta.lineage import CellFeatures
@@ -876,46 +877,31 @@ def test_color_contours(max_dots, seed):
 
 
 class Test_xpreader:
-    def test_2D_tif_cmdln_filename_noresfolder(self):
-        # 'Pretend' arguments were passed to the cmd line:
-        sys.argv = [sys.argv[0]]
-        sys.argv.append(str(Path(__file__).parent / "data" / "movie_2D_tif"))
-
+    def test_2D_tif_filename_noresfolder(self):
         # Init reader
-        xpreader = utils.xpreader()
+        xpreader = utils.xpreader(Path(__file__).parent / "data/movie_2D_tif")
 
-        # Init pipeline:
+        # Init pipeline
         pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
-    def test_2D_tif_cmdln_allargs(self):
-        # 'Pretend' arguments were passed to the cmd line:
-        sys.argv = [sys.argv[0]]
-        sys.argv.append(str(Path(__file__).parent / "data" / "movie_2D_tif"))
-
-        sys.argv.append("--resfolder")
-        sys.argv.append(
-            str(Path(__file__).parent / "data" / "movie_2D_tif" / "results")
+    def test_2D_tif_allargs(self):
+        # Init reader
+        xpreader = utils.xpreader(
+            Path(__file__).parent / "data/movie_2D_tif",
+            use_bioformats=False,
+            prototype="Position%02dChannel%02dFrame%06d.tif",
+            fileorder="pct",
+            filenamesindexing=1,
         )
 
-        sys.argv.append("--order")
-        sys.argv.append("pct")
-
-        sys.argv.append("--index")
-        sys.argv.append("1")
-
-        sys.argv.append("--prototype")
-        # Currently there is a typo where channel is missing an n
-        sys.argv.append("Position%02dChanel%02dFrame%06d.tif")
-
-        # Init reader
-        xpreader = utils.xpreader()
-
         # Init pipeline:
-        pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
+        pipeline.Pipeline(
+            xpreader,
+            DEFAULT_CONFIG_2D,
+            resfolder=Path(__file__).parent / "data/movie_2D_tif/results",
+        )
 
     def test_2D_tif_xpreader_filename_noresfolder(self):
-        sys.argv = [sys.argv[0]]
-
         # Init reader
         xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
 
@@ -923,8 +909,6 @@ class Test_xpreader:
         pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
     def test_2D_tif_xpreader_filename_and_resfolder(self):
-        sys.argv = [sys.argv[0]]
-
         # Init reader
         xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
 
@@ -936,8 +920,6 @@ class Test_xpreader:
         )
 
     def test_moma_tif_xpreader_filename_noresfolder(self):
-        sys.argv = [sys.argv[0]]
-
         # Init reader
         xpreader = utils.xpreader(
             Path(__file__).parent / "data" / "movie_mothermachine_tif"
