@@ -1402,7 +1402,7 @@ class Lineage:
         frame : int
             Frame that the cell first appears (1-based indexing).
         features : CellFeatures
-            CellFeatures object to instanciate from.
+            CellFeatures object to instantiate from.
         mother : int or None, optional
             Number of the mother cell in the lineage (1-based indexing).
             The default is None. (ie unknown mother)
