@@ -5,7 +5,6 @@ Created on Wed Oct 20 17:50:34 2021.
 @author: ooconnor
 """
 import copy
-import sys
 import tempfile
 from pathlib import Path
 
@@ -17,13 +16,10 @@ from delta.config import DEFAULT_CONFIG_2D
 
 @pytest.mark.order(2)
 def test_pipeline_tif_stack():
-    # 'Pretend' arguments were passed to the cmd line:
-    sys.argv = [sys.argv[0]]
     xpfolder = Path(__file__).parent / "data/movie_2D_tif"
-    sys.argv.append(str(xpfolder))
 
     # Init reader
-    xpreader = delta.utils.xpreader()
+    xpreader = delta.utils.xpreader(xpfolder)
 
     # Init pipeline:
     xp = delta.pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)

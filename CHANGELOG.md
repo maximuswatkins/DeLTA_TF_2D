@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Methods were added to the class `CroppingBox`: notably `full` (to create a
   box from a whole reference image) and `crop` (to crop an image according to
   the box).
+- Added a commandline interface to DeLTA accessible with `python -m delta`.
 ### Changed
 - All unet models return now logits, instead of probabilities, to improve
   numerical accuracy.
@@ -72,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The function `singlecell_features` was removed because used only once.
 - The method `ROI.extract_features` was removed: features are now extracted
   during tracking.
+- The old commandline behavior was removed, in favor of `python -m delta`.
 
 ## [2.0.5] - 2022-03-11
 ### Changed

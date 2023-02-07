@@ -1828,17 +1828,11 @@ class xpreader:
         self.dtype: str
         "Datatype of images"
 
-        # Retrieve command line arguments (if any)
-        cmdln_arguments = sys.argv
+        if filename is None:
+            # Interactive selection and pop up window:
+            self._interactive_init()
 
-        if self.filename is None:
-            if len(cmdln_arguments) >= 2:
-                # If command line arguments were passed
-                self._command_line_init(cmdln_arguments)
-            else:
-                # Interactive selection and pop up window:
-                self._interactive_init()
-            assert self.filename is not None
+        self.filename = Path(self.filename)
 
         self.channelnames = channelnames
 
@@ -1940,45 +1934,6 @@ class xpreader:
             self.x = s.shape[s.axes.find("X")]
             self.y = s.shape[s.axes.find("Y")]
             self.dtype = s.pages[0].asarray().dtype
-
-    def _command_line_init(self, cmdln_arguments: List[str]) -> None:
-        """
-        Initialize the reader if command line arguments were passed.
-
-        Parameters
-        ----------
-        cmdln_arguments : list of str
-            List of command line arguments that were passed.
-
-        Returns
-        -------
-        None.
-
-        """
-        self.filename = Path(cmdln_arguments[1])
-
-        self.use_bioformats = self.filename.suffix[1:] in bioformats.READABLE_FORMATS
-
-        i = 2
-        while i < len(cmdln_arguments):
-            if cmdln_arguments[i] == "--bio-formats":
-                self.use_bioformats = bool(int(cmdln_arguments[i + 1]))
-                i += 2
-            elif cmdln_arguments[i] == "--order":
-                self.fileorder = cmdln_arguments[i + 1]
-                i += 2
-            elif cmdln_arguments[i] == "--index":
-                self.filenamesindexing = int(cmdln_arguments[i + 1])
-                i += 2
-            elif cmdln_arguments[i] == "--proto":
-                self.prototype = cmdln_arguments[i + 1]
-                i += 2
-            elif cmdln_arguments[i] == "--resfolder":
-                # Resfolder will be read in pipeline
-                i += 2
-            else:
-                print(f"Not valid argument {cmdln_arguments[i]}")
-                i += 2
 
     def _interactive_init(self) -> None:
         """

@@ -68,20 +68,15 @@ class Pipeline:
         self.resfolder: Path
         "Folder to save results to"
 
-        for arg_index, arg in enumerate(sys.argv):
-            if sys.argv[arg_index] == "--resfolder":
-                resfolder = sys.argv[arg_index + 1]
-
-        # Create result files folders
-        if resfolder is not None:
-            self.resfolder = Path(resfolder)
-        else:
+        if resfolder is None:
             xpfile = self.reader.filename
             assert xpfile is not None
             if xpfile.is_dir():
-                self.resfolder = xpfile / "delta_results"
+                resfolder = xpfile / "delta_results"
             else:
-                self.resfolder = xpfile.with_name(xpfile.stem + "_delta_results")
+                resfolder = xpfile.with_name(xpfile.stem + "_delta_results")
+
+        self.resfolder = Path(resfolder)
 
         self.resfolder.mkdir(exist_ok=True)
 

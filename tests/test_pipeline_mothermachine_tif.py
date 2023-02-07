@@ -5,7 +5,6 @@ Created on Mon Nov  8 10:08:21 2021.
 @author: jeanbaptiste
 """
 
-import sys
 from pathlib import Path
 
 import pytest
@@ -16,11 +15,9 @@ from delta.config import DEFAULT_CONFIG_MOTHERMACHINE
 
 @pytest.mark.order(2)
 def test_pipeline_mothermachine():
-    sys.argv = [sys.argv[0]]
     xpfolder = Path(__file__).parent / "data/movie_mothermachine_tif"
-    sys.argv.append(str(xpfolder))
 
-    xpreader = delta.utils.xpreader()
+    xpreader = delta.utils.xpreader(xpfolder)
 
     xp = delta.pipeline.Pipeline(xpreader, DEFAULT_CONFIG_MOTHERMACHINE)
 
