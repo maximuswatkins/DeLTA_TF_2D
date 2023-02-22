@@ -29,6 +29,7 @@ test:
     - conda env create --file delta_env.yml
     - source activate delta_env
     - pip install pytest pytest-order
+    - pip install .
 
   script:
     - date

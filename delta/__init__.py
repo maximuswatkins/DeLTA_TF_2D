@@ -7,3 +7,4 @@ Created on Tue Sep 14 10:30:20 2021.
 
 from delta import assets, cli, data, lineage, model, pipeline
 from delta import utilities as utils
+from delta._version import __version__
