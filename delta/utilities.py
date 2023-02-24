@@ -193,33 +193,37 @@ class Cell(Dict):
 
     def __eq__(self, other) -> bool:
         """Equality function for Cell."""
-        eq_id = self["id"] == other["id"]
-        eq_mother = self["mother"] == other["mother"]
-        eq_frames = self["frames"] == other["frames"]
-        eq_daughters = self["daughters"] == other["daughters"]
-        eq_new_pole = np.array_equal(self["new_pole"], other["new_pole"])
-        eq_old_pole = np.array_equal(self["old_pole"], other["old_pole"])
-        no_fluo: List[List] = [[] for _ in range(len(self["daughters"]))]
-        eq_fluo = [
-            np.allclose(self.get(fluo, no_fluo), other.get(fluo, no_fluo))
-            for fluo in self.keys()
-            if fluo.startswith("fluo")
-        ]
-        e = all(
-            [
-                eq_id,
-                eq_mother,
-                eq_frames,
-                eq_daughters,
-                eq_new_pole,
-                eq_old_pole,
-                *eq_fluo,
-            ]
-        )
-        if not e:
-            print(self)
-            print(other)
-        return e
+        if "fluo" not in other:
+            if any(key.startswith("fluo") for key in other.keys()):
+                fluo = np.vstack(
+                    [
+                        fluo
+                        for key, fluo in sorted(other.items())
+                        if key.startswith("fluo")
+                    ]
+                ).T
+            else:
+                fluo = np.empty((len(self["frames"]), 0))
+            for key in list(other.keys()):
+                if key.startswith("fluo"):
+                    del other[key]
+            other["fluo"] = fluo
+        if self.keys() != other.keys():
+            print("Cells differ in attributes:")
+            print(f"    {list(self.keys())}")
+            print(f"    {list(other.keys())}")
+            return False
+        for key, value in self.items():
+            try:
+                try:
+                    np.testing.assert_allclose(value, other[key], atol=1e-8)
+                except TypeError:
+                    assert value == other[key]
+            except AssertionError as err:
+                print(f"Cells differ by {key}:")
+                print(err)
+                return False
+        return True
 
 
 # %% Image correction
