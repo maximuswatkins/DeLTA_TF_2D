@@ -760,6 +760,8 @@ class Position:
                         lin[-1][feat] = np.array(cell[feat], dtype=np.float32)
 
                 # Loop through potential fluo channels:
+                if "fluo" in cell:
+                    lin[-1]["fluo"] = np.array(cell["fluo"])
                 fluo = 0
                 while True:
                     fluo += 1
