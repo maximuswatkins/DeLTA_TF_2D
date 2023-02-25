@@ -7,13 +7,10 @@ Created on Mon Nov  8 10:08:21 2021.
 
 from pathlib import Path
 
-import pytest
-
 import delta
 from delta.config import DEFAULT_CONFIG_MOTHERMACHINE
 
 
-@pytest.mark.order(2)
 def test_pipeline_mothermachine():
     xpfolder = Path(__file__).parent / "data/movie_mothermachine_tif"
 

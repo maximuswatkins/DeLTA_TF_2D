@@ -29,7 +29,6 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "pytest >= 7.0",
-    "pytest-order >= 1.0",
 ]
 train = [
     "elasticdeform >= 0.5",
