@@ -39,7 +39,7 @@ xpreader = delta.utils.xpreader(
 xp = delta.pipeline.Pipeline(xpreader, config=config, resfolder=args.output)
 
 # Run the Pipeline and save results
-xp.process(positions=args.positions, frames=range(args.nb_frames))
+xp.process(positions=args.positions, nbframes=args.nbframes)
 
 # Close the file reader
 xpreader.close()

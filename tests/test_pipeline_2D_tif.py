@@ -24,7 +24,7 @@ def test_pipeline_tif_stack():
     # Init pipeline:
     xp = delta.pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
-    xp.process(frames=[0, 1, 2, 3], clear=False)
+    xp.process(nbframes=4, clear=False)
 
     pos0 = delta.pipeline.Position.load(
         xpfolder / "expected_results/Position000000.pkl"

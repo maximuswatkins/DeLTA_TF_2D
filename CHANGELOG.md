@@ -57,6 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The functions `track_poles` and `division_poles` (from `utilities`), and
   `createcell`, `updatecell` and `update` (from `Lineage`) changed their
   parameters to now take a `CellFeatures` object instead of a couple of poles.
+- The functions `Pipeline.process`, `Position.segment`, `Position.track`,
+  `Position.features`, `Position.save`, `Position.results_movie`, and
+  `xpreader.getframes` now get an integer argument `nbframes` instead of a list
+  `frames`.
 ### Fixed
 - Fixed bug in the computation of cell perimeters.
 - Fixed training reproducibility bugs by using seeded random generators.
