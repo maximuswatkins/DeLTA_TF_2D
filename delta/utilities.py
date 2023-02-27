@@ -1814,8 +1814,8 @@ class XPReader:
         "Type / extension of `filehandle`"
         self.filehandle: Any
         "Handle to file reader or base directory"
-        self.positions: int
-        "Number of positions in experiment"
+        self.positions: List[int]
+        "Indices of positions in experiment"
         self.channels: int
         "Number of imaging channels"
         self.x: int
@@ -1841,7 +1841,7 @@ class XPReader:
             self.filetype = "tif"
 
             self.filehandle = TiffFile(str(self.filename))
-            self.positions = len(self.filehandle.series)
+            self.positions = list(range(len(self.filehandle.series)))
             # Here I'm going to assume all series have the same format
             s = self.filehandle.series[0]
             self.timepoints = s.shape[s.axes.find("T")]
@@ -1882,11 +1882,12 @@ class XPReader:
             # Get experiment settings by testing if relevant files exist:
             # Get number of positions:
             if "p" in self.fileorder:
-                self.positions = 0
-                while self.getfilenamefromprototype(self.positions, 0, 0).exists():
-                    self.positions += 1
+                self.positions = [0]
+                while self.getfilenamefromprototype(self.positions[-1], 0, 0).exists():
+                    self.positions.append(len(self.positions))
+                self.positions = self.positions[:-1]
             else:
-                self.positions = 1
+                self.positions = [0]
             # Get number of channels:
             if "c" in self.fileorder:
                 self.channels = 0
@@ -1914,7 +1915,7 @@ class XPReader:
         self.filetype = file_extension.lower()[1:]
         self.filehandle = bioformats.ImageReader(str(self.filename))
         md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=str(self.filename)))
-        self.positions = md.get_image_count()
+        self.positions = list(range(md.get_image_count()))
         # Here I'm going to assume all series have the same number of timepoints
         self.timepoints = md.image(0).Pixels.SizeT
         self.channels = md.image(0).Pixels.channel_count

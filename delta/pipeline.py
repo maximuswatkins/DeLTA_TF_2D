@@ -81,10 +81,10 @@ class Pipeline:
         self.resfolder.mkdir(exist_ok=True)
 
         # Initialize position processors:
-        for p in range(self.reader.positions):
+        for iposition in self.reader.positions:
             self.positions += [
                 Position(
-                    p,
+                    iposition,
                     self.reader,
                     self.models,
                     config=self.config,
@@ -93,9 +93,9 @@ class Pipeline:
 
         # If reload flag, reload positions from pickle files:
         if reload:
-            for p in range(self.reader.positions):
-                self.positions[p] = Position.load(
-                    self.resfolder / f"Position{p:06d}.pkl"
+            for iposition in self.reader.positions:
+                self.positions[iposition] = Position.load(
+                    self.resfolder / f"Position{iposition:06d}.pkl"
                 )
 
     def preprocess(
@@ -126,7 +126,7 @@ class Pipeline:
 
         # Process positions to run:
         if positions is None:
-            positions_torun = list(range(self.reader.positions))
+            positions_torun = self.reader.positions
         else:
             positions_torun = positions
 
@@ -168,7 +168,7 @@ class Pipeline:
             nbframes = self.reader.timepoints
 
         if positions is None:
-            positions = list(range(self.reader.positions))
+            positions = self.reader.positions
 
         # Run through positions:
         for p in positions:
