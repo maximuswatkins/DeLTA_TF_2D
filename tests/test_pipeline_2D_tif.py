@@ -16,7 +16,7 @@ def test_pipeline_tif_stack():
     xpfolder = Path(__file__).parent / "data/movie_2D_tif"
 
     # Init reader
-    xpreader = delta.utils.xpreader(xpfolder)
+    xpreader = delta.utils.XPReader(xpfolder)
 
     # Init pipeline:
     xp = delta.pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
@@ -49,7 +49,7 @@ def test_pipeline_tif_stack():
 
     # Testing load from pipeline save:
     # Init new xpreader:
-    new_xpreader = delta.utils.xpreader(xpfolder)
+    new_xpreader = delta.utils.XPReader(xpfolder)
 
     # Load up processor:
     new_xp = delta.pipeline.Pipeline(

@@ -1733,7 +1733,7 @@ def getxppathdialog(ask_folder: bool = False) -> str:
     return file_path
 
 
-class xpreader:
+class XPReader:
     """Class to read experiment files from bioformats-compatible files or from file sequences in folders."""
 
     def __init__(

@@ -870,20 +870,20 @@ def test_color_contours(max_dots, seed):
     _evaluate_color_nb(mask, frame)
 
 
-# %% Test xpreader
+# %% Test XPReader
 
 
-class Test_xpreader:
+class Test_XPReader:
     def test_2D_tif_filename_noresfolder(self):
         # Init reader
-        xpreader = utils.xpreader(Path(__file__).parent / "data/movie_2D_tif")
+        xpreader = utils.XPReader(Path(__file__).parent / "data/movie_2D_tif")
 
         # Init pipeline
         pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
     def test_2D_tif_allargs(self):
         # Init reader
-        xpreader = utils.xpreader(
+        xpreader = utils.XPReader(
             Path(__file__).parent / "data/movie_2D_tif",
             use_bioformats=False,
             prototype="Position%02dChannel%02dFrame%06d.tif",
@@ -900,14 +900,14 @@ class Test_xpreader:
 
     def test_2D_tif_xpreader_filename_noresfolder(self):
         # Init reader
-        xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
+        xpreader = utils.XPReader(Path(__file__).parent / "data" / "movie_2D_tif")
 
         # Init pipeline:
         pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
 
     def test_2D_tif_xpreader_filename_and_resfolder(self):
         # Init reader
-        xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
+        xpreader = utils.XPReader(Path(__file__).parent / "data" / "movie_2D_tif")
 
         # Init pipeline:
         pipeline.Pipeline(
@@ -918,7 +918,7 @@ class Test_xpreader:
 
     def test_moma_tif_xpreader_filename_noresfolder(self):
         # Init reader
-        xpreader = utils.xpreader(
+        xpreader = utils.XPReader(
             Path(__file__).parent / "data" / "movie_mothermachine_tif"
         )
 

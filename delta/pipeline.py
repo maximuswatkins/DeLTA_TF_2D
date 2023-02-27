@@ -31,7 +31,7 @@ class Pipeline:
 
     def __init__(
         self,
-        xpreader: utils.xpreader,
+        xpreader: utils.XPReader,
         config: Config,
         resfolder: Optional[Union[str, Path]] = None,
         reload: bool = False,
@@ -41,8 +41,8 @@ class Pipeline:
 
         Parameters
         ----------
-        xpreader : object
-            utilities xpreader object.
+        xpreader : utils.XPReader
+            utilities XPReader object.
         config : Config
             DeLTA configuration.
         resfolder : str or Path, optional
@@ -57,7 +57,7 @@ class Pipeline:
         None.
 
         """
-        self.reader: utils.xpreader = xpreader
+        self.reader: utils.XPReader = xpreader
         "Experiment reader object"
         self.positions: List[Position] = []
         "List of Position objects for experiment"
@@ -204,7 +204,7 @@ class Position:
     def __init__(
         self,
         position_nb: int,
-        reader: utils.xpreader,
+        reader: utils.XPReader,
         models: Dict[MODEL, tf.keras.Model],
         config: Config,
     ) -> None:
@@ -215,8 +215,8 @@ class Position:
         ----------
         position_nb : int
             Position index.
-        reader : object
-            utilities xpreader object.
+        reader : XPReader
+            utilities XPReader object.
         models : Dict[str, tf.keras.Model]
             U-Net models.
         config : Config
@@ -229,7 +229,7 @@ class Position:
         """
         self.position_nb = position_nb
         "Position index number in the experiment"
-        self.reader: utils.xpreader = reader
+        self.reader: utils.XPReader = reader
         "Experiment reader object"
         self.models = models
         "List of Tensorflow models"

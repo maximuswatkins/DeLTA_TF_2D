@@ -61,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Position.features`, `Position.save`, `Position.results_movie`, and
   `xpreader.getframes` now get an integer argument `nbframes` instead of a list
   `frames`.
+- Renamed `xpreader` into `XPReader`.
 ### Fixed
 - Fixed bug in the computation of cell perimeters.
 - Fixed training reproducibility bugs by using seeded random generators.

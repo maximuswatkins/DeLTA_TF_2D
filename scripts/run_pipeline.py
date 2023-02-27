@@ -16,7 +16,7 @@ config = delta.config.DEFAULT_CONFIG_2D
 file_path = config.demo_movie_path()
 
 # Init reader (use bioformats=True if working with nd2, czi, ome-tiff etc):
-xpreader = delta.utils.xpreader(file_path)
+xpreader = delta.utils.XPReader(file_path)
 
 # Init pipeline:
 xp = delta.pipeline.Pipeline(xpreader, config=config)

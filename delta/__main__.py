@@ -27,7 +27,7 @@ elif args.presets == "mothermachine":
     config = delta.config.DEFAULT_CONFIG_MOTHERMACHINE
 
 # Create the file reader that reads the experiment file(s)
-xpreader = delta.utils.xpreader(
+xpreader = delta.utils.XPReader(
     args.input,
     use_bioformats=args.bioformats,
     prototype=args.prototype,

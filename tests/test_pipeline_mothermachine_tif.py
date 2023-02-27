@@ -14,7 +14,7 @@ from delta.config import DEFAULT_CONFIG_MOTHERMACHINE
 def test_pipeline_mothermachine():
     xpfolder = Path(__file__).parent / "data/movie_mothermachine_tif"
 
-    xpreader = delta.utils.xpreader(xpfolder)
+    xpreader = delta.utils.XPReader(xpfolder)
 
     xp = delta.pipeline.Pipeline(xpreader, DEFAULT_CONFIG_MOTHERMACHINE)
 
@@ -32,7 +32,7 @@ def test_pipeline_mothermachine():
 
     # Testing load from pipeline save:
     # Init new xpreader:
-    new_xpreader = delta.utils.xpreader(xpfolder)
+    new_xpreader = delta.utils.XPReader(xpfolder)
 
     # Load up processor:
     new_xp = delta.pipeline.Pipeline(
