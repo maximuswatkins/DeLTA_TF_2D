@@ -19,7 +19,7 @@ read experiment files. This can either be
 `Bio-Formats <https://www.openmicroscopy.org/bio-formats/>`_ compatible files
 such as the open format OME-TIFF, Nikon's .nd2 format, Olympus's .oib format,
 Zeiss's .czi format and many more. Or it can be a folder containing separate
-image files for all positions, imaging channels, and timepoints.
+image files for all positions, imaging channels, and frames.
 
 In order to read Bio-Formats compatible files, please use the `use_bioformats`
 flag::
@@ -87,7 +87,7 @@ following properties are correct::
 
     reader.positions
     reader.channels
-    reader.timepoints
+    reader.frames
 
 .. note::
     The reader can not use channel names instead of channel numbers when resolving

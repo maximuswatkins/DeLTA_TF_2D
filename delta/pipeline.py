@@ -165,7 +165,7 @@ class Pipeline:
 
         """
         if nbframes is None:
-            nbframes = self.reader.timepoints
+            nbframes = len(self.reader.frames)
 
         if positions is None:
             positions = self.reader.positions
@@ -673,7 +673,7 @@ class Position:
             self.reader.y,
             self.reader.x,
             len(self.reader.channels),
-            self.reader.timepoints,
+            len(self.reader.frames),
         ]
         xpfile = self.reader.filename
 

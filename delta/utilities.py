@@ -175,7 +175,7 @@ class Cell(Dict):
         mother : Optional[int]
            ID of mother cell. If None, the cell is an orphan.
         frames : List[int]
-            List of frames / timepoints where the cell is present.
+            List of frames where the cell is present.
         daughters : List[Optional[int]]
             List of daughters over time. If None, no division occurred.
         new_pole : List[Optional[Pole]]
@@ -1776,9 +1776,9 @@ class XPReader:
             The default is None.
         fileorder: string, optional
             Order of the numbers in the prototype, with 'p' for positions/
-            series, 'c' for imaging channels, and 't' for timepoints/frames.
+            series, 'c' for imaging channels, and 't' for frames.
             For example 'pct' indicates that the first number is going to be
-            positions, then channels, then timepoints. You can use the same
+            positions, then channels, then frames. You can use the same
             letter multiple times, like 'pcpt'.
             The default is 'pct'
         filenamesindexing : int
@@ -1844,7 +1844,7 @@ class XPReader:
             self.positions = list(range(len(self.filehandle.series)))
             # Here I'm going to assume all series have the same format
             s = self.filehandle.series[0]
-            self.timepoints = s.shape[s.axes.find("T")]
+            self.frames = list(range(s.shape[s.axes.find("T")]))
             self.channels = list(range(s.shape[s.axes.find("C")]))
             self.x = s.shape[s.axes.find("X")]
             self.y = s.shape[s.axes.find("Y")]
@@ -1896,13 +1896,14 @@ class XPReader:
                 self.channels = self.channels[:-1]
             else:
                 self.channels = [0]
-            # Get number of frames/timepoints:
+            # Get number of frames:
             if "t" in self.fileorder:
-                self.timepoints = 0
-                while self.getfilenamefromprototype(0, 0, self.timepoints).exists():
-                    self.timepoints += 1
+                self.frames = [0]
+                while self.getfilenamefromprototype(0, 0, self.frames[-1]).exists():
+                    self.frames.append(len(self.frames))
+                self.frames = self.frames[:-1]
             else:
-                self.timepoints = 1  # I guess this shouldn't really happen
+                self.frames = [0]  # I guess this shouldn't really happen
             # Get image specs:
             # Load first image, get image data from it
             img = read_image(self.getfilenamefromprototype(0, 0, 0))
@@ -1917,8 +1918,8 @@ class XPReader:
         self.filehandle = bioformats.ImageReader(str(self.filename))
         md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=str(self.filename)))
         self.positions = list(range(md.get_image_count()))
-        # Here I'm going to assume all series have the same number of timepoints
-        self.timepoints = md.image(0).Pixels.SizeT
+        # Here I'm going to assume all series have the same number of frames
+        self.frames = list(range(md.image(0).Pixels.SizeT))
         self.channels = list(range(md.image(0).Pixels.channel_count))
         self.x = md.image(0).Pixels.SizeX
         self.y = md.image(0).Pixels.SizeY
@@ -2107,7 +2108,7 @@ class XPReader:
             channels = [channels]
 
         if nbframes is None:
-            frames = list(range(self.timepoints))
+            frames = self.frames
         else:
             frames = list(range(nbframes))
 
