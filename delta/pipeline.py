@@ -475,7 +475,7 @@ class Position:
 
         # Assume that brightfield is the first channel and fluorescence
         # channels are the other ones
-        fluo_channels = list(range(1, self.reader.channels))
+        fluo_channels = self.reader.channels[1:]
 
         # Read fluorescence frames:
         fluo_frames = self.reader.getframes(
@@ -672,7 +672,7 @@ class Position:
         moviedimensions = [
             self.reader.y,
             self.reader.x,
-            self.reader.channels,
+            len(self.reader.channels),
             self.reader.timepoints,
         ]
         xpfile = self.reader.filename

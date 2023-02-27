@@ -1816,7 +1816,7 @@ class XPReader:
         "Handle to file reader or base directory"
         self.positions: List[int]
         "Indices of positions in experiment"
-        self.channels: int
+        self.channels: List[int]
         "Number of imaging channels"
         self.x: int
         "Size of images along X axis"
@@ -1845,7 +1845,7 @@ class XPReader:
             # Here I'm going to assume all series have the same format
             s = self.filehandle.series[0]
             self.timepoints = s.shape[s.axes.find("T")]
-            self.channels = s.shape[s.axes.find("C")]
+            self.channels = list(range(s.shape[s.axes.find("C")]))
             self.x = s.shape[s.axes.find("X")]
             self.y = s.shape[s.axes.find("Y")]
             self.dtype = s.pages[0].asarray().dtype
@@ -1890,11 +1890,12 @@ class XPReader:
                 self.positions = [0]
             # Get number of channels:
             if "c" in self.fileorder:
-                self.channels = 0
-                while self.getfilenamefromprototype(0, self.channels, 0).exists():
-                    self.channels += 1
+                self.channels = [0]
+                while self.getfilenamefromprototype(0, self.channels[-1], 0).exists():
+                    self.channels.append(len(self.channels))
+                self.channels = self.channels[:-1]
             else:
-                self.channels = 1
+                self.channels = [0]
             # Get number of frames/timepoints:
             if "t" in self.fileorder:
                 self.timepoints = 0
@@ -1918,7 +1919,7 @@ class XPReader:
         self.positions = list(range(md.get_image_count()))
         # Here I'm going to assume all series have the same number of timepoints
         self.timepoints = md.image(0).Pixels.SizeT
-        self.channels = md.image(0).Pixels.channel_count
+        self.channels = list(range(md.image(0).Pixels.channel_count))
         self.x = md.image(0).Pixels.SizeX
         self.y = md.image(0).Pixels.SizeY
         # Get first image to get datatype (there's probably a better way to do this...)
@@ -2080,7 +2081,7 @@ class XPReader:
         """
         # Handle options:
         if channels is None:  # No channel specified: load all
-            channels = list(range(self.channels))
+            channels = self.channels
         elif isinstance(channels, str):  # refer to 1 channel by name (eg 'gfp')
             if self.channelnames is None:
                 raise ValueError("Set channel names first")
@@ -2130,7 +2131,7 @@ class XPReader:
                 elif self.filetype == "tif":
                     frame = (
                         self.filehandle.series[position]
-                        .pages[fra * self.channels + cha]
+                        .pages[fra * len(self.channels) + cha]
                         .asarray()
                     )
 
