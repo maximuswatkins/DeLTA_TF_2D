@@ -1029,7 +1029,7 @@ class ROI:
     def process_segmentation_outputs(
         self,
         logits: npt.NDArray[np.float32],
-        frame: Optional[int] = None,
+        frame: int,
         windows: Optional[Tuple[List, List]] = None,
     ) -> None:
         """
@@ -1040,9 +1040,8 @@ class ROI:
         logits : 4D array
             Segmentation output array. Dimensions are
             (windows, *self.config.target_size_seg, 1).
-        frame : int or None, optional
-            Frame index. If None, this is considered the latest frame's output.
-            The default is None.
+        frame : int
+            Frame index.
         windows : tuple of 2 lists
             y and x coordinates of crop windows if any, or None.
 
@@ -1066,11 +1065,8 @@ class ROI:
         seg = utils.opencv_areafilt(seg, min_area=self.config.min_cell_area)
 
         # Append to segmentation results stack:
-        if frame is None or frame == len(self.seg_stack):
-            self.seg_stack.append(seg)
-        else:
-            assert frame < len(self.seg_stack)
-            self.seg_stack[frame] = seg
+        assert len(self.seg_stack) == frame
+        self.seg_stack.append(seg)
 
     def get_tracking_inputs(
         self, frame: int
