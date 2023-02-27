@@ -29,7 +29,6 @@ elif args.presets == "mothermachine":
 # Create the file reader that reads the experiment file(s)
 xpreader = delta.utils.XPReader(
     args.input,
-    use_bioformats=args.bioformats,
     prototype=args.prototype,
     fileorder=args.order,
     filenamesindexing=args.indexing,

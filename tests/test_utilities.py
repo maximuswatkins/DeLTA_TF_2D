@@ -885,7 +885,6 @@ class Test_XPReader:
         # Init reader
         xpreader = utils.XPReader(
             Path(__file__).parent / "data/movie_2D_tif",
-            use_bioformats=False,
             prototype="Position%02dChannel%02dFrame%06d.tif",
             fileorder="pct",
             filenamesindexing=1,

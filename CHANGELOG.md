@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The method `ROI.extract_features` was removed: features are now extracted
   during tracking.
 - The old commandline behavior was removed, in favor of `python -m delta`.
+- The `use_bioformats` parameter to `XPReader` was removed, now it should guess
+  automatically whether bioformats should be used or not.
 
 ## [2.0.5] - 2022-03-11
 ### Changed

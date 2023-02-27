@@ -52,11 +52,6 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         choices=["2D", "mothermachine"],
         help="Whether to run in 2D or mothermachine mode",
     )
-    parser.add_argument(
-        "--bioformats",
-        action="store_true",
-        help="Use bioformats to read the input file (for example for nd2 files)",
-    )
     parser.add_argument("-i", "--input", help="Input file or directory", required=True)
     parser.add_argument(
         "-o",

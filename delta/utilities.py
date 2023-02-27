@@ -1740,7 +1740,6 @@ class XPReader:
         self,
         filename: Optional[Union[Path, str]] = None,
         channelnames: Optional[Tuple[str]] = None,
-        use_bioformats: bool = False,
         prototype: Optional[str] = None,
         fileorder: str = "pct",
         filenamesindexing: int = 1,
@@ -1766,9 +1765,6 @@ class XPReader:
         channelnames : List/tuple of strings or None, optional
             Names of the acquisition channels ('trans', 'gfp', ...).
             The default is None.
-        use_bioformats : bool, optional
-            Flag to use the bioformats reader.
-            The default is False.
         prototype: string, optional
             Filename prototype to use when reading single-page tif images from
             a sequence folder, in C-style formatting. Folder separators can be
@@ -1804,7 +1800,7 @@ class XPReader:
         # Set default parameters
         self.filename = None if not filename else Path(filename)
         "File or folder name for the experiment"
-        self.use_bioformats = use_bioformats
+        self.use_bioformats = False
         "Flag to use the Bio-Formats library to read file"
         self.fileorder = fileorder
         "File ordering (if image files sequence)"
@@ -1840,24 +1836,22 @@ class XPReader:
 
         file_extension = self.filename.suffix
 
-        if self.use_bioformats:
-            javabridge.start_vm(class_path=bioformats.JARS)
-            self.filetype = file_extension.lower()[1:]
-            self.filehandle = bioformats.ImageReader(str(self.filename))
-            md = bioformats.OMEXML(
-                bioformats.get_omexml_metadata(path=str(self.filename))
-            )
-            self.positions = md.get_image_count()
-            self.timepoints = md.image(
-                0
-            ).Pixels.SizeT  # Here I'm going to assume all series have the same number of timepoints
-            self.channels = md.image(0).Pixels.channel_count
-            self.x = md.image(0).Pixels.SizeX
-            self.y = md.image(0).Pixels.SizeY
-            # Get first image to get datatype (there's probably a better way to do this...)
-            self.dtype = self.filehandle.read(rescale=True, c=0).dtype
+        if file_extension.lower().startswith(".tif"):
+            # Works with single-series tif & multi-series ome.tif
+            self.filetype = "tif"
 
-        elif self.filename.is_dir():
+            self.filehandle = TiffFile(str(self.filename))
+            self.positions = len(self.filehandle.series)
+            # Here I'm going to assume all series have the same format
+            s = self.filehandle.series[0]
+            self.timepoints = s.shape[s.axes.find("T")]
+            self.channels = s.shape[s.axes.find("C")]
+            self.x = s.shape[s.axes.find("X")]
+            self.y = s.shape[s.axes.find("Y")]
+            self.dtype = s.pages[0].asarray().dtype
+            return
+
+        if self.filename.is_dir():
             # Experiment is stored as individual image TIFF files in a folder
             self.filetype = "dir"
             self.filehandle = self.filename
@@ -1914,20 +1908,20 @@ class XPReader:
             self.y = img.shape[0]
             self.dtype = img.dtype
 
-        elif file_extension.lower() == ".tif" or file_extension.lower() == ".tiff":
-            # Works with single-series tif & multi-series ome.tif
-            self.filetype = "tif"
-
-            self.filehandle = TiffFile(str(self.filename))
-            self.positions = len(self.filehandle.series)
-            s = self.filehandle.series[
-                0
-            ]  # Here I'm going to assume all series have the same format
-            self.timepoints = s.shape[s.axes.find("T")]
-            self.channels = s.shape[s.axes.find("C")]
-            self.x = s.shape[s.axes.find("X")]
-            self.y = s.shape[s.axes.find("Y")]
-            self.dtype = s.pages[0].asarray().dtype
+        # Fall back on bioformats
+        self.use_bioformats = True
+        javabridge.start_vm(class_path=bioformats.JARS)
+        self.filetype = file_extension.lower()[1:]
+        self.filehandle = bioformats.ImageReader(str(self.filename))
+        md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=str(self.filename)))
+        self.positions = md.get_image_count()
+        # Here I'm going to assume all series have the same number of timepoints
+        self.timepoints = md.image(0).Pixels.SizeT
+        self.channels = md.image(0).Pixels.channel_count
+        self.x = md.image(0).Pixels.SizeX
+        self.y = md.image(0).Pixels.SizeY
+        # Get first image to get datatype (there's probably a better way to do this...)
+        self.dtype = self.filehandle.read(rescale=True, c=0).dtype
 
     def _interactive_init(self) -> None:
         """
