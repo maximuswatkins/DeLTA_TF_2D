@@ -69,7 +69,7 @@ class Pipeline:
         "Folder to save results to"
 
         if resfolder is None:
-            xpfile = self.reader.filename
+            xpfile = self.reader.path
             assert xpfile is not None
             if xpfile.is_dir():
                 resfolder = xpfile / "delta_results"
@@ -683,7 +683,7 @@ class Position:
             len(self.reader.channels),
             len(self.reader.frames),
         ]
-        xpfile = self.reader.filename
+        xpfile = self.reader.path
 
         # If No ROIs detected for position:
         if len(self.rois) == 0:

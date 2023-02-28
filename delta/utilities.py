@@ -1738,7 +1738,7 @@ class XPReader:
 
     def __init__(
         self,
-        filename: Optional[Union[Path, str]] = None,
+        path: Union[Path, str],
         channelnames: Optional[Tuple[str]] = None,
         prototype: Optional[str] = None,
         fileorder: str = "pct",
@@ -1749,7 +1749,7 @@ class XPReader:
 
         Parameters
         ----------
-        filename : Path or str, optional
+        path : Path or str
             Path to experiment file or directory. If the path leads to a
             directory, the experiment folder is expected to contain exclusively
             single-page tif images. If None, an interactive selection dialog
@@ -1798,7 +1798,7 @@ class XPReader:
 
         """
         # Set default parameters
-        self.filename = None if not filename else Path(filename)
+        self.path = Path(path)
         "File or folder name for the experiment"
         self.use_bioformats = False
         "Flag to use the Bio-Formats library to read file"
@@ -1825,22 +1825,16 @@ class XPReader:
         self.dtype: str
         "Datatype of images"
 
-        if filename is None:
-            # Interactive selection and pop up window:
-            self._interactive_init()
-
-        self.filename = Path(self.filename)
-
         self.channelnames = channelnames
         "Names of the imaging channels (optional)"
 
-        file_extension = self.filename.suffix
+        file_extension = self.path.suffix
 
         if file_extension.lower().startswith(".tif"):
             # Works with single-series tif & multi-series ome.tif
             self.filetype = "tif"
 
-            self.filehandle = TiffFile(str(self.filename))
+            self.filehandle = TiffFile(str(self.path))
             self.positions = list(range(len(self.filehandle.series)))
             # Here I'm going to assume all series have the same format
             s = self.filehandle.series[0]
@@ -1851,15 +1845,15 @@ class XPReader:
             self.dtype = s.pages[0].asarray().dtype
             return
 
-        if self.filename.is_dir():
+        if self.path.is_dir():
             # Experiment is stored as individual image TIFF files in a folder
             self.filetype = "dir"
-            self.filehandle = self.filename
+            self.filehandle = self.path
             # If filename prototype is not provided, guess it from the first file:
             if self.prototype is None:
                 imgfiles = [
                     x
-                    for x in self.filename.iterdir()
+                    for x in self.path.iterdir()
                     if x.suffix.lower() in (".tif", ".tiff")
                 ]
                 # Here we assume all images in the folder follow the same naming convention:
@@ -1915,8 +1909,8 @@ class XPReader:
         self.use_bioformats = True
         javabridge.start_vm(class_path=bioformats.JARS)
         self.filetype = file_extension.lower()[1:]
-        self.filehandle = bioformats.ImageReader(str(self.filename))
-        md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=str(self.filename)))
+        self.filehandle = bioformats.ImageReader(str(self.path))
+        md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=str(self.path)))
         self.positions = list(range(md.get_image_count()))
         # Here I'm going to assume all series have the same number of frames
         self.frames = list(range(md.image(0).Pixels.SizeT))
@@ -1959,7 +1953,7 @@ class XPReader:
         # If bioformats file(s):
         if answer is None or answer == 1:
             print("Please select experiment file(s)...")
-            self.filename = getxppathdialog(ask_folder=False)
+            self.path = getxppathdialog(ask_folder=False)
             self.use_bioformats = True
             self.prototype = None
             self.filenamesindexing = 1
@@ -1968,7 +1962,7 @@ class XPReader:
         # If folder:
         else:
             print("Please select experiment folder...")
-            self.filename = getxppathdialog(ask_folder=True)
+            self.path = getxppathdialog(ask_folder=True)
             self.use_bioformats = False
             if answer is None or answer == 2:
                 self.prototype = None
