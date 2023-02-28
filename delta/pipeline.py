@@ -341,6 +341,7 @@ class Position:
             self.rois = [
                 ROI(
                     roi_nb=0,
+                    first_frame=self.reader.frames[0],
                     box=CroppingBox.full(reference),
                     config=self.config,
                 )
@@ -395,7 +396,14 @@ class Position:
 
         # Instantiate ROIs:
         for b, box in enumerate(roisboxes):
-            self.rois += [ROI(roi_nb=b, box=box, config=self.config)]
+            self.rois += [
+                ROI(
+                    roi_nb=b,
+                    first_frame=self.reader.frames[0],
+                    box=box,
+                    config=self.config,
+                )
+            ]
 
     def segment(self, nbframes: int) -> None:
         """
@@ -435,11 +443,11 @@ class Position:
         # Run through frames and ROIs and compile segmentation inputs:
         x = []
         references: List[Tuple[int, int, int, Optional[Tuple[List, List]]]] = []
-        for f, img in enumerate(trans_frames):
+        for frame, img in enumerate(trans_frames):
             for r, roi in enumerate(self.rois):
                 inputs, windows = roi.get_segmentation_inputs(img)
                 x += [inputs]
-                references += [(r, len(x[-1]), f, windows)]
+                references += [(r, len(x[-1]), frame, windows)]
         x = np.concatenate(x)
 
         # Run segmentation model:
@@ -796,7 +804,7 @@ class Position:
 
         """
         if nbframes is None:
-            nbframes = self.reader.timepoints
+            nbframes = self.reader.frames
         # Re-read trans frames:
         trans_frames = self.reader.getframes(
             position=self.position_nb,
@@ -830,7 +838,7 @@ class Position:
             for r, roi in enumerate(self.rois):
                 # Get chamber-specific variables:
                 colors = utils.getrandomcolors(list(roi.lineage.cells.keys()), seed=r)
-                fr = roi.label_stack[iframe]
+                fr = roi.get_labels(iframe)
                 assert fr is not None  # FIXME: why is it not None?
                 cells, contours = utils.getcellsinframe(fr, return_contours=True)
 
@@ -900,7 +908,9 @@ class Position:
 class ROI:
     """ROI processor object."""
 
-    def __init__(self, roi_nb: int, box: CroppingBox, config: Config) -> None:
+    def __init__(
+        self, roi_nb: int, first_frame: int, box: CroppingBox, config: Config
+    ) -> None:
         """
         Initialize ROI.
 
@@ -908,6 +918,8 @@ class ROI:
         ----------
         roi_nb : int
             ROI index.
+        first_frame : int
+            Index of the first frame (in general 0 or 1).
         box : CroppingBox
             CroppingBox for ROI.
         config : Config
@@ -922,6 +934,8 @@ class ROI:
         "The ROI index number"
         self.box = box
         "ROI crop box"
+        self.first_frame = first_frame
+        "Index of the first frame"
         self.img_stack: List[utils.Image] = []
         "Input images stack"
         self.seg_stack: List[utils.SegmentationMask] = []
@@ -954,6 +968,9 @@ class ROI:
             print("ROIs differ by box")
             print(self.box)
             print(other.box)
+        eq_first_frame = self.first_frame == other.__dict__.get("first_frame", 0)
+        if not eq_first_frame:
+            print("ROIs differ by first_frame")
         eq_img_stack = np.allclose(self.img_stack, other.img_stack, atol=2e-4)
         if not eq_img_stack:
             print("ROIs differ by img_stack")
@@ -978,11 +995,60 @@ class ROI:
             eq_lineage,
             eq_roi_nb,
             eq_box,
+            eq_first_frame,
             eq_img_stack,
             eq_seg_stack,
             eq_label_stack,
         ]
         return all(eqs)
+
+    def get_img(self, frame: int) -> utils.Image:
+        """
+        Return the ROI image at a given frame.
+
+        Parameters
+        ----------
+        frame : int
+            Frame index.
+
+        Returns
+        -------
+        image : utils.Image
+            Image of the ROI.
+        """
+        return self.img_stack[frame - self.first_frame]
+
+    def get_seg(self, frame: int) -> utils.SegmentationMask:
+        """
+        Return the ROI segmentation mask at a given frame.
+
+        Parameters
+        ----------
+        frame : int
+            Frame index.
+
+        Returns
+        -------
+        seg : utils.SegmentationMask
+            Segmentation mask of the ROI.
+        """
+        return self.seg_stack[frame - self.first_frame]
+
+    def get_labels(self, frame: int) -> utils.Labels:
+        """
+        Return the ROI labels at a given frame.
+
+        Parameters
+        ----------
+        frame : int
+            Frame index.
+
+        Returns
+        -------
+        labels : utils.Labels
+            Labels frame.
+        """
+        return self.label_stack[frame - self.first_frame]
 
     def get_segmentation_inputs(
         self, img: utils.Image
@@ -1065,7 +1131,7 @@ class ROI:
         seg = utils.opencv_areafilt(seg, min_area=self.config.min_cell_area)
 
         # Append to segmentation results stack:
-        assert len(self.seg_stack) == frame
+        assert len(self.seg_stack) == frame - self.first_frame
         self.seg_stack.append(seg)
 
     def get_tracking_inputs(
@@ -1094,14 +1160,14 @@ class ROI:
 
         """
         # Check if segmentation data is ready:
-        if len(self.seg_stack) <= frame:
+        if len(self.seg_stack) <= frame - self.first_frame:
             raise RuntimeError(f"Segmentation incomplete - frame {frame}")
 
         # Get cell contours from previous frame
         if frame == 0 or len(self.lineage.cellnumbers) < frame:
             prev_cell_contours = []
         else:
-            prev_cell_contours = utils.find_contours(self.seg_stack[frame - 1])
+            prev_cell_contours = utils.find_contours(self.get_seg(frame - 1))
 
         # Sort them along Y
         prev_cell_contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))
@@ -1117,8 +1183,8 @@ class ROI:
         for c, cell in enumerate(prev_cell_contours):
             draw_offset: Optional[Tuple[float, float]]
             if self.config.crop_windows:
-                curr_img = self.img_stack[frame]
-                prev_img = self.img_stack[frame - 1]
+                curr_img = self.get_img(frame)
+                prev_img = self.get_img(frame - 1)
                 # Cell-centered crop boxes:
                 shape = cast(Tuple[int, int], curr_img.shape)  # for mypy
                 cb, fb = utils.gettrackingboxes(
@@ -1127,10 +1193,10 @@ class ROI:
                 draw_offset = (-cb.xtl + fb.xtl, -cb.ytl + fb.ytl)
             else:
                 curr_img = cv2.resize(
-                    self.img_stack[frame], dsize=self.config.target_size_seg[::-1]
+                    self.get_img(frame), dsize=self.config.target_size_seg[::-1]
                 )
                 prev_img = cv2.resize(
-                    self.img_stack[frame - 1], dsize=self.config.target_size_seg[::-1]
+                    self.get_img(frame - 1), dsize=self.config.target_size_seg[::-1]
                 )
                 cb = CroppingBox.full(curr_img)
                 fb = CroppingBox.full(curr_img)
@@ -1154,7 +1220,7 @@ class ROI:
             fb.patch(x[c, :, :, 2], cb.crop(prev_img))
 
             # Segmentation of all current cells
-            fb.patch(x[c, :, :, 3], cb.crop(self.seg_stack[frame]))
+            fb.patch(x[c, :, :, 3], cb.crop(self.get_seg(frame)))
 
         # Return tracking inputs and crop and fill boxes:
         return x, boxes
@@ -1190,7 +1256,7 @@ class ROI:
         """
         # Get scores and attributions:
         # Label frame but numbered 1, 2, 3, 4, etc. (temporary labels)
-        labels = utils.label_seg(self.seg_stack[frame])
+        labels = utils.label_seg(self.get_seg(frame))
         scores = utils.getTrackingScores(
             labels, y[:, :, :, 0], boxes=boxes if self.config.crop_windows else None
         )
@@ -1198,7 +1264,7 @@ class ROI:
         attributions = utils.getAttributions(scores)
 
         # Get poles:
-        poles = utils.getpoles(self.seg_stack[frame], labels, scaling=self.scaling)
+        poles = utils.getpoles(self.get_seg(frame), labels, scaling=self.scaling)
 
         # Resize labels if not using crop windows:
         if not self.config.crop_windows:
@@ -1242,7 +1308,7 @@ class ROI:
             cell_nbs = []
         else:
             cell_nbs = [c + 1 for c in self.lineage.cellnumbers[frame]]
-        labels = utils.label_seg(self.seg_stack[frame], cell_nbs)
+        labels = utils.label_seg(self.get_seg(frame), cell_nbs)
 
         if not self.config.crop_windows:
             resize = (
@@ -1251,5 +1317,5 @@ class ROI:
             )
             labels = cv2.resize(labels, resize, interpolation=cv2.INTER_NEAREST)
 
-        assert len(self.label_stack) == frame
+        assert len(self.label_stack) == frame - self.first_frame
         self.label_stack.append(labels)
