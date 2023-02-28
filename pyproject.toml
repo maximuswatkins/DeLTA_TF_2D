@@ -48,6 +48,8 @@ packages = ["delta"]
 
 [tool.setuptools-git-versioning]
 enabled = true
+dev_template = "{tag}+{branch}{ccount}.{sha}"
+dirty_template = "{tag}+{branch}{ccount}.{sha}.dirty"
 
 [tool.isort]
 profile = "black"
