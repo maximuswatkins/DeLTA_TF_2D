@@ -27,18 +27,13 @@ elif args.presets == "mothermachine":
     config = delta.config.DEFAULT_CONFIG_MOTHERMACHINE
 
 # Create the file reader that reads the experiment file(s)
-xpreader = delta.utils.XPReader(
-    args.input,
-    prototype=args.prototype,
-    fileorder=args.order,
-    filenamesindexing=args.indexing,
-)
+xpreader = delta.utils.XPReader(args.input)
 
 # Create the Pipeline that will orchestrate the running of DeLTA
 xp = delta.pipeline.Pipeline(xpreader, config=config, resfolder=args.output)
 
 # Run the Pipeline and save results
-xp.process(positions=args.positions, nbframes=args.nbframes)
+xp.process(positions=args.positions, frames=args.frames)
 
 # Close the file reader
 xpreader.close()

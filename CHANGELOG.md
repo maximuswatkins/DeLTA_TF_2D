@@ -62,11 +62,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `xpreader.getframes` now get an integer argument `nbframes` instead of a list
   `frames`.
 - Renamed `xpreader` into `XPReader`.
+- There are now no more `prototype`, `fileorder`, or `filenamesindexing`
+  parameters to `XPReader`, just one `path` which can be templated with `{p}`,
+  `{c}` and `{t}`.
 ### Fixed
 - Fixed bug in the computation of cell perimeters.
 - Fixed training reproducibility bugs by using seeded random generators.
 - Fixed edge case bugs in 2D image stitching.
 - Fixed edge case bug on pole detection of singular cells.
+- Fixed incorrect numbering of position, channel and frame from input to
+  output.
 ### Removed
 - The function `trainGenerator_seg` was removed.
 - The function `download_assets` was removed, because assets are now downloaded
