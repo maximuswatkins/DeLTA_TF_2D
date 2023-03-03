@@ -63,8 +63,6 @@ class Pipeline:
         "Dict of Position objects for experiment"
         self.config: Config = config
         "Configuration parameters object"
-        self.models = {model: config.model(model) for model in config.models}
-        "List of Tensorflow models"
         self.resfolder: Path
         "Folder to save results to"
 
@@ -85,7 +83,6 @@ class Pipeline:
             self.positions[iposition] = Position(
                 iposition,
                 self.reader,
-                self.models,
                 config=self.config,
             )
 
@@ -206,7 +203,6 @@ class Position:
         self,
         position_nb: int,
         reader: utils.XPReader,
-        models: Dict[MODEL, tf.keras.Model],
         config: Config,
     ) -> None:
         """
@@ -218,8 +214,6 @@ class Position:
             Position index.
         reader : XPReader
             utilities XPReader object.
-        models : Dict[str, tf.keras.Model]
-            U-Net models.
         config : Config
             DeLTA configuration.
 
@@ -232,8 +226,6 @@ class Position:
         "Position index number in the experiment"
         self.reader: utils.XPReader = reader
         "Experiment reader object"
-        self.models = models
-        "List of Tensorflow models"
         self.rois: List[ROI] = []
         "List of ROI objects under position"
         self.drift_values: Tuple = ([], [])
@@ -244,7 +236,7 @@ class Position:
         "Configuration parameters object"
         self.verbose: int = 1
         "Console output verbosity"
-        self._pickle_skip: Tuple[str, ...] = ("reader", "models", "_pickle_skip")
+        self._pickle_skip: Tuple[str, ...] = ("reader", "_pickle_skip")
 
     def __eq__(self, other) -> bool:
         """Equality function for Position."""
@@ -325,7 +317,7 @@ class Position:
             reference = utils.imrotate(reference, self.rotate)
 
         # Find rois, filter results, get bounding boxes:
-        if "rois" in self.models:
+        if "rois" in self.config.models:
             roi_boxes = Position.find_roi_boxes(reference, self.config)
 
             self.rois = [
@@ -448,6 +440,8 @@ class Position:
                 trans_frames, template=self.drifttemplate, box=self.driftcorbox
             )
 
+        segmentation_model = self.config.model("seg")
+
         for iroi, roi in enumerate(self.rois, start=1):
             self._msg(f"Segmentation - ROI {iroi}/{len(self.rois)}")
             # Run through frames and compile segmentation inputs
@@ -460,7 +454,7 @@ class Position:
                 windowss.append(windows)
 
             # Run segmentation model
-            logits = self.models["seg"].predict(
+            logits = segmentation_model.predict(
                 np.concatenate(imgs), batch_size=self.config.pipeline_seg_batch
             )
 
@@ -509,6 +503,7 @@ class Position:
                     fluo_frames[:, f, :, :], drift=self.drift_values
                 )
 
+        tracking_model = self.config.model("track")
         for iframe, frame in enumerate(frames, start=1):
             self._msg(f"Tracking - frame {frame}/{len(frames)}")
 
@@ -523,7 +518,7 @@ class Position:
 
             # Predict:
             if x.shape[0] > 0:
-                y = self.models["track"].predict(
+                y = tracking_model.predict(
                     np.concatenate(xs),
                     batch_size=self.config.pipeline_track_batch,
                 )
@@ -632,7 +627,7 @@ class Position:
         Returns
         -------
         position : pipeline.Position object
-            Reloaded Position object. (without reader and models)
+            Reloaded Position object. (without reader)
 
         """
         with open(filename, "rb") as file:
