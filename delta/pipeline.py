@@ -176,8 +176,7 @@ class Pipeline:
 
         # Run through positions:
         for p in positions:
-            # Preprocess is not done already:
-            if not self.positions[p]._preprocessed:
+            if not self.positions[p].rois:
                 self.positions[p].preprocess()
 
             # Segment all frames:
@@ -245,7 +244,6 @@ class Position:
         "Configuration parameters object"
         self.verbose: int = 1
         "Console output verbosity"
-        self._preprocessed: bool = False
         self._pickle_skip: Tuple[str, ...] = ("reader", "models", "_pickle_skip")
 
     def __eq__(self, other) -> bool:
@@ -255,14 +253,12 @@ class Position:
         eq_drift_values = np.array_equal(self.drift_values, other.drift_values)
         eq_rotate = self.rotate == other.rotate
         eq_verbose = self.verbose == other.verbose
-        eq__preprocessed = self._preprocessed == other._preprocessed
         eqs = [
             eq_position_nb,
             eq_rois,
             eq_drift_values,
             eq_rotate,
             eq_verbose,
-            eq__preprocessed,
         ]
         return all(eqs)
 
@@ -361,8 +357,6 @@ class Position:
             self.driftcorbox = CroppingBox.full(reference)
             if not self.config.whole_frame_drift:
                 self.driftcorbox.ybr = max(roi.box.ytl for roi in self.rois)
-
-        self._preprocessed = True
 
     @staticmethod
     def find_roi_boxes(reference: utils.Image, config: Config) -> List[CroppingBox]:
