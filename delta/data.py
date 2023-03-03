@@ -514,6 +514,9 @@ class SegmentationDataset(tf.keras.utils.Sequence):
                 images = [utils.create_windows(img, target_size)[0] for img in images]
                 masks = [utils.create_windows(seg, target_size)[0] for seg in masks]
                 weights = [utils.create_windows(wei, target_size)[0] for wei in weights]
+                self.images = np.concatenate(images)
+                self.masks = np.concatenate(masks)
+                self.weights = np.concatenate(weights)
         else:
             self.images = [
                 cv2.resize(img, target_size[::-1], cv2.INTER_LINEAR) for img in images
