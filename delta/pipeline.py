@@ -448,30 +448,27 @@ class Position:
                 trans_frames, template=self.drifttemplate, box=self.driftcorbox
             )
 
-        # Run through frames and ROIs and compile segmentation inputs:
-        x = []
-        references: List[Tuple[int, int, int, Optional[Tuple[List, List]]]] = []
-        for frame, img in zip(frames, trans_frames):
-            for r, roi in enumerate(self.rois):
+        for iroi, roi in enumerate(self.rois, start=1):
+            self._msg(f"Segmentation - ROI {iroi}/{len(self.rois)}")
+            # Run through frames and compile segmentation inputs
+            x = []
+            references = []
+            for frame, img in zip(frames, trans_frames):
                 inputs, windows = roi.get_segmentation_inputs(img)
-                x += [inputs]
-                references += [(r, len(x[-1]), frame, windows)]
-        x = np.concatenate(x)
+                x.append(inputs)
+                references.append((len(inputs), frame, windows))
+            x = np.concatenate(x)
 
-        # Run segmentation model:
-        y = np.empty_like(x)
-        for i in range(0, len(x), self.config.pipeline_seg_batch):
-            self._msg(f"Segmentation - ROI ({i}/{len(x)})")
-            j = min((len(x), i + self.config.pipeline_seg_batch))
-            y[i:j] = self.models["seg"].predict(x[i:j], batch_size=1)
+            # Run segmentation model
+            y = self.models["seg"].predict(x, batch_size=self.config.pipeline_seg_batch)
 
-        # Dispatch segmentation outputs to rois:
-        i = 0
-        for ref in references:
-            self.rois[ref[0]].process_segmentation_outputs(
-                y[i : i + ref[1]], frame=ref[2], windows=ref[3]
-            )
-            i += ref[1]
+            # Dispatch segmentation output to ROI
+            i = 0
+            for nb_windows, frame, windows in references:
+                roi.process_segmentation_outputs(
+                    y[i : i + nb_windows], frame=frame, windows=windows
+                )
+                i += nb_windows
 
     def track(self, frames: range) -> None:
         """
