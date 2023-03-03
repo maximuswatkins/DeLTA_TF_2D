@@ -694,43 +694,6 @@ def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
     return contours
 
 
-def getROIBoxes(chambersmask: SegmentationMask) -> List[CroppingBox]:
-    """
-    Extract the bounding boxes of the chambers in the binary mask produced by the ROI segmentation model.
-
-    Parameters
-    ----------
-    chambersmask : 2D array of uint8
-        The mask of the chambers as returned by the chambers id unet.
-
-    Returns
-    -------
-    chamberboxes : list of `CroppingBox`es
-        Chamber `CroppingBox`es.
-
-    """
-    chamberboxes = []
-
-    contours = find_contours(chambersmask)
-    for chamber in contours:
-        xtl, ytl, boxwidth, boxheight = cv2.boundingRect(chamber)
-        chamberboxes.append(
-            # tl = top left, br = bottom right
-            CroppingBox(
-                xtl=xtl,
-                # -10% of height to make sure the top is not cropped
-                ytl=ytl - int(0.1 * boxheight),
-                xbr=xtl + boxwidth,
-                ybr=ytl + boxheight,
-            )
-        )
-
-    # Sorting by top-left X (normally sorted by Y top left)
-    chamberboxes.sort(key=lambda box: box.xtl)
-
-    return chamberboxes
-
-
 def label_seg(
     seg: SegmentationMask,
     cellnumbers: Optional[Sequence[int]] = None,

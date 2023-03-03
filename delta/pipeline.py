@@ -330,7 +330,17 @@ class Position:
 
         # Find rois, filter results, get bounding boxes:
         if "rois" in self.models:
-            self.detect_rois(reference)
+            roi_boxes = Position.find_roi_boxes(reference, self.config)
+
+            self.rois = [
+                ROI(
+                    roi_nb=iroi,
+                    first_frame=self.reader.frames[0],
+                    box=box,
+                    config=self.config,
+                )
+                for iroi, box in enumerate(roi_boxes)
+            ]
         else:
             self.rois = [
                 ROI(
@@ -354,50 +364,60 @@ class Position:
 
         self._preprocessed = True
 
-    def detect_rois(self, reference: utils.Image) -> None:
+    @staticmethod
+    def find_roi_boxes(reference: utils.Image, config: Config) -> List[CroppingBox]:
         """
         Use U-Net to detect ROIs (chambers etc...).
 
         Parameters
         ----------
-        reference : 2D array
-            Reference image to use to perform pre-processing
+        reference : utils.Image
+            Reference image to use to detect ROIs.
+        config : Config
+            DeLTA configuration object.
 
         Returns
         -------
-        None.
+        boxes : List[CroppingBox]
+            List of ROI boxes.
 
         """
         # Rescale pixel values between 0 and 1 for the old model
         reference = (reference - reference.min()) / reference.ptp()
 
         # Predict
-        rois_pred = self.models["rois"].predict(
-            cv2.resize(reference, self.config.target_size_rois)[
+        rois_pred = config.model("rois").predict(
+            cv2.resize(reference, config.target_size_rois)[
                 np.newaxis, :, :, np.newaxis
             ],
             verbose=0,
         )
 
-        # Clean up:
-        self.roismask = postprocess(
+        # Clean up
+        rois_mask = postprocess(
             cv2.resize(np.squeeze(rois_pred), reference.shape[::-1]),
-            min_size=self.config.min_roi_area,
+            min_size=config.min_roi_area,
         )
 
         # Get boxes
-        roisboxes = utils.getROIBoxes(self.roismask)
-
-        # Instantiate ROIs:
-        for b, box in enumerate(roisboxes):
-            self.rois += [
-                ROI(
-                    roi_nb=b,
-                    first_frame=self.reader.frames[0],
-                    box=box,
-                    config=self.config,
+        roi_boxes = []
+        contours = utils.find_contours(rois_mask)
+        for chamber in contours:
+            xtl, ytl, boxwidth, boxheight = cv2.boundingRect(chamber)
+            roi_boxes.append(
+                CroppingBox(
+                    xtl=xtl,
+                    # -10% of height to make sure the top is not cropped
+                    ytl=ytl - int(0.1 * boxheight),
+                    xbr=xtl + boxwidth,
+                    ybr=ytl + boxheight,
                 )
-            ]
+            )
+
+        # Sorting by top-left X (normally sorted by top-left Y)
+        roi_boxes.sort(key=lambda box: box.xtl)
+
+        return roi_boxes
 
     def segment(self, frames: range) -> None:
         """
