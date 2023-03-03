@@ -131,8 +131,7 @@ class Pipeline:
         # Run preprocessing:
         for p in positions_torun:
             self.positions[p].preprocess(
-                reference=references[p] if isinstance(references, np.ndarray) else None,
-                rotation_correction=self.config.rotation_correction,
+                reference=references[p] if isinstance(references, np.ndarray) else None
             )
 
     def process(
@@ -179,9 +178,7 @@ class Pipeline:
         for p in positions:
             # Preprocess is not done already:
             if not self.positions[p]._preprocessed:
-                self.positions[p].preprocess(
-                    rotation_correction=self.config.rotation_correction
-                )
+                self.positions[p].preprocess()
 
             # Segment all frames:
             self.positions[p].segment(frames=frames)
@@ -242,6 +239,8 @@ class Position:
         "List of ROI objects under position"
         self.drift_values: Tuple = ([], [])
         "XY drift correction values over time"
+        self.rotate: float = 0.0
+        "Rotation angle of the position to compensate"
         self.config: Config = config
         "Configuration parameters object"
         self.verbose: int = 1
@@ -254,12 +253,14 @@ class Position:
         eq_position_nb = self.position_nb == other.position_nb
         eq_rois = self.rois == other.rois
         eq_drift_values = np.array_equal(self.drift_values, other.drift_values)
+        eq_rotate = self.rotate == other.rotate
         eq_verbose = self.verbose == other.verbose
         eq__preprocessed = self._preprocessed == other._preprocessed
         eqs = [
             eq_position_nb,
             eq_rois,
             eq_drift_values,
+            eq_rotate,
             eq_verbose,
             eq__preprocessed,
         ]
@@ -294,11 +295,7 @@ class Position:
         if self.verbose:
             print(f"{time.ctime()}, Position {self.position_nb} - {string}", flush=True)
 
-    def preprocess(
-        self,
-        reference: Optional[utils.Image] = None,
-        rotation_correction: Union[float, bool] = True,
-    ) -> None:
+    def preprocess(self, reference: Optional[utils.Image] = None) -> None:
         """
         Pre-process position (Rotation correction, identify ROIs, initialize drift correction).
 
@@ -308,9 +305,6 @@ class Position:
             Reference image to use to perform pre-processing. If None,
             the first image of each position will be used.
             The default is None.
-        rotation_correction : float or bool, optional
-            If bool, flag whether to perform rotation correction.
-            If number, value of rotation correction.  The default is True.
 
         Returns
         -------
@@ -328,16 +322,11 @@ class Position:
                 squeeze_dimensions=True,
             )
 
-        # Estimate rotation:
-        if isinstance(rotation_correction, bool):
-            if rotation_correction:
-                self.rotate = utils.deskew(reference)  # Estimate rotation angle
-                self._msg(f"Rotation correction: {self.rotate} degrees")
-                reference = utils.imrotate(reference, self.rotate)
-            else:
-                self.rotate = 0
-        else:
-            self.rotate = rotation_correction
+        # Rotation correction
+        if self.config.rotation_correction:
+            self.rotate = utils.deskew(reference)
+            self._msg(f"Rotation correction: {self.rotate} degrees")
+            reference = utils.imrotate(reference, self.rotate)
 
         # Find rois, filter results, get bounding boxes:
         if "rois" in self.models:
