@@ -519,23 +519,16 @@ class Position:
                 inputs, boxes = roi.get_tracking_inputs(frame=frame)
                 xs.append(inputs)
                 references.append((iroi, len(inputs), boxes))
-            x = (
-                np.concatenate(xs)
-                if xs
-                else np.empty((0, *self.config.target_size_track, 4))
-            )
+            x = np.concatenate(xs)
 
             # Predict:
-            y = np.empty(shape=(*x.shape[:3], 1))
-            for i in range(0, len(x), self.config.pipeline_track_batch):
-                j = min(len(x), i + self.config.pipeline_track_batch)
-                y[i:j] = self.models["track"].predict(
-                    x[i:j],
-                    batch_size=1,
-                    workers=1,
-                    use_multiprocessing=False,
-                    verbose=0,
+            if x.shape[0] > 0:
+                y = self.models["track"].predict(
+                    np.concatenate(xs),
+                    batch_size=self.config.pipeline_track_batch,
                 )
+            else:
+                y = np.empty(shape=(0, *self.config.target_size_track, 1))
 
             # Dispatch tracking outputs to rois:
             i = 0
