@@ -451,24 +451,28 @@ class Position:
         for iroi, roi in enumerate(self.rois, start=1):
             self._msg(f"Segmentation - ROI {iroi}/{len(self.rois)}")
             # Run through frames and compile segmentation inputs
-            x = []
-            references = []
+            imgs = []
+            windowss = []
             for frame, img in zip(frames, trans_frames):
                 inputs, windows = roi.get_segmentation_inputs(img)
-                x.append(inputs)
-                references.append((len(inputs), frame, windows))
-            x = np.concatenate(x)
+                windows_per_frame = len(inputs)
+                imgs.append(inputs)
+                windowss.append(windows)
 
             # Run segmentation model
-            y = self.models["seg"].predict(x, batch_size=self.config.pipeline_seg_batch)
+            logits = self.models["seg"].predict(
+                np.concatenate(imgs), batch_size=self.config.pipeline_seg_batch
+            )
 
             # Dispatch segmentation output to ROI
-            i = 0
-            for nb_windows, frame, windows in references:
+            for iframe, (frame, windows) in enumerate(zip(frames, windowss)):
                 roi.process_segmentation_outputs(
-                    y[i : i + nb_windows], frame=frame, windows=windows
+                    logits[
+                        iframe * windows_per_frame : (iframe + 1) * windows_per_frame
+                    ],
+                    frame=frame,
+                    windows=windows,
                 )
-                i += nb_windows
 
     def track(self, frames: range) -> None:
         """
