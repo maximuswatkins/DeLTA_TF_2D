@@ -140,7 +140,7 @@ class Pipeline:
     def process(
         self,
         positions: Optional[List[int]] = None,
-        frames: Optional[List[int]] = None,
+        nbframes: Optional[int] = None,
         clear: bool = True,
     ) -> None:
         """
@@ -151,8 +151,8 @@ class Pipeline:
         positions : list of int or None, optional
             List of positions to run. If None, all positions are run.
             The default is None.
-        frames : list of int or None, optional
-            List of frames to run. If None, all frames are run.
+        nbframes : int or None, optional
+            Number of frames to run. If None, all frames are run.
             The default is None.
         clear : bool, optional
             Clear variables of each Position object after it has been processed
@@ -164,8 +164,8 @@ class Pipeline:
         None.
 
         """
-        if frames is None:
-            frames = list(range(self.reader.timepoints))
+        if nbframes is None:
+            nbframes = self.reader.timepoints
 
         if positions is None:
             positions = list(range(self.reader.positions))
@@ -179,18 +179,18 @@ class Pipeline:
                 )
 
             # Segment all frames:
-            self.positions[p].segment(frames=frames)
+            self.positions[p].segment(nbframes=nbframes)
 
             # Track cells:
-            self.positions[p].track(frames=frames)
+            self.positions[p].track(nbframes=nbframes)
 
             # Extract features:
-            self.positions[p].features(frames=frames)
+            self.positions[p].features(nbframes=nbframes)
 
             # Save to disk and clear memory:
             self.positions[p].save(
                 filename=self.resfolder / f"Position{p:06d}",
-                frames=frames,
+                nbframes=nbframes,
                 save_format=self.config.save_format,
             )
 
@@ -318,7 +318,7 @@ class Position:
         if reference is None:
             reference = self.reader.getframes(
                 position=self.position_nb,
-                frames=0,
+                nbframes=1,
                 channels=0,
                 squeeze_dimensions=True,
             )
@@ -397,27 +397,27 @@ class Position:
         for b, box in enumerate(roisboxes):
             self.rois += [ROI(roi_nb=b, box=box, config=self.config)]
 
-    def segment(self, frames: List[int]) -> None:
+    def segment(self, nbframes: int) -> None:
         """
         Segment cells in all ROIs in position.
 
         Parameters
         ----------
-        frames : list of int
-            List of frames to run.
+        nbframes : int
+            Number of frames to run.
 
         Returns
         -------
         None.
 
         """
-        self._msg(f"Starting segmentation ({len(frames)} frames)")
+        self._msg(f"Starting segmentation ({nbframes} frames)")
 
         # Load trans frames:
         trans_frames = self.reader.getframes(
             position=self.position_nb,
             channels=0,
-            frames=frames,
+            nbframes=nbframes,
             rotate=self.rotate,
         )
 
@@ -457,21 +457,21 @@ class Position:
             )
             i += ref[1]
 
-    def track(self, frames: List[int]) -> None:
+    def track(self, nbframes: int) -> None:
         """
         Track cells in all ROIs in frames.
 
         Parameters
         ----------
-        frames : list of int
-            List of frames to run.
+        nbframes : int
+            Number of frames to run.
 
         Returns
         -------
         None.
 
         """
-        self._msg(f"Starting tracking ({len(frames)} frames)")
+        self._msg(f"Starting tracking ({nbframes} frames)")
 
         # Assume that brightfield is the first channel and fluorescence
         # channels are the other ones
@@ -481,7 +481,7 @@ class Position:
         fluo_frames = self.reader.getframes(
             position=self.position_nb,
             channels=fluo_channels,
-            frames=frames,
+            nbframes=nbframes,
             squeeze_dimensions=False,
             rotate=self.rotate,
         )
@@ -492,8 +492,8 @@ class Position:
                     fluo_frames[:, f, :, :], drift=self.drift_values
                 )
 
-        for frame in frames:
-            self._msg(f"Tracking - frame {frame}/{len(frames)} ")
+        for frame in range(nbframes):
+            self._msg(f"Tracking - frame {frame + 1}/{nbframes} ")
 
             # Compile inputs and references:
             xs = []
@@ -533,22 +533,22 @@ class Position:
 
     def features(
         self,
-        frames: List[int],
+        nbframes: int,
     ) -> None:
         """
         Extract features for all ROIs in frames.
 
         Parameters
         ----------
-        frames : list of int
-            List of frames to run.
+        nbframes : int
+            Number of frames to run.
 
         Returns
         -------
         None.
 
         """
-        self._msg(f"Starting feature extraction ({len(frames)} frames)")
+        self._msg(f"Starting feature extraction ({nbframes} frames)")
 
         # Now extracting multi-frame features
         for roi in self.rois:
@@ -569,7 +569,7 @@ class Position:
     def save(
         self,
         filename: Optional[Union[str, Path]] = None,
-        frames: Optional[List[int]] = None,
+        nbframes: Optional[int] = None,
         save_format: Tuple[str, ...] = ("pickle", "movie"),
     ) -> None:
         """
@@ -581,8 +581,8 @@ class Position:
             File name for save file. If None, the file will be saved to
             PositionXXXXXX in the current directory.
             The default is None.
-        frames : list of int or None, optional
-            List of frames to save in movie. If None, all frames are run.
+        nbframes : int or None, optional
+            Number of frames to save in movie. If None, all frames are saved.
             The default is None.
         save_format : tuple of str, optional
             Formats to save the data to. Options are "pickle', 'legacy' (ie
@@ -609,7 +609,7 @@ class Position:
 
         if "movie" in save_format:
             self._msg("Saving results movie\n" + str(filename.with_suffix(".mp4")))
-            movie = self.results_movie(frames=frames)
+            movie = self.results_movie(nbframes=nbframes)
             utils.vidwrite(movie, filename.with_suffix(".mp4"), verbose=False)
 
     @staticmethod
@@ -779,14 +779,14 @@ class Position:
         # Finally, save to disk:
         savemat(res_file, data)
 
-    def results_movie(self, frames: Optional[List[int]] = None) -> Any:
+    def results_movie(self, nbframes: Optional[int] = None) -> Any:
         """
         Generate movie illustrating segmentation and tracking.
 
         Parameters
         ----------
-        frames : list of int or None, optional
-            Frames to generate the movie for. If None, all frames are run.
+        nbframes : int or None, optional
+            Number of frames to put in the movie. If None, all frames are run.
             The default is None.
 
         Returns
@@ -795,11 +795,13 @@ class Position:
             List of compiled movie frames
 
         """
+        if nbframes is None:
+            nbframes = self.reader.timepoints
         # Re-read trans frames:
         trans_frames = self.reader.getframes(
             position=self.position_nb,
             channels=0,
-            frames=frames,
+            nbframes=nbframes,
             squeeze_dimensions=False,
             rotate=self.rotate,
         )
@@ -809,18 +811,15 @@ class Position:
             trans_frames, _ = utils.driftcorr(trans_frames, drift=self.drift_values)
         movie = []
 
-        assert isinstance(frames, list)  # FIXME: what happens if frames is None?
         # Run through frames, compile movie:
-        for f, fnb in enumerate(frames):
-            frame = trans_frames[f]
-
+        for iframe, frame in enumerate(trans_frames):
             # RGB-ify:
             frame = np.repeat(frame[:, :, np.newaxis], 3, axis=-1)
 
             # Add frame number text:
             frame = cv2.putText(
                 frame,
-                text=f"frame {fnb:06d}",
+                text=f"frame {iframe:06d}",
                 org=(int(frame.shape[0] * 0.05), int(frame.shape[0] * 0.97)),
                 fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                 fontScale=1,
@@ -831,7 +830,7 @@ class Position:
             for r, roi in enumerate(self.rois):
                 # Get chamber-specific variables:
                 colors = utils.getrandomcolors(list(roi.lineage.cells.keys()), seed=r)
-                fr = roi.label_stack[fnb]
+                fr = roi.label_stack[iframe]
                 assert fr is not None  # FIXME: why is it not None?
                 cells, contours = utils.getcellsinframe(fr, return_contours=True)
 
@@ -853,7 +852,7 @@ class Position:
                     )
 
                     # Draw poles:
-                    oldpole = roi.lineage.getvalue(cell, fnb, "old_pole")
+                    oldpole = roi.lineage.getvalue(cell, iframe, "old_pole")
                     assert isinstance(oldpole, np.ndarray)  # for mypy
                     frame = cv2.drawMarker(
                         frame,
@@ -864,12 +863,12 @@ class Position:
                         thickness=1,
                     )
 
-                    daughter = roi.lineage.getvalue(cell, fnb, "daughters")
-                    bornago = roi.lineage.cells[cell]["frames"].index(fnb)
+                    daughter = roi.lineage.getvalue(cell, iframe, "daughters")
+                    bornago = roi.lineage.cells[cell]["frames"].index(iframe)
                     mother = roi.lineage.cells[cell]["mother"]
 
                     if daughter is None and (bornago > 0 or mother is None):
-                        newpole = roi.lineage.getvalue(cell, fnb, "new_pole")
+                        newpole = roi.lineage.getvalue(cell, iframe, "new_pole")
                         frame = cv2.drawMarker(
                             frame,
                             (newpole[1] + xtl, newpole[0] + ytl),
@@ -881,8 +880,8 @@ class Position:
 
                     # Plot division arrow:
                     if daughter is not None:
-                        newpole = roi.lineage.getvalue(cell, fnb, "new_pole")
-                        daupole = roi.lineage.getvalue(daughter, fnb, "new_pole")
+                        newpole = roi.lineage.getvalue(cell, iframe, "new_pole")
+                        daupole = roi.lineage.getvalue(daughter, iframe, "new_pole")
                         # Plot arrow:
                         frame = cv2.arrowedLine(
                             frame,

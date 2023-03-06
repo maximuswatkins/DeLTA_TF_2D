@@ -2050,7 +2050,7 @@ class xpreader:
         self,
         position: int,
         channels: Optional[Union[int, Sequence[int]]] = None,
-        frames: Optional[Union[int, Sequence[int]]] = None,
+        nbframes: Optional[int] = None,
         squeeze_dimensions: bool = True,
         rotate: Optional[float] = None,
     ) -> np.ndarray:
@@ -2068,11 +2068,11 @@ class xpreader:
             strings. If an empty list is passed, None is returned. If None is
             passed, all channels are returned.
             The default is None.
-        frames : None, int, tuple/list of ints, optional
-            The frame index or indexes passed as an integer or a tuple/list
-            will be returned. If None is passed, all frames are returned. If -1
-            is passed and the file watcher is activated, only new frames are
-            read. Works only for one position and channel at a time.
+        nbframes : int or None, optional
+            Number of frames returned, starting from the first frame.  If None
+            is passed, all frames are returned. If -1 is passed and the file
+            watcher is activated, only new frames are read. Works only for one
+            position and channel at a time.
             The default is None.
         squeeze_dimensions : bool, optional
             If True, the numpy squeeze function is applied to the output array,
@@ -2122,24 +2122,16 @@ class xpreader:
             assert isinstance(channels, int)
             channels = [channels]
 
-        if frames is None:  # No frames specified: load all
+        if nbframes == -1 and self.watchfiles:
+            # Read new frames from files watcher
+            if len(channels) > 1:
+                raise ValueError("Can not load latest frames for more than one channel")
+            new = self.watcher.new[position][channels[0]]
+            frames = list(range(self.watcher.old[position][channels[0]] + 1, new + 1))
+        elif nbframes is None:
             frames = list(range(self.timepoints))
-        elif not isinstance(frames, (list, tuple)):
-            assert isinstance(frames, int)
-            if frames == -1:  # Read new frames from files watcher:
-                if self.watchfiles:
-                    if len(channels) > 1:
-                        raise ValueError(
-                            "Can not load latest frames for more than one channel"
-                        )
-                    new = self.watcher.new[position][channels[0]]
-                    frames = list(
-                        range(self.watcher.old[position][channels[0]] + 1, new + 1)
-                    )
-                else:
-                    frames = list(range(self.timepoints))
-            else:
-                frames = [frames]
+        else:
+            frames = list(range(nbframes))
 
         # If files watcher, update the old frames array:
         if self.watchfiles:
