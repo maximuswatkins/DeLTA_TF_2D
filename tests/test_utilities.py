@@ -225,7 +225,6 @@ def test_deskew(filename, angle0):
 # %% Eval create_windows
 
 
-@pytest.mark.order(2)
 @pytest.mark.parametrize(
     "image_size, nb_tiles",
     [
@@ -458,7 +457,6 @@ def evaluate_contours(mask, contours, image_size):
     return not (np.bitwise_xor(mask, new_mask).any())
 
 
-@pytest.mark.order(2)
 @pytest.mark.parametrize("seed", range(10))  # Run it 10 times
 @pytest.mark.parametrize(
     "image_size",
@@ -865,7 +863,6 @@ def _evaluate_color_nb(mask, frame):
     assert colors.shape[0] == len(contours) + np.unique(mask).shape[0]
 
 
-@pytest.mark.order(2)
 @pytest.mark.parametrize("seed", range(5))  # Run it 5 times
 @pytest.mark.parametrize("max_dots", [0, 1, 2, 100])
 def test_color_contours(max_dots, seed):

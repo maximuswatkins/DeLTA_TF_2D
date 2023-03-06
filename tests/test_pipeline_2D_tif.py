@@ -8,13 +8,10 @@ import copy
 import tempfile
 from pathlib import Path
 
-import pytest
-
 import delta
 from delta.config import DEFAULT_CONFIG_2D
 
 
-@pytest.mark.order(2)
 def test_pipeline_tif_stack():
     xpfolder = Path(__file__).parent / "data/movie_2D_tif"
 
