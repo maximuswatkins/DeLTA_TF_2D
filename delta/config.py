@@ -79,19 +79,14 @@ class Config:
     lowering this value.  You can also increase it to improve speed."""
 
     @staticmethod
-    def read(path: Union[str, Path], presets: Optional[str] = None):
+    def read(path: Union[str, Path]):
         """
         Read a configuration file.
 
         Parameters
         ----------
         path : Union[str, Path]
-            Path to specific configuration file. Keywords "local" and "global"
-            can also be used. See online documentation for more information.
-        presets : Optional[str], optional
-            Name of presets to load config for when using "local" or "global"
-            configuration. Values can be "2D", "mothermachine", or a custom
-            name if you created one. The default is None.
+            Path to specific configuration file.
 
         Returns
         -------
@@ -99,17 +94,6 @@ class Config:
             Loaded config object.
 
         """
-        if path in ["local", "global"]:
-            if presets is None:
-                raise ValueError(
-                    "If reading from local or global config files, "
-                    "presets are required ('2D' or 'mothermachine' or custom)."
-                )
-            if path == "local":
-                path = Path.home() / f".delta/config_{presets}.json"
-            else:
-                path = _DELTA_DIR / f"global_config/config_{presets}.json"
-
         try:
             return Config(**read_json(Path(path)))
         except TypeError as err:
@@ -127,20 +111,10 @@ class Config:
         Parameters
         ----------
         config_level : Union[str, Path]
-            Path to specific configuration file. Keywords "local" and "global"
-            can also be used. See online documentation for more information.
+            Path to specific configuration file.
 
         """
-        if config_level == "local":
-            config_dir = Path.home() / ".delta"
-        elif config_level == "global":
-            config_dir = _DELTA_DIR / "global_config"
-        else:
-            config_dir = Path(config_level)
-
-        config_dir.mkdir(exist_ok=True)
-
-        write_json(self, config_dir / f"config_{self.presets}.json")
+        write_json(self, Path(config_level))
 
     def training_set_path(self, model: MODEL) -> Path:
         """
