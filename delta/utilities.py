@@ -1908,7 +1908,6 @@ class XPReader:
         position: int,
         channels: Optional[Union[int, str, Sequence[Union[int, str]]]] = None,
         frames: Optional[range] = None,
-        squeeze_dimensions: bool = True,
         rotate: Optional[float] = None,
     ) -> np.ndarray:
         """
@@ -1929,10 +1928,6 @@ class XPReader:
             Range of frames returned.  If None is passed, all frames are
             returned.
             The default is None.
-        squeeze_dimensions : bool, optional
-            If True, the numpy squeeze function is applied to the output array,
-            removing all singleton dimensions.
-            The default is True.
         rotate : None or float, optional
             Rotation to apply to the image (in degrees).
             The default is None.
@@ -1946,8 +1941,8 @@ class XPReader:
         -------
         Numpy Array
             Concatenated frames as requested by the different input options.
-            If squeeze_dimensions=False, the array is 4-dimensional, with the
-            dimensions order being: Time, Channel, Y, X
+            The array is 4-dimensional, with the shape being: (frames,
+            channels, Y, X).
 
         """
         if channels is None:
@@ -1995,7 +1990,7 @@ class XPReader:
                 output[iframe, ichannel, :, :] = image
 
         # Return:
-        return np.squeeze(output) if squeeze_dimensions else output
+        return output
 
 
 # %% Saving & Loading results

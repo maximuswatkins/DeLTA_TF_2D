@@ -134,9 +134,7 @@ class Pipeline:
 
         # Run through positions:
         for p in positions:
-            all_frames = self.reader.getframes(
-                position=p, frames=frames, squeeze_dimensions=False
-            )
+            all_frames = self.reader.getframes(position=p, frames=frames)
 
             if not self.positions[p].rois:
                 self.positions[p].preprocess(all_frames, frames=frames)
@@ -701,7 +699,6 @@ class Position:
             position=self.position_nb,
             channels=reader.channels[0],
             frames=frames,
-            squeeze_dimensions=False,
             rotate=self.rotate,
         )
         if frames is None:
