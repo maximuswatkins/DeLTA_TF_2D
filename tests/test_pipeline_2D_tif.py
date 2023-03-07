@@ -15,11 +15,14 @@ from delta.config import DEFAULT_CONFIG_2D
 def test_pipeline_tif_stack():
     xpfolder = Path(__file__).parent / "data/movie_2D_tif"
 
+    config = DEFAULT_CONFIG_2D
+    config.pipeline_seg_batch = 1
+
     # Init reader
     xpreader = delta.utils.XPReader(xpfolder / "Position{p}Channel{c}Frame{t}.tif")
 
     # Init pipeline:
-    xp = delta.pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
+    xp = delta.pipeline.Pipeline(xpreader, config)
 
     xp.process(frames=range(1, 5), clear=False)
 
