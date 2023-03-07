@@ -350,6 +350,9 @@ class Position:
         )
 
         # Get boxes
+        # Implementation note: cv2.findContours (even including
+        # cv2.boundingRect) is about twice as fast as
+        # cv2.connectedComponentsWithStats here.
         roi_boxes = []
         contours = utils.find_contours(rois_mask)
         for chamber in contours:
