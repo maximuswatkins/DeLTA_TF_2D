@@ -1744,7 +1744,6 @@ class xpreader:
         prototype: Optional[str] = None,
         fileorder: str = "pct",
         filenamesindexing: int = 1,
-        watchfiles: bool = False,
     ) -> None:
         """
         Initialize experiment reader.
@@ -1790,8 +1789,6 @@ class xpreader:
             Selects between 0-based or 1-based indexing in the filename. If
             1, position 0 will be referenced as position 1 in the filename.
             The default is 1
-        watchfiles : bool
-            Not functional yet.
 
         Raises
         ------
@@ -1839,9 +1836,7 @@ class xpreader:
         self.filename = Path(self.filename)
 
         self.channelnames = channelnames
-
         "Names of the imaging channels (optional)"
-        self.watchfiles = watchfiles
 
         file_extension = self.filename.suffix
 
@@ -1913,16 +1908,11 @@ class xpreader:
             else:
                 self.timepoints = 1  # I guess this shouldn't really happen
             # Get image specs:
-            if self.watchfiles:
-                # Start file watcher thread:
-                self.watcher = files_watcher(self)
-                self.watcher.start()
-            else:
-                # Load first image, get image data from it
-                img = read_image(self.getfilenamefromprototype(0, 0, 0))
-                self.x = img.shape[1]
-                self.y = img.shape[0]
-                self.dtype = img.dtype
+            # Load first image, get image data from it
+            img = read_image(self.getfilenamefromprototype(0, 0, 0))
+            self.x = img.shape[1]
+            self.y = img.shape[0]
+            self.dtype = img.dtype
 
         elif file_extension.lower() == ".tif" or file_extension.lower() == ".tiff":
             # Works with single-series tif & multi-series ome.tif
@@ -2070,9 +2060,7 @@ class xpreader:
             The default is None.
         nbframes : int or None, optional
             Number of frames returned, starting from the first frame.  If None
-            is passed, all frames are returned. If -1 is passed and the file
-            watcher is activated, only new frames are read. Works only for one
-            position and channel at a time.
+            is passed, all frames are returned.
             The default is None.
         squeeze_dimensions : bool, optional
             If True, the numpy squeeze function is applied to the output array,
@@ -2122,21 +2110,10 @@ class xpreader:
             assert isinstance(channels, int)
             channels = [channels]
 
-        if nbframes == -1 and self.watchfiles:
-            # Read new frames from files watcher
-            if len(channels) > 1:
-                raise ValueError("Can not load latest frames for more than one channel")
-            new = self.watcher.new[position][channels[0]]
-            frames = list(range(self.watcher.old[position][channels[0]] + 1, new + 1))
-        elif nbframes is None:
+        if nbframes is None:
             frames = list(range(self.timepoints))
         else:
             frames = list(range(nbframes))
-
-        # If files watcher, update the old frames array:
-        if self.watchfiles:
-            for c in channels:
-                self.watcher.old[position][c] = frames[-1]
 
         # Allocate memory:
         output = np.empty(
@@ -2170,64 +2147,6 @@ class xpreader:
 
         # Return:
         return np.squeeze(output) if squeeze_dimensions else output
-
-
-class files_watcher(Thread):
-    """Daemon to watch experiment files and signal new ones (not functional yet)."""
-
-    def __init__(self, reader: xpreader) -> None:
-        super().__init__()
-        self.daemon = True
-        self.reader = reader
-        self.old: List[List[int]] = []
-        self.new: List[List[int]] = []
-
-    def run(self) -> None:
-        """Run the file watcher."""
-        while True:
-            # Run through monitored positions:
-            for p in range(self.reader.positions):
-                if len(self.old) <= p:  # Position added / not done yet
-                    # Append empty lists to the end:
-                    self.old += [[] for _ in range(p + 1 - len(self.old))]
-                    self.new += [[] for _ in range(p + 1 - len(self.new))]
-
-                # Run through monitored channels:
-                for channel in range(self.reader.channels):
-                    if len(self.old[p]) <= channel:
-                        # Append empty lists to the end:
-                        self.old[p] += [
-                            -1 for _ in range(channel + 1 - len(self.old[p]))
-                        ]
-                        self.new[p] += [-1] * (channel + 1 - len(self.new[p]))
-
-                    # Check if new files have been written:
-                    i = self.new[p][channel]
-                    while self.reader.getfilenamefromprototype(
-                        p, channel, i + 1
-                    ).exists():
-                        i += 1
-
-                    # Store new timepoint number:
-                    self.new[p][channel] = i
-            time.sleep(0.01)
-
-    def newfiles(self) -> List[Tuple[int, int]]:
-        """
-        Get list of new files position and channel.
-
-        Returns
-        -------
-        newfiles : list of tuples of 2 ints
-            List containing all new files position and channel.
-
-        """
-        newfiles = []
-        for p, pos_old in enumerate(self.old):
-            for c, latest_read in enumerate(pos_old):
-                if latest_read < self.new[p][c]:
-                    newfiles += [(p, c)]
-        return newfiles
 
 
 # %% Saving & Loading results
