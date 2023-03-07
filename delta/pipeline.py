@@ -396,7 +396,7 @@ class Position:
 
     def track(self, frames: range) -> None:
         """
-        Track cells in all ROIs in frames.
+        Track cells in all ROIs in position.
 
         Parameters
         ----------
@@ -411,36 +411,9 @@ class Position:
         self._msg(f"Starting tracking ({len(frames)} frames)")
 
         tracking_model = self.config.model("track")
-        for iframe, frame in enumerate(frames, start=1):
-            self._msg(f"Tracking - frame {frame}/{len(frames)}")
-
-            # Compile inputs and references:
-            xs = []
-            references = []
-            for iroi, roi in enumerate(self.rois):
-                inputs, boxes = roi.get_tracking_inputs(frame=frame)
-                xs.append(inputs)
-                references.append((iroi, len(inputs), boxes))
-            x = np.concatenate(xs)
-
-            # Predict:
-            if x.shape[0] > 0:
-                y = tracking_model.predict(
-                    np.concatenate(xs),
-                    batch_size=self.config.pipeline_track_batch,
-                )
-            else:
-                y = np.empty(shape=(0, *self.config.target_size_track, 1))
-
-            # Dispatch tracking outputs to rois:
-            i = 0
-            for iroi, nbcells, boxes in references:
-                self.rois[iroi].process_tracking_outputs(
-                    y[i : i + nbcells],
-                    frame=frame,
-                    boxes=boxes,
-                )
-                i += nbcells
+        for iroi, roi in enumerate(self.rois, start=1):
+            self._msg(f"Tracking - ROI {iroi}/{len(self.rois)}")
+            roi.track(frames, tracking_model)
 
     def features(self, frames: range) -> None:
         """
@@ -984,7 +957,7 @@ class ROI:
         ----------
         frames : range
             Frames to run.
-        model : tf.keras.Model
+        model : Optional[tf.keras.Model]
             Segmentation model to use.  This is to avoid having to reload it
             for every ROI.  If None, will use `self.config.model("seg")`.
             The default is None.
@@ -994,7 +967,7 @@ class ROI:
         None.
 
         """
-        segmentation_model = model or self.config.model("seg")
+        model = model or self.config.model("seg")
 
         # Run through frames and compile segmentation inputs
         imgs = []
@@ -1004,11 +977,10 @@ class ROI:
             windows_per_frame = len(inputs)
             imgs.append(inputs)
             windowss.append(windows)
+        inputs = np.concatenate(imgs)
 
         # Run segmentation model
-        logits = segmentation_model.predict(
-            np.concatenate(imgs), batch_size=self.config.pipeline_seg_batch
-        )
+        logits = model.predict(inputs, batch_size=self.config.pipeline_seg_batch)
 
         # Dispatch segmentation output to ROI
         for iframe, (frame, windows) in enumerate(zip(frames, windowss)):
@@ -1097,6 +1069,51 @@ class ROI:
         # Append to segmentation results stack:
         assert len(self.seg_stack) == frame - self.first_frame
         self.seg_stack.append(seg)
+
+    def track(self, frames: range, model: Optional[tf.keras.Model] = None) -> None:
+        """
+        Track cells in the ROI.
+
+        Parameters
+        ----------
+        frames : range
+            Frames to track.
+        model : Optional[tf.keras.Model]
+            Tracking model to use. This is to avoid having to reload the model
+            for every ROI. If None, will use `self.config.model("track")`.
+            The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        model = model or self.config.model("track")
+
+        # Run through frames and compile inputs and references
+        inpts = []
+        references = []
+        for frame in frames:
+            inputs, boxes = self.get_tracking_inputs(frame=frame)
+            inpts.append(inputs)
+            references.append((len(inputs), boxes))
+        inputs = np.concatenate(inpts)
+
+        # Predict
+        if inputs.shape[0] > 0:
+            logits = model.predict(inputs, batch_size=self.config.pipeline_track_batch)
+        else:
+            logits = np.empty(shape=(0, *self.config.target_size_track, 1))
+
+        # Dispatch tracking outputs
+        i = 0
+        for frame, (nbcells, boxes) in enumerate(references, start=frames.start):
+            self.process_tracking_outputs(
+                logits[i : i + nbcells],
+                frame=frame,
+                boxes=boxes,
+            )
+            i += nbcells
 
     def get_tracking_inputs(
         self, frame: int
