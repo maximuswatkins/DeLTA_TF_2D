@@ -22,7 +22,7 @@ config = delta.config.DEFAULT_CONFIG_2D
 # config = delta.config.Config.read("/path/to/your/config.yml")
 
 # Files:
-training_set = config.training_set_path("tracking")
+training_set = config.training_set_path("track")
 savefile = Path("new_tracking_model.hdf5")
 
 # Training parameters:

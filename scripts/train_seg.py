@@ -11,10 +11,17 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import delta
 from delta.model import unet_seg
 from delta.utilities import tensorboard_callback
+from delta.data import load_training_dataset_seg
 
 # Set tensorflow's random seed to make the training reproducible
 # (only on CPU: not reproducible on GPU yet)
 tf.keras.utils.set_random_seed(1)
+
+# Limit the number of threads that TensorFlow can use
+num_threads = 4
+tf.config.threading.set_inter_op_parallelism_threads(num_threads)
+tf.config.threading.set_intra_op_parallelism_threads(num_threads)
+tf.config.set_soft_device_placement(True)
 
 # Default config
 config = delta.config.DEFAULT_CONFIG_2D
@@ -22,7 +29,7 @@ config = delta.config.DEFAULT_CONFIG_2D
 # config = delta.config.Config.read("/path/to/your/config.yml")
 
 # Files:
-training_set = config.training_set_path("segmentation")
+training_set = config.training_set_path("seg")
 savefile = Path("new_segmentation_model.hdf5")
 
 # Training parameters:
@@ -45,7 +52,7 @@ data_gen_args = dict(
 ds_train, ds_val = load_training_dataset_seg(
     dataset_path=training_set,
     target_size=config.target_size_seg,
-    crop=True,
+    crop=config.presets=='2D',
     kw_data_aug=data_gen_args,
     validation_split=0.05,
     stack=True,
