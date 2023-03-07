@@ -391,29 +391,7 @@ class Position:
 
         for iroi, roi in enumerate(self.rois, start=1):
             self._msg(f"Segmentation - ROI {iroi}/{len(self.rois)}")
-            # Run through frames and compile segmentation inputs
-            imgs = []
-            windowss = []
-            for frame in frames:
-                inputs, windows = roi.get_segmentation_inputs(frame)
-                windows_per_frame = len(inputs)
-                imgs.append(inputs)
-                windowss.append(windows)
-
-            # Run segmentation model
-            logits = segmentation_model.predict(
-                np.concatenate(imgs), batch_size=self.config.pipeline_seg_batch
-            )
-
-            # Dispatch segmentation output to ROI
-            for iframe, (frame, windows) in enumerate(zip(frames, windowss)):
-                roi.process_segmentation_outputs(
-                    logits[
-                        iframe * windows_per_frame : (iframe + 1) * windows_per_frame
-                    ],
-                    frame=frame,
-                    windows=windows,
-                )
+            roi.segment(frames, segmentation_model)
 
     def track(self, frames: range) -> None:
         """
@@ -997,6 +975,48 @@ class ROI:
             Labels frame.
         """
         return self.label_stack[frame - self.first_frame]
+
+    def segment(self, frames: range, model: Optional[tf.keras.Model] = None) -> None:
+        """
+        Segment `img_stack` and store the results in `seg_stack`.
+
+        Parameters
+        ----------
+        frames : range
+            Frames to run.
+        model : tf.keras.Model
+            Segmentation model to use.  This is to avoid having to reload it
+            for every ROI.  If None, will use `self.config.model("seg")`.
+            The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        segmentation_model = model or self.config.model("seg")
+
+        # Run through frames and compile segmentation inputs
+        imgs = []
+        windowss = []
+        for frame in frames:
+            inputs, windows = self.get_segmentation_inputs(frame)
+            windows_per_frame = len(inputs)
+            imgs.append(inputs)
+            windowss.append(windows)
+
+        # Run segmentation model
+        logits = segmentation_model.predict(
+            np.concatenate(imgs), batch_size=self.config.pipeline_seg_batch
+        )
+
+        # Dispatch segmentation output to ROI
+        for iframe, (frame, windows) in enumerate(zip(frames, windowss)):
+            self.process_segmentation_outputs(
+                logits[iframe * windows_per_frame : (iframe + 1) * windows_per_frame],
+                frame=frame,
+                windows=windows,
+            )
 
     def get_segmentation_inputs(
         self, frame: int
