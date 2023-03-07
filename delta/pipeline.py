@@ -174,7 +174,7 @@ class Pipeline:
         # Run through positions:
         for p in positions:
             if not self.positions[p].rois:
-                self.positions[p].preprocess()
+                self.positions[p].preprocess(frames=frames)
 
             # Segment all frames:
             self.positions[p].segment(frames=frames)
@@ -231,6 +231,8 @@ class Position:
         self.drift_values: Tuple = ([], [])
         "XY drift correction values over time"
         self.rotate: float = 0.0
+        self.driftcorbox: CroppingBox
+        self.drifttemplate: Optional[utils.Image]
         "Rotation angle of the position to compensate"
         self.config: Config = config
         "Configuration parameters object"
@@ -283,12 +285,16 @@ class Position:
         if self.verbose:
             print(f"{time.ctime()}, Position {self.position_nb} - {string}", flush=True)
 
-    def preprocess(self, reference: Optional[utils.Image] = None) -> None:
+    def preprocess(
+        self, frames: range, reference: Optional[utils.Image] = None
+    ) -> None:
         """
         Pre-process position (Rotation correction, identify ROIs, initialize drift correction).
 
         Parameters
         ----------
+        frames : range
+            Range of frames to preprocess.
         reference : 2D array, optional
             Reference image to use to perform pre-processing. If None,
             the first image of each position will be used.
@@ -301,54 +307,68 @@ class Position:
         """
         self._msg("Starting pre-processing")
 
+        # Load all channels, all positions
+        # trans_frames.shape = (len(frames), Y, X)
+        trans_frames = self.reader.getframes(
+            position=self.position_nb,
+            channels=self.reader.channels[0],
+            squeeze_dimensions=False,
+        )[:, 0, :, :]
+
         # If no reference frame provided, read first frame from reader:
         if reference is None:
-            reference = self.reader.getframes(
-                position=self.position_nb,
-                frames=range(self.reader.frames[0], self.reader.frames[0] + 1),
-                channels=self.reader.channels[0],
-                squeeze_dimensions=True,
-            )
+            reference = np.array(trans_frames[0, :, :])
+
+        trans_frames = trans_frames[
+            frames.start
+            - self.reader.frames.start : frames.stop
+            - self.reader.frames.start,
+            :,
+            :,
+        ]
 
         # Rotation correction
         if self.config.rotation_correction:
             self.rotate = utils.deskew(reference)
             self._msg(f"Rotation correction: {self.rotate} degrees")
+            for iframe in range(len(trans_frames)):
+                trans_frames[iframe, :, :] = utils.imrotate(
+                    trans_frames[iframe, :, :], self.rotate
+                )
             reference = utils.imrotate(reference, self.rotate)
 
-        # Find rois, filter results, get bounding boxes:
+        # Find ROIs
         if "rois" in self.config.models:
             roi_boxes = Position.find_roi_boxes(reference, self.config)
-
-            self.rois = [
-                ROI(
-                    roi_nb=iroi,
-                    first_frame=self.reader.frames[0],
-                    box=box,
-                    config=self.config,
-                )
-                for iroi, box in enumerate(roi_boxes)
-            ]
         else:
-            self.rois = [
-                ROI(
-                    roi_nb=0,
-                    first_frame=self.reader.frames[0],
-                    box=CroppingBox.full(reference),
-                    config=self.config,
-                )
-            ]
+            roi_boxes = [CroppingBox.full(reference)]
 
         # Get drift correction template and box
         if self.config.drift_correction:
             self.drifttemplate = utils.getDriftTemplate(
-                [r.box for r in self.rois],
+                roi_boxes,
                 reference,
                 whole_frame=self.config.whole_frame_drift,
             )
             self.driftcorbox = CroppingBox.full(reference)
             if not self.config.whole_frame_drift:
-                self.driftcorbox.ybr = max(roi.box.ytl for roi in self.rois)
+                self.driftcorbox.ybr = max(box.ytl for box in roi_boxes)
+
+            # Correct drift:
+            trans_frames, self.drift_values = utils.driftcorr(
+                trans_frames, template=self.drifttemplate, box=self.driftcorbox
+            )
+
+        self.rois = [
+            ROI(
+                img_stack=[box.crop(img) for img in trans_frames],
+                roi_nb=iroi,
+                first_frame=frames[0],
+                box=box,
+                config=self.config,
+            )
+            for iroi, box in enumerate(roi_boxes)
+        ]
 
     @staticmethod
     def find_roi_boxes(reference: utils.Image, config: Config) -> List[CroppingBox]:
@@ -421,25 +441,6 @@ class Position:
         """
         self._msg(f"Starting segmentation ({len(frames)} frames)")
 
-        # Load trans frames:
-        trans_frames = self.reader.getframes(
-            position=self.position_nb,
-            channels=self.reader.channels[0],
-            frames=frames,
-            rotate=self.rotate,
-        )
-
-        # If trans_frames is 2 dimensions, an extra dimension is added at axis=0 for time
-        # (1 timepoint may cause this issue)
-        if trans_frames.ndim == 2:
-            trans_frames = trans_frames[np.newaxis, :, :]
-
-        # Correct drift:
-        if self.config.drift_correction:
-            trans_frames, self.drift_values = utils.driftcorr(
-                trans_frames, template=self.drifttemplate, box=self.driftcorbox
-            )
-
         segmentation_model = self.config.model("seg")
 
         for iroi, roi in enumerate(self.rois, start=1):
@@ -447,8 +448,8 @@ class Position:
             # Run through frames and compile segmentation inputs
             imgs = []
             windowss = []
-            for frame, img in zip(frames, trans_frames):
-                inputs, windows = roi.get_segmentation_inputs(img)
+            for frame in frames:
+                inputs, windows = roi.get_segmentation_inputs(frame)
                 windows_per_frame = len(inputs)
                 imgs.append(inputs)
                 windowss.append(windows)
@@ -892,13 +893,20 @@ class ROI:
     """ROI processor object."""
 
     def __init__(
-        self, roi_nb: int, first_frame: int, box: CroppingBox, config: Config
+        self,
+        img_stack: List[utils.Image],
+        roi_nb: int,
+        first_frame: int,
+        box: CroppingBox,
+        config: Config,
     ) -> None:
         """
         Initialize ROI.
 
         Parameters
         ----------
+        img_stack : List[utils.Image]
+            Image stack.
         roi_nb : int
             ROI index.
         first_frame : int
@@ -919,7 +927,9 @@ class ROI:
         "ROI crop box"
         self.first_frame = first_frame
         "Index of the first frame"
-        self.img_stack: List[utils.Image] = []
+        self.img_stack: List[utils.Image] = [
+            (img - img.min()) / img.ptp() for img in img_stack
+        ]
         "Input images stack"
         self.seg_stack: List[utils.SegmentationMask] = []
         "Segmentation images stack"
@@ -1034,15 +1044,15 @@ class ROI:
         return self.label_stack[frame - self.first_frame]
 
     def get_segmentation_inputs(
-        self, img: utils.Image
+        self, frame: int
     ) -> Tuple[np.ndarray, Optional[Tuple[List, List]]]:
         """
         Compile segmentation inputs for ROI.
 
         Parameters
         ----------
-        img : 2D array
-            Single frame to crop and send for segmentation.
+        frame : int
+            Frame number for the segmentation inputs.
 
         Returns
         -------
@@ -1054,11 +1064,7 @@ class ROI:
 
         """
         # Crop and scale:
-        i = self.box.crop(img)
-        # Rescale pixel values between 0 and 1 for the old model
-        i = (i - i.min()) / i.ptp()
-        # Append i as is to input images stack:
-        self.img_stack.append(i)
+        i = self.get_img(frame)
 
         if self.config.crop_windows:
             # Crop out windows:
