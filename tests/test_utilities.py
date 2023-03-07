@@ -998,7 +998,6 @@ def test_cell_fluo():
         ],
         dtype=bool,
     )
-    box = utils.CroppingBox.full(mask)
-    fluos = utils.cell_fluo(fluo_frames, mask, box)
+    fluos = utils.cell_fluo(fluo_frames, mask)
     expected = (1 + 2 + 3 + 7 + 12 + 13 + 16 + 17) / 8
     np.testing.assert_allclose(fluos, [expected, expected + 100])

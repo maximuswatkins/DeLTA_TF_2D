@@ -2104,7 +2104,6 @@ def vidwrite(
 def roi_features(
     labels_frame: npt.NDArray[np.uint16],
     fluo_frames: np.ndarray,
-    roi_box: CroppingBox,
 ) -> Dict[int, CellFeatures]:
     """
     Extract single-cell morphological and fluorescence features.
@@ -2117,8 +2116,6 @@ def roi_features(
         Array of fluo frames to extract fluorescence from. Dimensions are
         (size_x, size_y, fluo_channels). The number of fluo_channels must match
         the number of fluo features to extract.
-    roi_box : CroppingBox
-        Cropping box to apply shift when looking at full-frame fluo images.
 
     Returns
     -------
@@ -2133,7 +2130,7 @@ def roi_features(
     for cellid, contour in zip(cellids, contours):
         mask = labels_frame == cellid + 1
 
-        fluo_values = cell_fluo(fluo_frames, mask, roi_box)
+        fluo_values = cell_fluo(fluo_frames, mask)
 
         width, length = cell_width_length(contour)
 
@@ -2251,7 +2248,6 @@ def cell_perimeter(contour: Contour) -> float:
 def cell_fluo(
     fluo_frames: np.ndarray,
     mask: SegmentationMask,
-    box: CroppingBox,
 ) -> List[float]:
     """
     Extract mean fluorescence level from mask.
@@ -2263,9 +2259,6 @@ def cell_fluo(
         (channels, size_y, size_x).
     mask : 2D numpy array of bool
         Mask of the region to extract (typically a single cell).
-    box : CroppingBox, optional
-        Cropping box to apply shift when looking at full-frame fluo images.
-        The default is None.
 
     Returns
     -------
@@ -2273,7 +2266,7 @@ def cell_fluo(
         Mean value per cell for each fluo frame.
 
     """
-    return [np.sum(mask * box.crop(fluo)) / mask.sum() for fluo in fluo_frames]
+    return [np.sum(mask * fluo) / mask.sum() for fluo in fluo_frames]
 
 
 # %% Misc

@@ -308,21 +308,21 @@ class Position:
         self._msg("Starting pre-processing")
 
         # Load all channels, all positions
-        # trans_frames.shape = (len(frames), Y, X)
-        trans_frames = self.reader.getframes(
+        # trans_frames.shape = (frames, channels, Y, X)
+        all_frames = self.reader.getframes(
             position=self.position_nb,
-            channels=self.reader.channels[0],
             squeeze_dimensions=False,
-        )[:, 0, :, :]
+        )
 
         # If no reference frame provided, read first frame from reader:
         if reference is None:
-            reference = np.array(trans_frames[0, :, :])
+            reference = np.array(all_frames[0, 0, :, :])
 
-        trans_frames = trans_frames[
+        all_frames = all_frames[
             frames.start
             - self.reader.frames.start : frames.stop
             - self.reader.frames.start,
+            :,
             :,
             :,
         ]
@@ -331,10 +331,11 @@ class Position:
         if self.config.rotation_correction:
             self.rotate = utils.deskew(reference)
             self._msg(f"Rotation correction: {self.rotate} degrees")
-            for iframe in range(len(trans_frames)):
-                trans_frames[iframe, :, :] = utils.imrotate(
-                    trans_frames[iframe, :, :], self.rotate
-                )
+            for iframe in range(all_frames.shape[0]):
+                for ichannel in range(all_frames.shape[1]):
+                    all_frames[iframe, ichannel, :, :] = utils.imrotate(
+                        all_frames[iframe, ichannel, :, :], self.rotate
+                    )
             reference = utils.imrotate(reference, self.rotate)
 
         # Find ROIs
@@ -355,13 +356,22 @@ class Position:
                 self.driftcorbox.ybr = max(box.ytl for box in roi_boxes)
 
             # Correct drift:
-            trans_frames, self.drift_values = utils.driftcorr(
-                trans_frames, template=self.drifttemplate, box=self.driftcorbox
+            all_frames[:, 0, :, :], self.drift_values = utils.driftcorr(
+                all_frames[:, 0, :, :],
+                template=self.drifttemplate,
+                box=self.driftcorbox,
             )
+            for ichannel in range(1, all_frames.shape[1]):
+                all_frames[:, ichannel, :, :], _ = utils.driftcorr(
+                    all_frames[:, ichannel, :, :], drift=self.drift_values
+                )
 
         self.rois = [
             ROI(
-                img_stack=[box.crop(img) for img in trans_frames],
+                img_stack=[box.crop(img) for img in all_frames[:, 0, :, :]],
+                fluo_stack=[
+                    [box.crop(img) for img in imgs] for imgs in all_frames[:, 1:, :, :]
+                ],
                 roi_nb=iroi,
                 first_frame=frames[0],
                 box=box,
@@ -485,25 +495,6 @@ class Position:
         """
         self._msg(f"Starting tracking ({len(frames)} frames)")
 
-        # Assume that brightfield is the first channel and fluorescence
-        # channels are the other ones
-        fluo_channels = self.reader.channels[1:]
-
-        # Read fluorescence frames:
-        fluo_frames = self.reader.getframes(
-            position=self.position_nb,
-            channels=fluo_channels,
-            frames=frames,
-            squeeze_dimensions=False,
-            rotate=self.rotate,
-        )
-        # Apply drift correction
-        if self.config.drift_correction:
-            for f in range(fluo_frames.shape[1]):
-                fluo_frames[:, f, :, :], _ = utils.driftcorr(
-                    fluo_frames[:, f, :, :], drift=self.drift_values
-                )
-
         tracking_model = self.config.model("track")
         for iframe, frame in enumerate(frames, start=1):
             self._msg(f"Tracking - frame {frame}/{len(frames)}")
@@ -533,7 +524,6 @@ class Position:
                     y[i : i + nbcells],
                     frame=frame,
                     boxes=boxes,
-                    fluo_frames=fluo_frames[frame - self.rois[iroi].first_frame],
                 )
                 i += nbcells
 
@@ -895,6 +885,7 @@ class ROI:
     def __init__(
         self,
         img_stack: List[utils.Image],
+        fluo_stack: List[List[utils.Image]],
         roi_nb: int,
         first_frame: int,
         box: CroppingBox,
@@ -907,6 +898,8 @@ class ROI:
         ----------
         img_stack : List[utils.Image]
             Image stack.
+        fluo_stack : List[List[utils.Image]]
+            Fluo stack. Shape: (frames, fluo_channels, Y, X).
         roi_nb : int
             ROI index.
         first_frame : int
@@ -931,6 +924,8 @@ class ROI:
             (img - img.min()) / img.ptp() for img in img_stack
         ]
         "Input images stack"
+        self.fluo_stack = np.array(fluo_stack)
+        "Fluo images stack"
         self.seg_stack: List[utils.SegmentationMask] = []
         "Segmentation images stack"
         self.lineage = utils.Lineage()
@@ -1010,6 +1005,22 @@ class ROI:
             Image of the ROI.
         """
         return self.img_stack[frame - self.first_frame]
+
+    def get_fluo(self, frame: int) -> utils.Image:
+        """
+        Return the ROI fluo images at a given frame.
+
+        Parameters
+        ----------
+        frame : int
+            Frame index.
+
+        Returns
+        -------
+        image : utils.Image
+            List of fluo images of the ROI.
+        """
+        return self.fluo_stack[frame - self.first_frame]
 
     def get_seg(self, frame: int) -> utils.SegmentationMask:
         """
@@ -1218,7 +1229,6 @@ class ROI:
         self,
         y: np.ndarray,
         frame: int,
-        fluo_frames: np.ndarray,
         boxes: Optional[List[Tuple[CroppingBox, CroppingBox]]] = None,
     ) -> None:
         """
@@ -1233,8 +1243,6 @@ class ROI:
             (previous_cells, *self.config.target_size_track, 1).
         frame : int
             The frame to process for.
-        fluo_frames : 4D array
-            Fluorescent frames. Dimensions are (time, channels, Y, X).
         boxes : List of tuples of 2 dicts or None
             Crop and fill boxes to re-place outputs in the ROI
 
@@ -1266,8 +1274,7 @@ class ROI:
         # Extract features for all cells in the ROI:
         extracted_features = utils.roi_features(
             labels,
-            fluo_frames=fluo_frames,
-            roi_box=self.box,
+            fluo_frames=self.get_fluo(frame),
         )
 
         # Make sure the same cell_ids are present in both dicts
