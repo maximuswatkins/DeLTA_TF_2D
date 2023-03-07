@@ -925,6 +925,9 @@ class ROI:
         ]
         "Input images stack"
         self.fluo_stack = np.array(fluo_stack)
+        if self.fluo_stack.ndim == 2:
+            # No fluo channels
+            self.fluo_stack = self.fluo_stack[:, :, np.newaxis, np.newaxis]
         "Fluo images stack"
         self.seg_stack: List[utils.SegmentationMask] = []
         "Segmentation images stack"

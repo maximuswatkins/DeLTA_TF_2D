@@ -2248,7 +2248,7 @@ def cell_perimeter(contour: Contour) -> float:
 def cell_fluo(
     fluo_frames: np.ndarray,
     mask: SegmentationMask,
-) -> List[float]:
+) -> npt.NDArray[np.float64]:
     """
     Extract mean fluorescence level from mask.
 
@@ -2259,14 +2259,15 @@ def cell_fluo(
         (channels, size_y, size_x).
     mask : 2D numpy array of bool
         Mask of the region to extract (typically a single cell).
+        Dimensions are (size_y, size_x).
 
     Returns
     -------
-    fluo_values :  list of floats
+    fluo_values : array of floats
         Mean value per cell for each fluo frame.
 
     """
-    return [np.sum(mask * fluo) / mask.sum() for fluo in fluo_frames]
+    return (fluo_frames * mask).sum(axis=(1, 2)) / mask.sum()
 
 
 # %% Misc
