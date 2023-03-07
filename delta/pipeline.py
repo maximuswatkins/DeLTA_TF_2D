@@ -1128,7 +1128,7 @@ class ROI:
             raise RuntimeError(f"Segmentation incomplete - frame {frame}")
 
         # Get cell contours from previous frame
-        if frame == 0 or frame - 1 not in self.lineage.cellnumbers:
+        if frame == self.first_frame:
             prev_cell_contours = []
         else:
             prev_cell_contours = utils.find_contours(self.get_seg(frame - 1))
@@ -1142,29 +1142,25 @@ class ROI:
             dtype=np.float32,
         )
 
+        curr_img = self.get_img(frame)
+        prev_img = self.get_img(frame - 1)
+        if not self.config.crop_windows:
+            curr_img = cv2.resize(curr_img, dsize=self.config.target_size_seg[::-1])
+            prev_img = cv2.resize(prev_img, dsize=self.config.target_size_seg[::-1])
+            cb = CroppingBox.full(curr_img)
+            fb = CroppingBox.full(curr_img)
+            draw_offset = None
+        shape = cast(Tuple[int, int], curr_img.shape)  # for mypy
+
         # Run through contours and compile inputs:
         boxes = []
         for c, cell in enumerate(prev_cell_contours):
-            draw_offset: Optional[Tuple[float, float]]
             if self.config.crop_windows:
-                curr_img = self.get_img(frame)
-                prev_img = self.get_img(frame - 1)
                 # Cell-centered crop boxes:
-                shape = cast(Tuple[int, int], curr_img.shape)  # for mypy
                 cb, fb = utils.gettrackingboxes(
                     cell, shape, self.config.target_size_track
                 )
                 draw_offset = (-cb.xtl + fb.xtl, -cb.ytl + fb.ytl)
-            else:
-                curr_img = cv2.resize(
-                    self.get_img(frame), dsize=self.config.target_size_seg[::-1]
-                )
-                prev_img = cv2.resize(
-                    self.get_img(frame - 1), dsize=self.config.target_size_seg[::-1]
-                )
-                cb = CroppingBox.full(curr_img)
-                fb = CroppingBox.full(curr_img)
-                draw_offset = None
             boxes += [(cb, fb)]
 
             # Current image
@@ -1177,7 +1173,7 @@ class ROI:
                 0,
                 offset=draw_offset,
                 color=1.0,
-                thickness=-1,
+                thickness=cv2.FILLED,
             )
 
             # Previous image
