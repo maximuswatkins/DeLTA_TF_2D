@@ -132,32 +132,35 @@ class Pipeline:
         if positions is None:
             positions = self.reader.positions
 
-        # Run through positions:
-        for p in positions:
-            all_frames = self.reader.getframes(position=p, frames=frames)
+        # Run through positions
+        for iposition, position in self.positions.items():
+            if iposition not in positions:
+                continue
 
-            if not self.positions[p].rois:
-                self.positions[p].preprocess(all_frames, frames=frames)
+            all_frames = self.reader.getframes(position=iposition, frames=frames)
 
-            # Segment all frames:
-            self.positions[p].segment(frames=frames)
+            # Create ROIs and distribute images
+            position.preprocess(all_frames, frames=frames)
 
-            # Track cells:
-            self.positions[p].track(frames=frames)
+            # Segment all ROIs
+            position.segment(frames=frames)
 
-            # Extract features:
-            self.positions[p].features(frames=frames)
+            # Track cells in all ROIs
+            position.track(frames=frames)
 
-            # Save to disk and clear memory:
-            self.positions[p].save(
-                filename=self.resfolder / f"Position{p:06d}",
+            # Extract features in all ROIs
+            position.features(frames=frames)
+
+            # Save to disk and clear memory
+            position.save(
+                filename=self.resfolder / f"Position{iposition:06d}",
                 frames=frames,
                 reader=self.reader,
                 save_format=self.config.save_format,
             )
 
             if clear:
-                self.positions[p].clear()
+                position.clear()
 
 
 class Position:
