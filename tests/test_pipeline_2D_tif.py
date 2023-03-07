@@ -41,8 +41,7 @@ def test_pipeline_tif_stack():
         # Testing Position.clear
         pos.clear()
         for k in pos.__dict__.keys():
-            if k not in pos._pickle_skip:
-                assert getattr(pos, k) is None
+            assert getattr(pos, k) is None
 
         # Testing Position.load
         pos = delta.pipeline.Position.load(tempdirname + "position0.pkl")

@@ -82,7 +82,6 @@ class Pipeline:
         for iposition in self.reader.positions:
             self.positions[iposition] = Position(
                 iposition,
-                self.reader,
                 config=self.config,
             )
 
@@ -135,8 +134,12 @@ class Pipeline:
 
         # Run through positions:
         for p in positions:
+            all_frames = self.reader.getframes(
+                position=p, frames=frames, squeeze_dimensions=False
+            )
+
             if not self.positions[p].rois:
-                self.positions[p].preprocess(frames=frames)
+                self.positions[p].preprocess(all_frames, frames=frames)
 
             # Segment all frames:
             self.positions[p].segment(frames=frames)
@@ -151,6 +154,7 @@ class Pipeline:
             self.positions[p].save(
                 filename=self.resfolder / f"Position{p:06d}",
                 frames=frames,
+                reader=self.reader,
                 save_format=self.config.save_format,
             )
 
@@ -164,7 +168,6 @@ class Position:
     def __init__(
         self,
         position_nb: int,
-        reader: utils.XPReader,
         config: Config,
     ) -> None:
         """
@@ -174,8 +177,6 @@ class Position:
         ----------
         position_nb : int
             Position index.
-        reader : XPReader
-            utilities XPReader object.
         config : Config
             DeLTA configuration.
 
@@ -186,8 +187,6 @@ class Position:
         """
         self.position_nb = position_nb
         "Position index number in the experiment"
-        self.reader: utils.XPReader = reader
-        "Experiment reader object"
         self.rois: List[ROI] = []
         "List of ROI objects under position"
         self.drift_values: Tuple = ([], [])
@@ -200,7 +199,6 @@ class Position:
         "Configuration parameters object"
         self.verbose: int = 1
         "Console output verbosity"
-        self._pickle_skip: Tuple[str, ...] = ("reader", "_pickle_skip")
 
     def __eq__(self, other) -> bool:
         """Equality function for Position."""
@@ -217,18 +215,6 @@ class Position:
             eq_verbose,
         ]
         return all(eqs)
-
-    def __getstate__(self) -> Dict[str, Any]:
-        """
-        For pickle.
-
-        Returns
-        -------
-        state : dict
-            Values to store in pickle file.
-
-        """
-        return {k: v for k, v in self.__dict__.items() if k not in self._pickle_skip}
 
     def _msg(self, string: str) -> None:
         """
@@ -248,13 +234,18 @@ class Position:
             print(f"{time.ctime()}, Position {self.position_nb} - {string}", flush=True)
 
     def preprocess(
-        self, frames: range, reference: Optional[utils.Image] = None
+        self,
+        all_frames: npt.NDArray[np.float64],
+        frames: range,
+        reference: Optional[utils.Image] = None,
     ) -> None:
         """
         Pre-process position (Rotation correction, identify ROIs, initialize drift correction).
 
         Parameters
         ----------
+        all_frames : npt.NDArray[np.float64]
+            All frames for this position. Shape: (frames, channels, Y, X).
         frames : range
             Range of frames to preprocess.
         reference : 2D array, optional
@@ -269,25 +260,8 @@ class Position:
         """
         self._msg("Starting pre-processing")
 
-        # Load all channels, all positions
-        # trans_frames.shape = (frames, channels, Y, X)
-        all_frames = self.reader.getframes(
-            position=self.position_nb,
-            squeeze_dimensions=False,
-        )
-
-        # If no reference frame provided, read first frame from reader:
-        if reference is None:
-            reference = np.array(all_frames[0, 0, :, :])
-
-        all_frames = all_frames[
-            frames.start
-            - self.reader.frames.start : frames.stop
-            - self.reader.frames.start,
-            :,
-            :,
-            :,
-        ]
+        # If no reference frame provided, read first frame from reader
+        reference = np.array(all_frames[0, 0, :, :] if reference is None else reference)
 
         # Rotation correction
         if self.config.rotation_correction:
@@ -525,6 +499,7 @@ class Position:
         self,
         filename: Optional[Union[str, Path]] = None,
         frames: Optional[range] = None,
+        reader: Optional[utils.XPReader] = None,
         save_format: Tuple[str, ...] = ("pickle", "movie"),
     ) -> None:
         """
@@ -539,6 +514,8 @@ class Position:
         frames : Optional[range]
             Range of frames to save. If None, all frames will be saved.
             The default is None.
+        reader : Optional[utils.XPReader]
+            Only needed if saving as a movie.
         save_format : tuple of str, optional
             Formats to save the data to. Options are "pickle', 'legacy' (ie
             Matlab format), and "movie' for saving an mp4 movie.
@@ -555,7 +532,10 @@ class Position:
 
         if "legacy" in save_format:
             self._msg("Saving to legacy format\n" + str(filename.with_suffix(".mat")))
-            self.legacysave(filename.with_suffix(".mat"))
+            if reader is None:
+                raise ValueError("If saving as matlab, xpreader cannot be None.")
+            data = self.legacysave(reader)
+            savemat(filename.with_suffix(".mat"), data)
 
         if "pickle" in save_format:
             self._msg("Saving to pickle format\n" + str(filename.with_suffix(".pkl")))
@@ -564,7 +544,9 @@ class Position:
 
         if "movie" in save_format:
             self._msg("Saving results movie\n" + str(filename.with_suffix(".mp4")))
-            movie = self.results_movie(frames)
+            if reader is None:
+                raise ValueError("If saving as movie, xpreader cannot be None.")
+            movie = self.results_movie(frames, reader)
             utils.vidwrite(movie, filename.with_suffix(".mp4"), verbose=False)
 
     @staticmethod
@@ -599,10 +581,9 @@ class Position:
         """
         self._msg("Clearing variables from memory")
         for k in self.__dict__:
-            if k not in self._pickle_skip:
-                setattr(self, k, None)
+            setattr(self, k, None)
 
-    def legacysave(self, res_file: Union[str, Path]) -> None:
+    def legacysave(self, reader: utils.XPReader) -> Dict[str, Any]:
         """
         Save pipeline data in the legacy Matlab format.
 
@@ -610,6 +591,8 @@ class Position:
         ----------
         res_file : str or Path
             Path to save file.
+        reader : utils.XPReader
+            Experiment reader.
 
         Returns
         -------
@@ -618,25 +601,21 @@ class Position:
         """
         # File reader info
         moviedimensions = [
-            self.reader.y,
-            self.reader.x,
-            len(self.reader.channels),
-            len(self.reader.frames),
+            reader.y,
+            reader.x,
+            len(reader.channels),
+            len(reader.frames),
         ]
-        xpfile = self.reader.path
+        xpfile = reader.path
 
         # If No ROIs detected for position:
         if len(self.rois) == 0:
-            savemat(
-                res_file,
-                {
-                    "res": [],
-                    "tiffile": str(xpfile),
-                    "moviedimensions": moviedimensions,
-                    "proc": {"rotation": self.rotate, "chambers": [], "XYdrift": []},
-                },
-            )
-            return
+            return {
+                "res": [],
+                "tiffile": str(xpfile),
+                "moviedimensions": moviedimensions,
+                "proc": {"rotation": self.rotate, "chambers": [], "XYdrift": []},
+            }
 
         # Initialize data structure/dict:
         data: Dict[str, Any] = {
@@ -724,10 +703,9 @@ class Position:
             # Store into data structure:
             data["res"] += [res]
 
-        # Finally, save to disk:
-        savemat(res_file, data)
+        return data
 
-    def results_movie(self, frames: Optional[range]) -> Any:
+    def results_movie(self, frames: Optional[range], reader: utils.XPReader) -> Any:
         """
         Generate movie illustrating segmentation and tracking.
 
@@ -738,17 +716,18 @@ class Position:
         frames : Optional[range]
             Range of frames to use for the movie.  If None, all of them will be used.
             The default is None.
+        reader : utils.XPReader
         """
         # Re-read trans frames:
-        trans_frames = self.reader.getframes(
+        trans_frames = reader.getframes(
             position=self.position_nb,
-            channels=self.reader.channels[0],
+            channels=reader.channels[0],
             frames=frames,
             squeeze_dimensions=False,
             rotate=self.rotate,
         )
         if frames is None:
-            frames = self.reader.frames
+            frames = reader.frames
         trans_frames = trans_frames[:, 0]
 
         if self.config.drift_correction:
