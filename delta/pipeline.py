@@ -93,44 +93,6 @@ class Pipeline:
                     self.resfolder / f"Position{iposition:06d}.pkl"
                 )
 
-    def preprocess(
-        self,
-        positions: Optional[List[int]] = None,
-        references: Optional[np.ndarray] = None,
-    ) -> None:
-        """
-        Pre-process positions (Rotation correction, identify ROIs, initialize drift correction).
-
-        Parameters
-        ----------
-        positions : list of int or None, optional
-            List of positions to pre-process. If None, all will be run.
-            The default is None.
-        references : 3D array or None, optional
-            Reference images to use to perform pre-processing. If None,
-            the first image of each position will be used. Dimensions
-            are (positions, size_y, size_x)
-            The default is None.
-
-        Returns
-        -------
-        None.
-
-        """
-        # TODO implement ROIs mode selection here instead of config
-
-        # Process positions to run:
-        if positions is None:
-            positions_torun = self.reader.positions
-        else:
-            positions_torun = positions
-
-        # Run preprocessing:
-        for p in positions_torun:
-            self.positions[p].preprocess(
-                reference=references[p] if isinstance(references, np.ndarray) else None
-            )
-
     def process(
         self,
         positions: Optional[List[int]] = None,
