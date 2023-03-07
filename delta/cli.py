@@ -82,7 +82,7 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         "--input",
         help="Input file or directory. Can include `{p}`, `{c}` and `{t}` as "
         "placeholders for the position, channel, and frame number.  "
-        "Example for micromanager: `Pos{p}/img_channel{c}_position{p}_time{t}_z000.tif`",
+        "Example for micromanager: `/path/to/folder/Pos{p}/img_channel{c}_position{p}_time{t}_z000.tif`",
         required=True,
     )
     parser.add_argument(
