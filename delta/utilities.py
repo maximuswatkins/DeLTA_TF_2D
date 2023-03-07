@@ -583,7 +583,7 @@ def stitch_pic(
 
 
 def gettrackingboxes(
-    cell: npt.NDArray[np.uint8],
+    contour: npt.NDArray[np.uint8],
     frame_shape: Tuple[int, int],
     target_size: Tuple[int, int],
 ) -> Tuple[CroppingBox, CroppingBox]:
@@ -592,8 +592,8 @@ def gettrackingboxes(
 
     Parameters
     ----------
-    cell : 2D array of uint8
-        Mask of the cell to track.
+    contour : 3D array of np.uint8
+        Contour of the cell to track.
     frame_shape : tuple of 2 ints
         Original dimensions of the image.
     target_size : tuple of 2 ints
@@ -608,7 +608,7 @@ def gettrackingboxes(
         the cropped out image.
 
     """
-    cx, cy = getcentroid(cell)
+    cx, cy = getcentroid(contour)
 
     xtl = int(max(cx - target_size[1] / 2, 0))
     xbr = int(min(cx + target_size[1] / 2, frame_shape[1]))
@@ -1125,7 +1125,7 @@ def division_poles(
 
 def getTrackingScores(
     labels: Labels,
-    outputs: npt.NDArray[np.float32],
+    logits: npt.NDArray[np.float32],
     boxes: Optional[List[Tuple[CroppingBox, CroppingBox]]] = None,
 ) -> npt.NDArray[np.float32]:
     """
@@ -1135,8 +1135,8 @@ def getTrackingScores(
     ----------
     labels : 2D array of np.uint16
         Labelled image (untracked) of the current frame.
-    outputs : 3D array of floats (previous_cells, sizex, sizey)
-        Tracking U-Net output (logits).
+    logits : 3D array of floats (previous_cells, sizex, sizey)
+        Tracking U-Net output.
     boxes : list of dict, optional
         Cropping box and fill box to re-place output prediction masks in the
         original coordinates to index the labels frame.
@@ -1149,10 +1149,10 @@ def getTrackingScores(
 
     """
     # Compile scores:
-    scores = np.zeros([outputs.shape[0], labels.max()], dtype=np.float32)
-    for o, output in enumerate(outputs):
+    scores = np.zeros([logits.shape[0], labels.max()], dtype=np.float32)
+    for o, logits_cell in enumerate(logits):
         # Find pixels with more than 5% probability
-        nz_y, nz_x = list((output > logit(0.05)).nonzero())
+        nz_y, nz_x = list((logits_cell > logit(0.05)).nonzero())
 
         # Find cells that are "hit" by those pixels in the labels image:
         if boxes is not None:

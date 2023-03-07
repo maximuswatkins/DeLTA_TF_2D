@@ -1116,11 +1116,11 @@ class ROI:
 
         Returns
         -------
-        x : 4D array or None
+        inputs : 4D array or None
             Tracking input array. Dimensions are
             (previous_cells, *self.config.target_size_track, 4).
-        boxes : List of tuples of 2 dicts or None
-            Crop and fill boxes to re-place outputs in the ROI
+        boxes : List of tuples of 2 dicts
+            Crop and fill boxes to re-place outputs in the ROI.
 
         """
         # Check if segmentation data is ready:
@@ -1137,39 +1137,40 @@ class ROI:
         prev_cell_contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))
 
         # Allocate empty tracking inputs array:
-        x = np.empty(
+        inputs = np.empty(
             (len(prev_cell_contours), *self.config.target_size_track, 4),
             dtype=np.float32,
         )
 
+        # Get current and previous image, used as tracking inputs and resize them if needed
         curr_img = self.get_img(frame)
         prev_img = self.get_img(frame - 1)
         if not self.config.crop_windows:
             curr_img = cv2.resize(curr_img, dsize=self.config.target_size_seg[::-1])
             prev_img = cv2.resize(prev_img, dsize=self.config.target_size_seg[::-1])
-            cb = CroppingBox.full(curr_img)
-            fb = CroppingBox.full(curr_img)
+            cb, fb = CroppingBox.full(curr_img), CroppingBox.full(curr_img)
             draw_offset = None
-        shape = cast(Tuple[int, int], curr_img.shape)  # for mypy
+            boxes = [(cb, fb)] * len(prev_cell_contours)
+        else:
+            shape = cast(Tuple[int, int], curr_img.shape)  # for mypy
+            # Cell-centered crop boxes
+            boxes = [
+                utils.gettrackingboxes(contour, shape, self.config.target_size_track)
+                for contour in prev_cell_contours
+            ]
 
         # Run through contours and compile inputs:
-        boxes = []
-        for c, cell in enumerate(prev_cell_contours):
+        for icontour, (contour, (cb, fb)) in enumerate(zip(prev_cell_contours, boxes)):
             if self.config.crop_windows:
-                # Cell-centered crop boxes:
-                cb, fb = utils.gettrackingboxes(
-                    cell, shape, self.config.target_size_track
-                )
                 draw_offset = (-cb.xtl + fb.xtl, -cb.ytl + fb.ytl)
-            boxes += [(cb, fb)]
 
             # Current image
-            fb.patch(x[c, :, :, 0], cb.crop(curr_img))
+            fb.patch(inputs[icontour, :, :, 0], cb.crop(curr_img))
 
             # Segmentation mask of one previous cell (seed)
-            x[c, :, :, 1] = cv2.drawContours(
+            inputs[icontour, :, :, 1] = cv2.drawContours(
                 np.zeros(self.config.target_size_track, dtype=np.float32),
-                [cell],
+                [contour],
                 0,
                 offset=draw_offset,
                 color=1.0,
@@ -1177,19 +1178,19 @@ class ROI:
             )
 
             # Previous image
-            fb.patch(x[c, :, :, 2], cb.crop(prev_img))
+            fb.patch(inputs[icontour, :, :, 2], cb.crop(prev_img))
 
             # Segmentation of all current cells
-            fb.patch(x[c, :, :, 3], cb.crop(self.get_seg(frame)))
+            fb.patch(inputs[icontour, :, :, 3], cb.crop(self.get_seg(frame)))
 
         # Return tracking inputs and crop and fill boxes:
-        return x, boxes
+        return inputs, boxes
 
     def process_tracking_outputs(
         self,
-        y: np.ndarray,
+        logits: npt.NDArray[np.float32],
         frame: int,
-        boxes: Optional[List[Tuple[CroppingBox, CroppingBox]]] = None,
+        boxes: List[Tuple[CroppingBox, CroppingBox]],
     ) -> None:
         """
         Process output from tracking U-Net.
@@ -1198,13 +1199,13 @@ class ROI:
 
         Parameters
         ----------
-        y : 4D array
+        logits : 4D array
             Tracking output array. Dimensions are
             (previous_cells, *self.config.target_size_track, 1).
         frame : int
             The frame to process for.
-        boxes : List of tuples of 2 dicts or None
-            Crop and fill boxes to re-place outputs in the ROI
+        boxes : List of tuples of 2 dicts
+            Crop and fill boxes to re-place outputs in the ROI.
 
         Returns
         -------
@@ -1214,9 +1215,7 @@ class ROI:
         # Get scores and attributions:
         # Label frame but numbered 1, 2, 3, 4, etc. (temporary labels)
         labels = utils.label_seg(self.get_seg(frame))
-        scores = utils.getTrackingScores(
-            labels, y[:, :, :, 0], boxes=boxes if self.config.crop_windows else None
-        )
+        scores = utils.getTrackingScores(labels, logits[:, :, :, 0], boxes=boxes)
 
         attributions = utils.getAttributions(scores)
 
