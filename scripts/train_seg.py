@@ -21,7 +21,7 @@ tf.keras.utils.set_random_seed(1)
 config = delta.config.DEFAULT_CONFIG_2D
 # Uncomment if you already have a config file
 # config = delta.config.Config.read("/path/to/your/config.yml")
-
+config.apply_tensorflow_config()
 # Files:
 training_set = config.training_set_path("seg")
 savefile = Path("new_segmentation_model.hdf5")
