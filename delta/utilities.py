@@ -2243,7 +2243,7 @@ def cell_perimeter(contour: Contour) -> float:
 def cell_fluo(
     fluo_frames: np.ndarray,
     mask: SegmentationMask,
-) -> npt.NDArray[np.float64]:
+) -> npt.NDArray[np.float32]:
     """
     Extract mean fluorescence level from mask.
 

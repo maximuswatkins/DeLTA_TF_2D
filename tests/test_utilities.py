@@ -829,7 +829,7 @@ def test_division_poles(seed):
 def _base_test_color(max_dots, seed=None):
     # Get random mask and RGB frame:
     mask = rand_mask((2048, 2048), max_dots=max_dots, seed=seed)
-    frame = np.repeat(mask[:, :, np.newaxis].astype(np.float64), 3, axis=2)
+    frame = np.repeat(mask[:, :, np.newaxis].astype(np.float32), 3, axis=2)
 
     # Get cells numbers and contours:
     cells, contours = utils.getcellsinframe(utils.label_seg(mask), return_contours=True)

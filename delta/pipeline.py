@@ -236,7 +236,7 @@ class Position:
 
     def preprocess(
         self,
-        all_frames: npt.NDArray[np.float64],
+        all_frames: npt.NDArray[np.float32],
         frames: range,
         reference: Optional[utils.Image] = None,
     ) -> None:
@@ -245,7 +245,7 @@ class Position:
 
         Parameters
         ----------
-        all_frames : npt.NDArray[np.float64]
+        all_frames : npt.NDArray[np.float32]
             All frames for this position. Shape: (frames, channels, Y, X).
         frames : range
             Range of frames to preprocess.
@@ -581,7 +581,7 @@ class Position:
         # Proc dict/structure:
         data["proc"] = {
             "rotation": self.rotate,
-            "XYdrift": np.array(self.drift_values, dtype=np.float64),
+            "XYdrift": np.array(self.drift_values, dtype=np.float32),
             "chambers": np.array(
                 [
                     [
@@ -592,7 +592,7 @@ class Position:
                     ]
                     for r in self.rois
                 ],
-                dtype=np.float64,
+                dtype=np.float32,
             ),
         }
 
