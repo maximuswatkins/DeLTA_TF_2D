@@ -73,20 +73,20 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         description="Deep Learning for Time-Lapse Analysis",
     )
     parser.add_argument(
-        "presets",
-        choices=["2D", "mothermachine"],
-        help="Whether to run in 2D or mothermachine mode",
+        "-c",
+        "--config",
+        help="Configuration file.  Can be either `2D`, `mothermachine`, "
+        "or a path to a previously saved custom config file.",
+        required=True,
     )
     parser.add_argument(
         "-i",
         "--input",
         help="Input file or directory. Can include `{p}`, `{c}` and `{t}` as "
         "placeholders for the position, channel, and frame number.  "
-        "Example for micromanager: `/path/to/folder/Pos{p}/img_channel{c}_position{p}_time{t}_z000.tif`",
+        "Example for micromanager: "
+        "`/path/to/folder/Pos{p}/img_channel{c}_position{p}_time{t}_z000.tif`",
         required=True,
-    )
-    parser.add_argument(
-        "--positions", help="Positions to process, ex.: 0-2,4,7-10 (default: all)"
     )
     parser.add_argument(
         "-o",

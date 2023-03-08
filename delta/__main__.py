@@ -21,10 +21,12 @@ import delta
 args = delta.cli.parse_args()
 
 # Select the right configuration based on the specified presets
-if args.presets == "2D":
+if args.config == "2D":
     config = delta.config.DEFAULT_CONFIG_2D
-elif args.presets == "mothermachine":
+elif args.config == "mothermachine":
     config = delta.config.DEFAULT_CONFIG_MOTHERMACHINE
+else:
+    config = delta.config.Config.read(args.config)
 
 # Create the file reader that reads the experiment file(s)
 xpreader = delta.utils.XPReader(args.input)
