@@ -17,12 +17,6 @@ from delta.data import load_training_dataset_seg
 # (only on CPU: not reproducible on GPU yet)
 tf.keras.utils.set_random_seed(1)
 
-# Limit the number of threads that TensorFlow can use
-num_threads = 4
-tf.config.threading.set_inter_op_parallelism_threads(num_threads)
-tf.config.threading.set_intra_op_parallelism_threads(num_threads)
-tf.config.set_soft_device_placement(True)
-
 # Default config
 config = delta.config.DEFAULT_CONFIG_2D
 # Uncomment if you already have a config file

@@ -77,6 +77,9 @@ class Config:
     pipeline_track_batch: int
     """If running into OOM issues during segmentation with the pipeline, try
     lowering this value.  You can also increase it to improve speed."""
+    number_of_cores: int
+    """This will limit the number of cores TensorFlow can use. Default value
+    of this will have TensorFlow determine the number of cores."""
 
     @staticmethod
     def read(path: Union[str, Path]):
@@ -192,6 +195,8 @@ class Config:
         These are currently the ``TF_CPP_MIN_LOG_LEVEL`` environment variable,
         and the ``memory_growth_limit`` parameter.
 
+        TensorFlow will also determine the number of cores if not set in the config
+
         Returns
         -------
         None
@@ -219,6 +224,11 @@ class Config:
             except RuntimeError as err:
                 # Virtual devices must be set before GPUs have been initialized
                 warnings.warn(f"{err}")
+
+        # TensorFlow will determine the max number of cores if not set in the config
+        tf.config.threading.set_inter_op_parallelism_threads(self.number_of_cores)
+        tf.config.threading.set_intra_op_parallelism_threads(self.number_of_cores)
+
 
 
 ###
@@ -250,6 +260,7 @@ DEFAULT_CONFIG_2D = Config(
     memory_growth_limit=None,
     pipeline_seg_batch=64,
     pipeline_track_batch=64,
+    number_of_cores=None,
 )
 
 DEFAULT_CONFIG_MOTHERMACHINE = Config(
@@ -276,6 +287,7 @@ DEFAULT_CONFIG_MOTHERMACHINE = Config(
     memory_growth_limit=None,
     pipeline_seg_batch=64,
     pipeline_track_batch=64,
+    number_of_cores=None,
 )
 
 
