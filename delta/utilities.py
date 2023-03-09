@@ -1824,23 +1824,26 @@ class XPReader:
                 b for a, b, c in zip(spath, spath[1:], spath[2:]) if a + c == "{}"
             ]
 
-            def parse(match: re.Match, fileorder: List[str]) -> Optional[Tuple[int]]:
+            def parse(match: re.Match, fileorder: List[str]) -> Tuple[int, int, int]:
                 """Associate the matched groups with fileorder labels."""
-                values = {}
+                values: Dict[str, int] = {}
                 for pattern, group in zip(fileorder, match.groups()):
-                    if pattern in values:
-                        return None
+                    if pattern in values and values[pattern] != int(group):
+                        raise ValueError(
+                            f"There is a file with two different values ({values[pattern]} "
+                            f"and {int(group)}) for the same pattern ({pattern})."
+                        )
                     values[pattern] = int(group)
-                return tuple(values.get(x, 0) for x in "pct")
+                return (values.get("p", 0), values.get("c", 0), values.get("t", 0))
 
             # Run through potential file paths, parse the arguments and
             # associate them with the full path
-            # It is fine if some of the globs don't match: they will be
-            # associated with None
-            self.imagepaths = {
-                parse(regexp.fullmatch(str(path)), fileorder): self.filehandle / path
-                for path in self.filehandle.glob(spath.format(p="*", c="*", t="*"))
-            }
+            self.imagepaths = {}
+            for imgpath in self.filehandle.glob(spath.format(p="*", c="*", t="*")):
+                match = regexp.fullmatch(str(imgpath))
+                if not match:
+                    continue
+                self.imagepaths[parse(match, fileorder)] = self.filehandle / imgpath
 
             # Explore imagepaths to determine ranges of positions, channels and frames
             # Get list of positions
@@ -1930,7 +1933,6 @@ class XPReader:
         """
         return self.imagepaths[position, channel, frame]
 
-    # TODO: typecheck this function
     def getframes(
         self,
         position: int,
@@ -2063,8 +2065,7 @@ def getrandomcolors(
         Dictionary of cellids to colors (RGB values in [0,1]).
 
     """
-    # XXX: Is this necessary?
-    if len(cellids) == 0:
+    if not cellids:
         return {}
 
     # Get colors
