@@ -10,11 +10,9 @@ to minimize the risk of unforeseen bugs.
 import datetime
 import re
 import subprocess
-import tkinter as tk
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from tkinter import filedialog
 from typing import (
     Any,
     Dict,
@@ -1656,39 +1654,6 @@ class Lineage:
 
 
 # %% Image files
-
-
-def getxppathdialog(ask_folder: bool = False) -> str:
-    """
-    Pop up window to select experiment file or folder.
-
-    Parameters
-    ----------
-    ask_folder : bool, optional
-        Folder selection window will pop up instead of file selection.
-        The default is False.
-
-    Returns
-    -------
-    file_path : str
-        Path to experiment file or folder.
-
-    """
-    root = tk.Tk()
-    # root.withdraw() # For some reason this doesn't work with askdirectory?
-    if ask_folder:
-        file_path = filedialog.askdirectory(
-            title="Please select experiment folder(s)", mustexist=True
-        )
-
-    else:
-        file_path = filedialog.askopenfilename(
-            title="Please select experiment files(s)"
-        )
-
-    root.destroy()
-
-    return file_path
 
 
 class XPReader:
