@@ -1933,10 +1933,17 @@ class XPReader:
         """
         return self.imagepaths[position, channel, frame]
 
+    def _get_channel_by_name(self, channel_name: str) -> int:
+        if not self.channelnames:
+            raise RuntimeError(
+                "To specify channels by name, you must specify channelnames."
+            )
+        return self.channelnames.index(channel_name)
+
     def getframes(
         self,
         position: int,
-        channels: Optional[Union[int, Sequence[int]]] = None,
+        channels: Optional[Union[int, str, Sequence[Union[int, str]]]] = None,
         frames: Optional[range] = None,
         squeeze_dimensions: bool = True,
         rotate: Optional[float] = None,
@@ -1948,7 +1955,7 @@ class XPReader:
         ----------
         position : int
             The position index for which the frames are requested.
-        channels : None, int, tuple/list of ints, str, tuple/list of str, optional
+        channels : None, int, str, tuple/list of ints or strs, optional
             The frames from the channel index or indexes passed as an integer
             or a tuple/list will be returned. If the channel names have been
             defined, the channel(s) can be passed as a string or tuple/list of
@@ -1980,36 +1987,20 @@ class XPReader:
             dimensions order being: Time, Channel, Y, X
 
         """
-        # Handle options:
-        if channels is None:  # No channel specified: load all
+        if channels is None:
             channels = self.channels
-        elif isinstance(channels, str):  # refer to 1 channel by name (eg 'gfp')
-            if self.channelnames is None:
-                raise ValueError("Set channel names first")
-            if channels in self.channelnames:
-                channels = [self.channelnames.index(channels)]
-            else:
-                raise ValueError(channels + " is not a valid channel name.")
-        elif isinstance(channels, (list, tuple)):
-            # If list of ints, nothing to do
-            if channels and all(isinstance(c, str) for c in channels):
-                # refer to channels by list/tuple of names:
-                if self.channelnames is None:
-                    raise ValueError("Set channel names first")
-                channels_list = []
-                for channel in channels:
-                    if channel in self.channelnames:
-                        channels_list.append(self.channelnames.index(channel))
-                    else:
-                        raise ValueError(channel + " is not a valid channel name.")
-                channels = channels_list
-        elif not isinstance(channels, (list, tuple)):
-            assert isinstance(channels, int)
+        elif isinstance(channels, int):
             channels = [channels]
+        elif isinstance(channels, str):
+            channels = [self._get_channel_by_name(channels)]
+        else:
+            channels = [
+                self._get_channel_by_name(c) if isinstance(c, str) else c
+                for c in channels
+            ]
 
         if frames is None:
             frames = self.frames
-        assert isinstance(frames, range)
 
         # Allocate memory:
         output = np.empty(
@@ -2017,27 +2008,28 @@ class XPReader:
         )
 
         # Load images:
-        for c, cha in enumerate(channels):
-            for f, fra in enumerate(frames):
+        for ichannel, channel in enumerate(channels):
+            assert isinstance(channel, int)  # for mypy
+            for iframe, frame in enumerate(frames):
                 # Read frame:
                 if self.use_bioformats:
-                    frame = self.filehandle.read(
-                        series=position, c=cha, t=fra, rescale=True
+                    image = self.filehandle.read(
+                        series=position, c=channel, t=frame, rescale=True
                     )
                 elif self.filetype == "dir":
-                    frame = read_image(self.get_imgpath(position, cha, fra))
+                    image = read_image(self.get_imgpath(position, channel, frame))
                 elif self.filetype == "tif":
-                    frame = (
+                    image = (
                         self.filehandle.series[position]
-                        .pages[fra * len(self.channels) + cha]
+                        .pages[frame * len(self.channels) + channel]
                         .asarray()
                     )
 
                 # Optionally rotate
                 if rotate is not None:
-                    frame = imrotate(frame, rotate)
+                    image = imrotate(image, rotate)
                 # Add to output array:
-                output[f, c, :, :] = frame
+                output[iframe, ichannel, :, :] = image
 
         # Return:
         return np.squeeze(output) if squeeze_dimensions else output
