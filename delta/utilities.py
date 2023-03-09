@@ -2287,24 +2287,6 @@ def read_image(filename: Path) -> np.ndarray:
     raise ValueError(f"Image depth not understood: {img.dtype}.")
 
 
-def findfirst(mylist: List) -> Optional[int]:
-    """
-    Find first non-zero element of list.
-
-    Parameters
-    ----------
-    mylist : list
-        List of elements to scan through.
-
-    Returns
-    -------
-    int or None
-        Index of first non-zero element, if it exists.
-
-    """
-    return next((i for i, x in enumerate(mylist) if x > 0), None)
-
-
 def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
     """
     Return a sorted list of filenames in `directory` that have one of the specified extensions.
