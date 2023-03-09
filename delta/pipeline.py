@@ -5,7 +5,6 @@ Module for the main processing pipeline.
 """
 
 import pickle
-import sys
 import time
 import warnings
 from pathlib import Path
@@ -20,7 +19,6 @@ from scipy.io import savemat
 from delta import utilities as utils
 from delta.config import Config
 from delta.data import binarizerange, postprocess
-from delta.lineage import CellFeatures
 from delta.utilities import CroppingBox
 
 MODEL = Literal["rois", "seg", "track"]

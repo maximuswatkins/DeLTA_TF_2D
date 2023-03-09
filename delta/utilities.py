@@ -10,13 +10,10 @@ to minimize the risk of unforeseen bugs.
 import datetime
 import re
 import subprocess
-import sys
-import time
 import tkinter as tk
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from threading import Thread
 from tkinter import filedialog
 from typing import (
     Any,
