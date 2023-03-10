@@ -1843,7 +1843,7 @@ class XPReader:
                 match = regexp.fullmatch(str(imgpath))
                 if not match:
                     continue
-                self.imagepaths[parse(match, fileorder)] = self.filehandle / imgpath
+                self.imagepaths[parse(match, fileorder)] = imgpath
 
             # Explore imagepaths to determine ranges of positions, channels and frames
             # Get list of positions
