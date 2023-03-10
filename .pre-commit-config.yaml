@@ -27,7 +27,7 @@ repos:
           - --convention=numpy
           - --add-select=D417
   - repo: https://github.com/crate-ci/typos
-    rev: v1.13.10
+    rev: v1.13.20
     hooks:
       - id: typos
         args:
