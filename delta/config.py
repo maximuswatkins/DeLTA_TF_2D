@@ -230,7 +230,6 @@ class Config:
         tf.config.threading.set_intra_op_parallelism_threads(self.number_of_cores)
 
 
-
 ###
 # IMPORTANT: Do not change the default parameters below.
 # Update the .yml files instead if necessary.

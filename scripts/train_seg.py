@@ -9,9 +9,9 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 import delta
+from delta.data import load_training_dataset_seg
 from delta.model import unet_seg
 from delta.utilities import tensorboard_callback
-from delta.data import load_training_dataset_seg
 
 # Set tensorflow's random seed to make the training reproducible
 # (only on CPU: not reproducible on GPU yet)
@@ -46,7 +46,7 @@ data_gen_args = dict(
 ds_train, ds_val = load_training_dataset_seg(
     dataset_path=training_set,
     target_size=config.target_size_seg,
-    crop=config.presets=='2D',
+    crop=config.presets == "2D",
     kw_data_aug=data_gen_args,
     validation_split=0.05,
     stack=True,
