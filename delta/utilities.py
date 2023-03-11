@@ -10,14 +10,9 @@ to minimize the risk of unforeseen bugs.
 import datetime
 import re
 import subprocess
-import sys
-import time
-import tkinter as tk
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from threading import Thread
-from tkinter import filedialog
 from typing import (
     Any,
     Dict,
@@ -583,7 +578,7 @@ def stitch_pic(
 
 
 def gettrackingboxes(
-    cell: npt.NDArray[np.uint8],
+    contour: npt.NDArray[np.uint8],
     frame_shape: Tuple[int, int],
     target_size: Tuple[int, int],
 ) -> Tuple[CroppingBox, CroppingBox]:
@@ -592,8 +587,8 @@ def gettrackingboxes(
 
     Parameters
     ----------
-    cell : 2D array of uint8
-        Mask of the cell to track.
+    contour : 3D array of np.uint8
+        Contour of the cell to track.
     frame_shape : tuple of 2 ints
         Original dimensions of the image.
     target_size : tuple of 2 ints
@@ -608,7 +603,7 @@ def gettrackingboxes(
         the cropped out image.
 
     """
-    cx, cy = getcentroid(cell)
+    cx, cy = getcentroid(contour)
 
     xtl = int(max(cx - target_size[1] / 2, 0))
     xbr = int(min(cx + target_size[1] / 2, frame_shape[1]))
@@ -692,43 +687,6 @@ def find_contours(mask: npt.NDArray[np.uint8]) -> List[Contour]:
     contours = list(contours)
 
     return contours
-
-
-def getROIBoxes(chambersmask: SegmentationMask) -> List[CroppingBox]:
-    """
-    Extract the bounding boxes of the chambers in the binary mask produced by the ROI segmentation model.
-
-    Parameters
-    ----------
-    chambersmask : 2D array of uint8
-        The mask of the chambers as returned by the chambers id unet.
-
-    Returns
-    -------
-    chamberboxes : list of `CroppingBox`es
-        Chamber `CroppingBox`es.
-
-    """
-    chamberboxes = []
-
-    contours = find_contours(chambersmask)
-    for chamber in contours:
-        xtl, ytl, boxwidth, boxheight = cv2.boundingRect(chamber)
-        chamberboxes.append(
-            # tl = top left, br = bottom right
-            CroppingBox(
-                xtl=xtl,
-                # -10% of height to make sure the top is not cropped
-                ytl=ytl - int(0.1 * boxheight),
-                xbr=xtl + boxwidth,
-                ybr=ytl + boxheight,
-            )
-        )
-
-    # Sorting by top-left X (normally sorted by Y top left)
-    chamberboxes.sort(key=lambda box: box.xtl)
-
-    return chamberboxes
 
 
 def label_seg(
@@ -1162,7 +1120,7 @@ def division_poles(
 
 def getTrackingScores(
     labels: Labels,
-    outputs: npt.NDArray[np.float32],
+    logits: npt.NDArray[np.float32],
     boxes: Optional[List[Tuple[CroppingBox, CroppingBox]]] = None,
 ) -> npt.NDArray[np.float32]:
     """
@@ -1172,8 +1130,8 @@ def getTrackingScores(
     ----------
     labels : 2D array of np.uint16
         Labelled image (untracked) of the current frame.
-    outputs : 3D array of floats (previous_cells, sizex, sizey)
-        Tracking U-Net output (logits).
+    logits : 3D array of floats (previous_cells, sizex, sizey)
+        Tracking U-Net output.
     boxes : list of dict, optional
         Cropping box and fill box to re-place output prediction masks in the
         original coordinates to index the labels frame.
@@ -1186,10 +1144,10 @@ def getTrackingScores(
 
     """
     # Compile scores:
-    scores = np.zeros([outputs.shape[0], labels.max()], dtype=np.float32)
-    for o, output in enumerate(outputs):
+    scores = np.zeros([logits.shape[0], labels.max()], dtype=np.float32)
+    for o, logits_cell in enumerate(logits):
         # Find pixels with more than 5% probability
-        nz_y, nz_x = list((output > logit(0.05)).nonzero())
+        nz_y, nz_x = list((logits_cell > logit(0.05)).nonzero())
 
         # Find cells that are "hit" by those pixels in the labels image:
         if boxes is not None:
@@ -1698,39 +1656,6 @@ class Lineage:
 # %% Image files
 
 
-def getxppathdialog(ask_folder: bool = False) -> str:
-    """
-    Pop up window to select experiment file or folder.
-
-    Parameters
-    ----------
-    ask_folder : bool, optional
-        Folder selection window will pop up instead of file selection.
-        The default is False.
-
-    Returns
-    -------
-    file_path : str
-        Path to experiment file or folder.
-
-    """
-    root = tk.Tk()
-    # root.withdraw() # For some reason this doesn't work with askdirectory?
-    if ask_folder:
-        file_path = filedialog.askdirectory(
-            title="Please select experiment folder(s)", mustexist=True
-        )
-
-    else:
-        file_path = filedialog.askopenfilename(
-            title="Please select experiment files(s)"
-        )
-
-    root.destroy()
-
-    return file_path
-
-
 class XPReader:
     """Class to read experiment files from bioformats-compatible files or from file sequences in folders."""
 
@@ -1933,12 +1858,18 @@ class XPReader:
         """
         return self.imagepaths[position, channel, frame]
 
+    def _get_channel_by_name(self, channel_name: str) -> int:
+        if not self.channelnames:
+            raise RuntimeError(
+                "To specify channels by name, you must specify channelnames."
+            )
+        return self.channelnames.index(channel_name)
+
     def getframes(
         self,
         position: int,
-        channels: Optional[Union[int, Sequence[int]]] = None,
+        channels: Optional[Union[int, str, Sequence[Union[int, str]]]] = None,
         frames: Optional[range] = None,
-        squeeze_dimensions: bool = True,
         rotate: Optional[float] = None,
     ) -> np.ndarray:
         """
@@ -1948,7 +1879,7 @@ class XPReader:
         ----------
         position : int
             The position index for which the frames are requested.
-        channels : None, int, tuple/list of ints, str, tuple/list of str, optional
+        channels : None, int, str, tuple/list of ints or strs, optional
             The frames from the channel index or indexes passed as an integer
             or a tuple/list will be returned. If the channel names have been
             defined, the channel(s) can be passed as a string or tuple/list of
@@ -1959,10 +1890,6 @@ class XPReader:
             Range of frames returned.  If None is passed, all frames are
             returned.
             The default is None.
-        squeeze_dimensions : bool, optional
-            If True, the numpy squeeze function is applied to the output array,
-            removing all singleton dimensions.
-            The default is True.
         rotate : None or float, optional
             Rotation to apply to the image (in degrees).
             The default is None.
@@ -1976,40 +1903,24 @@ class XPReader:
         -------
         Numpy Array
             Concatenated frames as requested by the different input options.
-            If squeeze_dimensions=False, the array is 4-dimensional, with the
-            dimensions order being: Time, Channel, Y, X
+            The array is 4-dimensional, with the shape being: (frames,
+            channels, Y, X).
 
         """
-        # Handle options:
-        if channels is None:  # No channel specified: load all
+        if channels is None:
             channels = self.channels
-        elif isinstance(channels, str):  # refer to 1 channel by name (eg 'gfp')
-            if self.channelnames is None:
-                raise ValueError("Set channel names first")
-            if channels in self.channelnames:
-                channels = [self.channelnames.index(channels)]
-            else:
-                raise ValueError(channels + " is not a valid channel name.")
-        elif isinstance(channels, (list, tuple)):
-            # If list of ints, nothing to do
-            if channels and all(isinstance(c, str) for c in channels):
-                # refer to channels by list/tuple of names:
-                if self.channelnames is None:
-                    raise ValueError("Set channel names first")
-                channels_list = []
-                for channel in channels:
-                    if channel in self.channelnames:
-                        channels_list.append(self.channelnames.index(channel))
-                    else:
-                        raise ValueError(channel + " is not a valid channel name.")
-                channels = channels_list
-        elif not isinstance(channels, (list, tuple)):
-            assert isinstance(channels, int)
+        elif isinstance(channels, int):
             channels = [channels]
+        elif isinstance(channels, str):
+            channels = [self._get_channel_by_name(channels)]
+        else:
+            channels = [
+                self._get_channel_by_name(c) if isinstance(c, str) else c
+                for c in channels
+            ]
 
         if frames is None:
             frames = self.frames
-        assert isinstance(frames, range)
 
         # Allocate memory:
         output = np.empty(
@@ -2017,30 +1928,31 @@ class XPReader:
         )
 
         # Load images:
-        for c, cha in enumerate(channels):
-            for f, fra in enumerate(frames):
+        for ichannel, channel in enumerate(channels):
+            assert isinstance(channel, int)  # for mypy
+            for iframe, frame in enumerate(frames):
                 # Read frame:
                 if self.use_bioformats:
-                    frame = self.filehandle.read(
-                        series=position, c=cha, t=fra, rescale=True
+                    image = self.filehandle.read(
+                        series=position, c=channel, t=frame, rescale=True
                     )
                 elif self.filetype == "dir":
-                    frame = read_image(self.get_imgpath(position, cha, fra))
+                    image = read_image(self.get_imgpath(position, channel, frame))
                 elif self.filetype == "tif":
-                    frame = (
+                    image = (
                         self.filehandle.series[position]
-                        .pages[fra * len(self.channels) + cha]
+                        .pages[frame * len(self.channels) + channel]
                         .asarray()
                     )
 
                 # Optionally rotate
                 if rotate is not None:
-                    frame = imrotate(frame, rotate)
+                    image = imrotate(image, rotate)
                 # Add to output array:
-                output[f, c, :, :] = frame
+                output[iframe, ichannel, :, :] = image
 
         # Return:
-        return np.squeeze(output) if squeeze_dimensions else output
+        return output
 
 
 # %% Saving & Loading results
@@ -2149,7 +2061,6 @@ def vidwrite(
 def roi_features(
     labels_frame: npt.NDArray[np.uint16],
     fluo_frames: np.ndarray,
-    roi_box: CroppingBox,
 ) -> Dict[int, CellFeatures]:
     """
     Extract single-cell morphological and fluorescence features.
@@ -2162,8 +2073,6 @@ def roi_features(
         Array of fluo frames to extract fluorescence from. Dimensions are
         (size_x, size_y, fluo_channels). The number of fluo_channels must match
         the number of fluo features to extract.
-    roi_box : CroppingBox
-        Cropping box to apply shift when looking at full-frame fluo images.
 
     Returns
     -------
@@ -2178,7 +2087,7 @@ def roi_features(
     for cellid, contour in zip(cellids, contours):
         mask = labels_frame == cellid + 1
 
-        fluo_values = cell_fluo(fluo_frames, mask, roi_box)
+        fluo_values = cell_fluo(fluo_frames, mask)
 
         width, length = cell_width_length(contour)
 
@@ -2296,8 +2205,7 @@ def cell_perimeter(contour: Contour) -> float:
 def cell_fluo(
     fluo_frames: np.ndarray,
     mask: SegmentationMask,
-    box: CroppingBox,
-) -> List[float]:
+) -> npt.NDArray[np.float32]:
     """
     Extract mean fluorescence level from mask.
 
@@ -2308,17 +2216,15 @@ def cell_fluo(
         (channels, size_y, size_x).
     mask : 2D numpy array of bool
         Mask of the region to extract (typically a single cell).
-    box : CroppingBox, optional
-        Cropping box to apply shift when looking at full-frame fluo images.
-        The default is None.
+        Dimensions are (size_y, size_x).
 
     Returns
     -------
-    fluo_values :  list of floats
+    fluo_values : array of floats
         Mean value per cell for each fluo frame.
 
     """
-    return [np.sum(mask * box.crop(fluo)) / mask.sum() for fluo in fluo_frames]
+    return (fluo_frames * mask).sum(axis=(1, 2)) / mask.sum()
 
 
 # %% Misc
@@ -2344,24 +2250,6 @@ def read_image(filename: Path) -> np.ndarray:
         if img.dtype == dtype:
             return img.astype(np.float32) / (2**depth - 1)
     raise ValueError(f"Image depth not understood: {img.dtype}.")
-
-
-def findfirst(mylist: List) -> Optional[int]:
-    """
-    Find first non-zero element of list.
-
-    Parameters
-    ----------
-    mylist : list
-        List of elements to scan through.
-
-    Returns
-    -------
-    int or None
-        Index of first non-zero element, if it exists.
-
-    """
-    return next((i for i, x in enumerate(mylist) if x > 0), None)
 
 
 def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
