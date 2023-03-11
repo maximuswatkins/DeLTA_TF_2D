@@ -191,7 +191,9 @@ class Position:
         self.drift_values: Tuple = ([], [])
         "XY drift correction values over time"
         self.rotate: float = 0.0
+        "Angle to rotate images by, in degrees"
         self.driftcorbox: CroppingBox
+        "Bounding box of the reference for drift correction"
         self.drifttemplate: Optional[utils.Image]
         "Rotation angle of the position to compensate"
         self.config: Config = config
@@ -301,6 +303,7 @@ class Position:
                     all_frames[:, ichannel, :, :], drift=self.drift_values
                 )
 
+        # Instantiate ROIs:
         self.rois = [
             ROI(
                 img_stack=[box.crop(img) for img in all_frames[:, 0, :, :]],
@@ -1283,6 +1286,7 @@ class ROI:
             cell_nbs = [c + 1 for c in self.lineage.cellnumbers[frame]]
         labels = utils.label_seg(self.get_seg(frame), cell_nbs)
 
+        # Resize image:
         if not self.config.crop_windows:
             resize = (
                 self.box.xbr - self.box.xtl,
