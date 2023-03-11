@@ -29,6 +29,31 @@ def to_int_list(list_spec: str) -> List[int]:
     return int_list
 
 
+def to_interval(interval_spec: str) -> slice:
+    """
+    Convert an interval string specification ("35-150") to a slice.
+
+    Parameters
+    ----------
+    interval_spec: str
+        Interval string specification.
+
+    Returns
+    -------
+    interval : slice
+        Interval.
+    """
+    if "-" not in interval_spec:
+        only_value = int(interval_spec)
+        return slice(only_value, only_value + 1)
+    start, end = interval_spec.split("-")
+    if not start:
+        return slice(int(end) + 1)
+    if not end:
+        return slice(int(start), None)
+    return slice(int(start), int(end) + 1)
+
+
 def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     """
     Parse a list of arguments, typically given on the commandline.
@@ -48,16 +73,21 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         description="Deep Learning for Time-Lapse Analysis",
     )
     parser.add_argument(
-        "presets",
-        choices=["2D", "mothermachine"],
-        help="Whether to run in 2D or mothermachine mode",
+        "-c",
+        "--config",
+        help="Configuration file.  Can be either `2D`, `mothermachine`, "
+        "or a path to a previously saved custom config file.",
+        required=True,
     )
     parser.add_argument(
-        "--bioformats",
-        action="store_true",
-        help="Use bioformats to read the input file (for example for nd2 files)",
+        "-i",
+        "--input",
+        help="Input file or directory. Can include `{p}`, `{c}` and `{t}` as "
+        "placeholders for the position, channel, and frame number.  "
+        "Example for micromanager: "
+        "`/path/to/folder/Pos{p}/img_channel{c}_position{p}_time{t}_z000.tif`",
+        required=True,
     )
-    parser.add_argument("-i", "--input", help="Input file or directory", required=True)
     parser.add_argument(
         "-o",
         "--output",
@@ -67,32 +97,16 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         "--positions", help="Positions to process, ex.: 0-2,4,7-10 (default: all)"
     )
     parser.add_argument(
-        "--nbframes", type=int, help="Number of frames to process (default: all)"
-    )
-    parser.add_argument(
-        "--prototype",
-        help=(
-            "Format of the image filenames, "
-            'for example "Position%%02d_Channel%%02d_Frame%%06d.tif"'
-        ),
-    )
-    parser.add_argument(
-        "--order",
-        help=(
-            "Combination of some or all of the letters 'p', 'c' and 't', "
-            "respectively for Position, Channel and Timepoint, "
-            'in the order that they appear in the prototype (default "pct")'
-        ),
-        default="pct",
-    )
-    parser.add_argument(
-        "--indexing",
-        help="Whether position, channel and timepoint start with 0 or 1 (default: 1)",
-        default=1,
+        "--frames",
+        type=str,
+        help="Range of frames to process, ex.: -150 (up to frame 150), "
+        "15- (from frame 15), 15-30 (frames 15 to 30), 40 (just frame 40) (default: all)",
     )
 
     parsed_args = parser.parse_args(args)
     if parsed_args.positions is not None:
         parsed_args.positions = to_int_list(parsed_args.positions)
+    if parsed_args.frames is not None:
+        parsed_args.frames = to_interval(parsed_args.frames)
 
     return parsed_args

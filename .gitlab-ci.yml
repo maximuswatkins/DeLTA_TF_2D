@@ -33,7 +33,10 @@ test:
 
   script:
     - date
-    - pytest -k "not test_train"
+    # * Removing test_train because they are too long for gitlab CI
+    # * Removing test_moma_2D_nd2 because the Java VM can only be launched once
+    #   by process... And we already have a pipeline test with an nd2 file
+    - pytest -k "not test_train and not test_moma_2D_nd2"
 
 deploy:
   stage: deploy

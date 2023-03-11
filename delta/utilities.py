@@ -175,7 +175,7 @@ class Cell(Dict):
         mother : Optional[int]
            ID of mother cell. If None, the cell is an orphan.
         frames : List[int]
-            List of frames / timepoints where the cell is present.
+            List of frames where the cell is present.
         daughters : List[Optional[int]]
             List of daughters over time. If None, no division occurred.
         new_pole : List[Optional[Pole]]
@@ -1273,8 +1273,8 @@ class Lineage:
         """Dict of cellid to single-cell dictionaries
         Each dictionary will contain single-cell lineage and extracted feature
         properties"""
-        self.cellnumbers: List[List[int]] = []
-        "List of cells present in FOV at each timepoint"
+        self.cellnumbers: Dict[int, List[int]] = {}
+        "Dict of frame number to cells present at this frame"
 
     def __eq__(self, other) -> bool:
         """Equality function for Lineage."""
@@ -1326,10 +1326,8 @@ class Lineage:
 
         """
         # Check cell numbers list:
-        if len(self.cellnumbers) <= frame:
-            self.cellnumbers += [
-                [] for _ in range(frame + 1 - len(self.cellnumbers))
-            ]  # Initialize
+        if frame not in self.cellnumbers:
+            self.cellnumbers[frame] = []
         if len(attrib) > 0 and len(self.cellnumbers[frame]) <= max(attrib):
             self.cellnumbers[frame] += [
                 -1 for _ in range(max(attrib) + 1 - len(self.cellnumbers[frame]))
@@ -1733,24 +1731,20 @@ def getxppathdialog(ask_folder: bool = False) -> str:
     return file_path
 
 
-class xpreader:
+class XPReader:
     """Class to read experiment files from bioformats-compatible files or from file sequences in folders."""
 
     def __init__(
         self,
-        filename: Optional[Union[Path, str]] = None,
+        path: Union[Path, str],
         channelnames: Optional[Tuple[str]] = None,
-        use_bioformats: bool = False,
-        prototype: Optional[str] = None,
-        fileorder: str = "pct",
-        filenamesindexing: int = 1,
     ) -> None:
         """
         Initialize experiment reader.
 
         Parameters
         ----------
-        filename : Path or str, optional
+        path : Path or str
             Path to experiment file or directory. If the path leads to a
             directory, the experiment folder is expected to contain exclusively
             single-page tif images. If None, an interactive selection dialog
@@ -1766,29 +1760,6 @@ class xpreader:
         channelnames : List/tuple of strings or None, optional
             Names of the acquisition channels ('trans', 'gfp', ...).
             The default is None.
-        use_bioformats : bool, optional
-            Flag to use the bioformats reader.
-            The default is False.
-        prototype: string, optional
-            Filename prototype to use when reading single-page tif images from
-            a sequence folder, in C-style formatting. Folder separators can be
-            used. If None, the prototype will be estimated from the first tif
-            file in the folder. For example, an experiment from micromanager
-            can be processed with prototype =
-            'Pos%01d/img_channel%03d_position%03d_time%09d_z000.tif'
-            and fileorder = 'pcpt' and filenamesindexing = 0
-            The default is None.
-        fileorder: string, optional
-            Order of the numbers in the prototype, with 'p' for positions/
-            series, 'c' for imaging channels, and 't' for timepoints/frames.
-            For example 'pct' indicates that the first number is going to be
-            positions, then channels, then timepoints. You can use the same
-            letter multiple times, like 'pcpt'.
-            The default is 'pct'
-        filenamesindexing : int
-            Selects between 0-based or 1-based indexing in the filename. If
-            1, position 0 will be referenced as position 1 in the filename.
-            The default is 1
 
         Raises
         ------
@@ -1802,25 +1773,19 @@ class xpreader:
 
         """
         # Set default parameters
-        self.filename = None if not filename else Path(filename)
+        self.path = Path(path)
         "File or folder name for the experiment"
-        self.use_bioformats = use_bioformats
+        self.use_bioformats = False
         "Flag to use the Bio-Formats library to read file"
-        self.fileorder = fileorder
-        "File ordering (if image files sequence)"
-        self.filenamesindexing = filenamesindexing
-        "File indexing start (if image files sequence)"
-        self.prototype = prototype
-        "File name prototype (if image files sequence)"
 
         # Init base parameters:
         self.filetype = None
         "Type / extension of `filehandle`"
         self.filehandle: Any
         "Handle to file reader or base directory"
-        self.positions: int
-        "Number of positions in experiment"
-        self.channels: int
+        self.positions: List[int]
+        "Indices of positions in experiment"
+        self.channels: List[int]
         "Number of imaging channels"
         self.x: int
         "Size of images along X axis"
@@ -1829,177 +1794,115 @@ class xpreader:
         self.dtype: str
         "Datatype of images"
 
-        if filename is None:
-            # Interactive selection and pop up window:
-            self._interactive_init()
-
-        self.filename = Path(self.filename)
-
         self.channelnames = channelnames
         "Names of the imaging channels (optional)"
 
-        file_extension = self.filename.suffix
+        file_extension = self.path.suffix
 
-        if self.use_bioformats:
-            javabridge.start_vm(class_path=bioformats.JARS)
-            self.filetype = file_extension.lower()[1:]
-            self.filehandle = bioformats.ImageReader(str(self.filename))
-            md = bioformats.OMEXML(
-                bioformats.get_omexml_metadata(path=str(self.filename))
-            )
-            self.positions = md.get_image_count()
-            self.timepoints = md.image(
-                0
-            ).Pixels.SizeT  # Here I'm going to assume all series have the same number of timepoints
-            self.channels = md.image(0).Pixels.channel_count
-            self.x = md.image(0).Pixels.SizeX
-            self.y = md.image(0).Pixels.SizeY
-            # Get first image to get datatype (there's probably a better way to do this...)
-            self.dtype = self.filehandle.read(rescale=True, c=0).dtype
-
-        elif self.filename.is_dir():
-            # Experiment is stored as individual image TIFF files in a folder
+        if "{p}" in str(path) or "{c}" in str(path) or "{t}" in str(path):
+            # Experiment is stored as individual image files in a folder
+            # and self.path is a prototype
             self.filetype = "dir"
-            self.filehandle = self.filename
-            # If filename prototype is not provided, guess it from the first file:
-            if self.prototype is None:
-                imgfiles = [
-                    x
-                    for x in self.filename.iterdir()
-                    if x.suffix.lower() in (".tif", ".tiff")
-                ]
-                # Here we assume all images in the folder follow the same naming convention:
-                # Get digits sequences in first filename
-                numstrs = re.findall(r"\d+", imgfiles[0].name)
-                # Get character sequences in first filename
-                charstrs = re.findall(r"\D+", imgfiles[0].name)
-                if len(numstrs) != 3 or len(charstrs) != 4:
-                    raise ValueError(
-                        "Filename formatting error. See documentation for image sequence formatting"
-                    )
-                # Create the string prototype to be used to generate filenames on the fly:
-                # Order is position, channel, frame/timepoint
-                self.prototype = (
-                    f"{charstrs[0]}%0{len(numstrs[0])}d"
-                    f"{charstrs[1]}%0{len(numstrs[1])}d"
-                    f"{charstrs[2]}%0{len(numstrs[2])}d"
-                    f"{charstrs[3]}"
-                )
-            # Get experiment settings by testing if relevant files exist:
-            # Get number of positions:
-            if "p" in self.fileorder:
-                self.positions = 0
-                while self.getfilenamefromprototype(self.positions, 0, 0).exists():
-                    self.positions += 1
+
+            # Determine the base directory of the images
+            path = self.path.absolute()
+            prototype = path
+            while "{p}" in str(path) or "{c}" in str(path) or "{t}" in str(path):
+                path = path.parent
+            self.filehandle = path
+
+            # Get the templated suffix
+            spath = str(self.path.relative_to(self.filehandle))
+
+            # Create a regular expression from the prototype to find digit groups
+            regexp = re.compile(
+                str(prototype).format(p=r"(\d+)", c=r"(\d+)", t=r"(\d+)")
+            )
+
+            # Extract fileorder from prototype
+            fileorder = [
+                b for a, b, c in zip(spath, spath[1:], spath[2:]) if a + c == "{}"
+            ]
+
+            def parse(match: re.Match, fileorder: List[str]) -> Tuple[int, int, int]:
+                """Associate the matched groups with fileorder labels."""
+                values: Dict[str, int] = {}
+                for pattern, group in zip(fileorder, match.groups()):
+                    if pattern in values and values[pattern] != int(group):
+                        raise ValueError(
+                            f"There is a file with two different values ({values[pattern]} "
+                            f"and {int(group)}) for the same pattern ({pattern})."
+                        )
+                    values[pattern] = int(group)
+                return (values.get("p", 0), values.get("c", 0), values.get("t", 0))
+
+            # Run through potential file paths, parse the arguments and
+            # associate them with the full path
+            self.imagepaths = {}
+            for imgpath in self.filehandle.glob(spath.format(p="*", c="*", t="*")):
+                match = regexp.fullmatch(str(imgpath))
+                if not match:
+                    continue
+                self.imagepaths[parse(match, fileorder)] = imgpath
+
+            # Explore imagepaths to determine ranges of positions, channels and frames
+            # Get list of positions
+            if "{p}" in spath:
+                self.positions = list({p for p, _, _ in self.imagepaths})
             else:
-                self.positions = 1
-            # Get number of channels:
-            if "c" in self.fileorder:
-                self.channels = 0
-                while self.getfilenamefromprototype(0, self.channels, 0).exists():
-                    self.channels += 1
+                self.positions = [0]
+            # Get list of channels
+            if "{c}" in spath:
+                self.channels = list({c for _, c, _ in self.imagepaths})
             else:
-                self.channels = 1
-            # Get number of frames/timepoints:
-            if "t" in self.fileorder:
-                self.timepoints = 0
-                while self.getfilenamefromprototype(0, 0, self.timepoints).exists():
-                    self.timepoints += 1
+                self.channels = [0]
+            # Get range of frames (needs to be a range because of tracking)
+            if "{t}" in spath:
+                min_frame = min(t for _, _, t in self.imagepaths)
+                max_frame = max(t for _, _, t in self.imagepaths)
+                self.frames = range(min_frame, max_frame + 1)
             else:
-                self.timepoints = 1  # I guess this shouldn't really happen
-            # Get image specs:
-            # Load first image, get image data from it
-            img = read_image(self.getfilenamefromprototype(0, 0, 0))
+                self.frames = range(0, 1)  # I guess this shouldn't really happen
+
+            # Load the first image, get image data from it
+            imgpath = self.get_imgpath(
+                self.positions[0], self.channels[0], self.frames[0]
+            )
+            img = read_image(imgpath)
             self.x = img.shape[1]
             self.y = img.shape[0]
             self.dtype = img.dtype
+            return
 
-        elif file_extension.lower() == ".tif" or file_extension.lower() == ".tiff":
+        if file_extension.lower().startswith(".tif"):
             # Works with single-series tif & multi-series ome.tif
             self.filetype = "tif"
 
-            self.filehandle = TiffFile(str(self.filename))
-            self.positions = len(self.filehandle.series)
-            s = self.filehandle.series[
-                0
-            ]  # Here I'm going to assume all series have the same format
-            self.timepoints = s.shape[s.axes.find("T")]
-            self.channels = s.shape[s.axes.find("C")]
-            self.x = s.shape[s.axes.find("X")]
-            self.y = s.shape[s.axes.find("Y")]
-            self.dtype = s.pages[0].asarray().dtype
+            self.filehandle = TiffFile(str(self.path))
+            self.positions = list(range(len(self.filehandle.series)))
+            # Here I'm going to assume all series have the same format
+            series = self.filehandle.series[0]
+            self.frames = range(series.shape[series.axes.find("T")])
+            self.channels = list(range(series.shape[series.axes.find("C")]))
+            self.x = series.shape[series.axes.find("X")]
+            self.y = series.shape[series.axes.find("Y")]
+            self.dtype = series.pages[0].asarray().dtype
+            return
 
-    def _interactive_init(self) -> None:
-        """
-        Interactive initialization routine.
-
-        Raises
-        ------
-        ValueError
-            If a non-valid experiment type was passed.
-
-        Returns
-        -------
-        None.
-
-        """
-        # Get xp settings:
-        print(
-            (
-                "Experiment type?\n"
-                "1 - Bio-Formats compatible (.nd2, .oib, .czi, .ome.tif...)\n"
-                "2 - bioformats2sequence (folder)\n"
-                "3 - micromanager (folder)\n"
-                "4 - high-throughput (folder)\n"
-                "0 - other (folder)\n"
-                "Enter a number: "
-            ),
-            end="",
-        )
-        answer = int(input())
-        print()
-
-        # If bioformats file(s):
-        if answer is None or answer == 1:
-            print("Please select experiment file(s)...")
-            self.filename = getxppathdialog(ask_folder=False)
-            self.use_bioformats = True
-            self.prototype = None
-            self.filenamesindexing = 1
-            self.fileorder = "pct"
-
-        # If folder:
-        else:
-            print("Please select experiment folder...")
-            self.filename = getxppathdialog(ask_folder=True)
-            self.use_bioformats = False
-            if answer is None or answer == 2:
-                self.prototype = None
-                self.fileorder = "pct"
-                self.filenamesindexing = 1
-            elif answer == 3:
-                self.prototype = (
-                    "Pos%01d/img_channel%03d_position%03d_time%09d_z000.tif"
-                )
-                self.fileorder = "pcpt"
-                self.filenamesindexing = 0
-            elif answer == 4:
-                self.prototype = "chan%02d_img/Position%06d_Frame%06d.tif"
-                self.fileorder = "cpt"
-                self.filenamesindexing = 1
-            elif answer == 0:
-                print("Enter files prototype: ", end="")
-                self.prototype = input()
-                print()
-                print("Enter files order: ", end="")
-                self.fileorder = input()
-                print()
-                print("Enter files indexing: ", end="")
-                self.filenamesindexing = int(input())
-                print()
-            else:
-                raise ValueError("Invalid experiment type")
-            print()
+        # Fall back on bioformats
+        self.use_bioformats = True
+        javabridge.start_vm(class_path=bioformats.JARS)
+        self.filetype = file_extension.lower()[1:]
+        self.filehandle = bioformats.ImageReader(str(self.path))
+        md = bioformats.OMEXML(bioformats.get_omexml_metadata(path=str(self.path)))
+        self.positions = list(range(md.get_image_count()))
+        # Here I'm going to assume all series have the same number of frames
+        self.frames = range(md.image(0).Pixels.SizeT)
+        self.channels = list(range(md.image(0).Pixels.channel_count))
+        self.x = md.image(0).Pixels.SizeX
+        self.y = md.image(0).Pixels.SizeY
+        # Get first image to get datatype (there's probably a better way to do this...)
+        self.dtype = self.filehandle.read(rescale=True, c=0).dtype
 
     def close(self) -> None:
         """Close the bioformats or tif reader."""
@@ -2009,9 +1912,9 @@ class xpreader:
         elif self.filetype == "tif":  # Nothing to do if sequence directory
             self.filehandle.close()
 
-    def getfilenamefromprototype(self, position: int, channel: int, frame: int) -> Path:
+    def get_imgpath(self, position: int, channel: int, frame: int) -> Path:
         """
-        Generate full filename for specific frame based on file path, prototype, fileorder, and filenamesindexing.
+        Generate full filename for specific frame based on position, channel and frame.
 
         Parameters
         ----------
@@ -2028,19 +1931,13 @@ class xpreader:
             Filename.
 
         """
-        filenumbers = tuple(
-            {"p": position, "c": channel, "t": frame}[c] + self.filenamesindexing
-            for c in self.fileorder
-        )
-        assert self.prototype is not None  # FIXME: why is it not?
-        return self.filehandle / (self.prototype % filenumbers)
+        return self.imagepaths[position, channel, frame]
 
-    # TODO: typecheck this function
     def getframes(
         self,
         position: int,
         channels: Optional[Union[int, Sequence[int]]] = None,
-        nbframes: Optional[int] = None,
+        frames: Optional[range] = None,
         squeeze_dimensions: bool = True,
         rotate: Optional[float] = None,
     ) -> np.ndarray:
@@ -2058,9 +1955,9 @@ class xpreader:
             strings. If an empty list is passed, None is returned. If None is
             passed, all channels are returned.
             The default is None.
-        nbframes : int or None, optional
-            Number of frames returned, starting from the first frame.  If None
-            is passed, all frames are returned.
+        frames : range or None, optional
+            Range of frames returned.  If None is passed, all frames are
+            returned.
             The default is None.
         squeeze_dimensions : bool, optional
             If True, the numpy squeeze function is applied to the output array,
@@ -2085,7 +1982,7 @@ class xpreader:
         """
         # Handle options:
         if channels is None:  # No channel specified: load all
-            channels = list(range(self.channels))
+            channels = self.channels
         elif isinstance(channels, str):  # refer to 1 channel by name (eg 'gfp')
             if self.channelnames is None:
                 raise ValueError("Set channel names first")
@@ -2110,10 +2007,9 @@ class xpreader:
             assert isinstance(channels, int)
             channels = [channels]
 
-        if nbframes is None:
-            frames = list(range(self.timepoints))
-        else:
-            frames = list(range(nbframes))
+        if frames is None:
+            frames = self.frames
+        assert isinstance(frames, range)
 
         # Allocate memory:
         output = np.empty(
@@ -2129,13 +2025,11 @@ class xpreader:
                         series=position, c=cha, t=fra, rescale=True
                     )
                 elif self.filetype == "dir":
-                    frame = read_image(
-                        self.getfilenamefromprototype(position, cha, fra)
-                    )
+                    frame = read_image(self.get_imgpath(position, cha, fra))
                 elif self.filetype == "tif":
                     frame = (
                         self.filehandle.series[position]
-                        .pages[fra * self.channels + cha]
+                        .pages[fra * len(self.channels) + cha]
                         .asarray()
                     )
 
@@ -2171,8 +2065,7 @@ def getrandomcolors(
         Dictionary of cellids to colors (RGB values in [0,1]).
 
     """
-    # XXX: Is this necessary?
-    if len(cellids) == 0:
+    if not cellids:
         return {}
 
     # Get colors

@@ -31,7 +31,7 @@ class Pipeline:
 
     def __init__(
         self,
-        xpreader: utils.xpreader,
+        xpreader: utils.XPReader,
         config: Config,
         resfolder: Optional[Union[str, Path]] = None,
         reload: bool = False,
@@ -41,8 +41,8 @@ class Pipeline:
 
         Parameters
         ----------
-        xpreader : object
-            utilities xpreader object.
+        xpreader : utils.XPReader
+            utilities XPReader object.
         config : Config
             DeLTA configuration.
         resfolder : str or Path, optional
@@ -57,10 +57,10 @@ class Pipeline:
         None.
 
         """
-        self.reader: utils.xpreader = xpreader
+        self.reader: utils.XPReader = xpreader
         "Experiment reader object"
-        self.positions: List[Position] = []
-        "List of Position objects for experiment"
+        self.positions: Dict[int, Position] = {}
+        "Dict of Position objects for experiment"
         self.config: Config = config
         "Configuration parameters object"
         self.models = {model: config.model(model) for model in config.models}
@@ -69,10 +69,10 @@ class Pipeline:
         "Folder to save results to"
 
         if resfolder is None:
-            xpfile = self.reader.filename
+            xpfile = self.reader.path
             assert xpfile is not None
-            if xpfile.is_dir():
-                resfolder = xpfile / "delta_results"
+            if self.reader.filetype == "dir":
+                resfolder = self.reader.filehandle / "delta_results"
             else:
                 resfolder = xpfile.with_name(xpfile.stem + "_delta_results")
 
@@ -81,21 +81,19 @@ class Pipeline:
         self.resfolder.mkdir(exist_ok=True)
 
         # Initialize position processors:
-        for p in range(self.reader.positions):
-            self.positions += [
-                Position(
-                    p,
-                    self.reader,
-                    self.models,
-                    config=self.config,
-                )
-            ]
+        for iposition in self.reader.positions:
+            self.positions[iposition] = Position(
+                iposition,
+                self.reader,
+                self.models,
+                config=self.config,
+            )
 
         # If reload flag, reload positions from pickle files:
         if reload:
-            for p in range(self.reader.positions):
-                self.positions[p] = Position.load(
-                    self.resfolder / f"Position{p:06d}.pkl"
+            for iposition in self.reader.positions:
+                self.positions[iposition] = Position.load(
+                    self.resfolder / f"Position{iposition:06d}.pkl"
                 )
 
     def preprocess(
@@ -126,7 +124,7 @@ class Pipeline:
 
         # Process positions to run:
         if positions is None:
-            positions_torun = list(range(self.reader.positions))
+            positions_torun = self.reader.positions
         else:
             positions_torun = positions
 
@@ -140,7 +138,7 @@ class Pipeline:
     def process(
         self,
         positions: Optional[List[int]] = None,
-        nbframes: Optional[int] = None,
+        frames: Optional[Union[range, slice]] = None,
         clear: bool = True,
     ) -> None:
         """
@@ -151,7 +149,7 @@ class Pipeline:
         positions : list of int or None, optional
             List of positions to run. If None, all positions are run.
             The default is None.
-        nbframes : int or None, optional
+        frames : int or None, optional
             Number of frames to run. If None, all frames are run.
             The default is None.
         clear : bool, optional
@@ -164,11 +162,18 @@ class Pipeline:
         None.
 
         """
-        if nbframes is None:
-            nbframes = self.reader.timepoints
+        if frames is None:
+            frames = self.reader.frames
+        elif isinstance(frames, slice):
+            assert frames.step == 1
+            if frames.start is None:
+                frames = slice(self.reader.frames.start, frames.stop)
+            if frames.stop is None:
+                frames = slice(frames.start, self.reader.frames.stop)
+            frames = range(frames.start, frames.stop)
 
         if positions is None:
-            positions = list(range(self.reader.positions))
+            positions = self.reader.positions
 
         # Run through positions:
         for p in positions:
@@ -179,18 +184,18 @@ class Pipeline:
                 )
 
             # Segment all frames:
-            self.positions[p].segment(nbframes=nbframes)
+            self.positions[p].segment(frames=frames)
 
             # Track cells:
-            self.positions[p].track(nbframes=nbframes)
+            self.positions[p].track(frames=frames)
 
             # Extract features:
-            self.positions[p].features(nbframes=nbframes)
+            self.positions[p].features(frames=frames)
 
             # Save to disk and clear memory:
             self.positions[p].save(
                 filename=self.resfolder / f"Position{p:06d}",
-                nbframes=nbframes,
+                frames=frames,
                 save_format=self.config.save_format,
             )
 
@@ -204,7 +209,7 @@ class Position:
     def __init__(
         self,
         position_nb: int,
-        reader: utils.xpreader,
+        reader: utils.XPReader,
         models: Dict[MODEL, tf.keras.Model],
         config: Config,
     ) -> None:
@@ -215,8 +220,8 @@ class Position:
         ----------
         position_nb : int
             Position index.
-        reader : object
-            utilities xpreader object.
+        reader : XPReader
+            utilities XPReader object.
         models : Dict[str, tf.keras.Model]
             U-Net models.
         config : Config
@@ -229,7 +234,7 @@ class Position:
         """
         self.position_nb = position_nb
         "Position index number in the experiment"
-        self.reader: utils.xpreader = reader
+        self.reader: utils.XPReader = reader
         "Experiment reader object"
         self.models = models
         "List of Tensorflow models"
@@ -318,8 +323,8 @@ class Position:
         if reference is None:
             reference = self.reader.getframes(
                 position=self.position_nb,
-                nbframes=1,
-                channels=0,
+                frames=range(self.reader.frames[0], self.reader.frames[0] + 1),
+                channels=self.reader.channels[0],
                 squeeze_dimensions=True,
             )
 
@@ -341,6 +346,7 @@ class Position:
             self.rois = [
                 ROI(
                     roi_nb=0,
+                    first_frame=self.reader.frames[0],
                     box=CroppingBox.full(reference),
                     config=self.config,
                 )
@@ -395,29 +401,36 @@ class Position:
 
         # Instantiate ROIs:
         for b, box in enumerate(roisboxes):
-            self.rois += [ROI(roi_nb=b, box=box, config=self.config)]
+            self.rois += [
+                ROI(
+                    roi_nb=b,
+                    first_frame=self.reader.frames[0],
+                    box=box,
+                    config=self.config,
+                )
+            ]
 
-    def segment(self, nbframes: int) -> None:
+    def segment(self, frames: range) -> None:
         """
         Segment cells in all ROIs in position.
 
         Parameters
         ----------
-        nbframes : int
-            Number of frames to run.
+        frames : range
+            Frames to run.
 
         Returns
         -------
         None.
 
         """
-        self._msg(f"Starting segmentation ({nbframes} frames)")
+        self._msg(f"Starting segmentation ({len(frames)} frames)")
 
         # Load trans frames:
         trans_frames = self.reader.getframes(
             position=self.position_nb,
-            channels=0,
-            nbframes=nbframes,
+            channels=self.reader.channels[0],
+            frames=frames,
             rotate=self.rotate,
         )
 
@@ -435,11 +448,11 @@ class Position:
         # Run through frames and ROIs and compile segmentation inputs:
         x = []
         references: List[Tuple[int, int, int, Optional[Tuple[List, List]]]] = []
-        for f, img in enumerate(trans_frames):
+        for frame, img in zip(frames, trans_frames):
             for r, roi in enumerate(self.rois):
                 inputs, windows = roi.get_segmentation_inputs(img)
                 x += [inputs]
-                references += [(r, len(x[-1]), f, windows)]
+                references += [(r, len(x[-1]), frame, windows)]
         x = np.concatenate(x)
 
         # Run segmentation model:
@@ -457,31 +470,31 @@ class Position:
             )
             i += ref[1]
 
-    def track(self, nbframes: int) -> None:
+    def track(self, frames: range) -> None:
         """
         Track cells in all ROIs in frames.
 
         Parameters
         ----------
-        nbframes : int
-            Number of frames to run.
+        frames : range
+            Frames to track.
 
         Returns
         -------
         None.
 
         """
-        self._msg(f"Starting tracking ({nbframes} frames)")
+        self._msg(f"Starting tracking ({len(frames)} frames)")
 
         # Assume that brightfield is the first channel and fluorescence
         # channels are the other ones
-        fluo_channels = list(range(1, self.reader.channels))
+        fluo_channels = self.reader.channels[1:]
 
         # Read fluorescence frames:
         fluo_frames = self.reader.getframes(
             position=self.position_nb,
             channels=fluo_channels,
-            nbframes=nbframes,
+            frames=frames,
             squeeze_dimensions=False,
             rotate=self.rotate,
         )
@@ -492,8 +505,8 @@ class Position:
                     fluo_frames[:, f, :, :], drift=self.drift_values
                 )
 
-        for frame in range(nbframes):
-            self._msg(f"Tracking - frame {frame + 1}/{nbframes} ")
+        for iframe, frame in enumerate(frames, start=1):
+            self._msg(f"Tracking - frame {frame}/{len(frames)}")
 
             # Compile inputs and references:
             xs = []
@@ -527,28 +540,25 @@ class Position:
                     y[i : i + nbcells],
                     frame=frame,
                     boxes=boxes,
-                    fluo_frames=fluo_frames[frame],
+                    fluo_frames=fluo_frames[frame - self.rois[iroi].first_frame],
                 )
                 i += nbcells
 
-    def features(
-        self,
-        nbframes: int,
-    ) -> None:
+    def features(self, frames: range) -> None:
         """
         Extract features for all ROIs in frames.
 
         Parameters
         ----------
-        nbframes : int
-            Number of frames to run.
+        frames : range
+            Frames to run.
 
         Returns
         -------
         None.
 
         """
-        self._msg(f"Starting feature extraction ({nbframes} frames)")
+        self._msg(f"Starting feature extraction ({len(frames)} frames)")
 
         # Now extracting multi-frame features
         for roi in self.rois:
@@ -569,7 +579,7 @@ class Position:
     def save(
         self,
         filename: Optional[Union[str, Path]] = None,
-        nbframes: Optional[int] = None,
+        frames: Optional[range] = None,
         save_format: Tuple[str, ...] = ("pickle", "movie"),
     ) -> None:
         """
@@ -581,8 +591,8 @@ class Position:
             File name for save file. If None, the file will be saved to
             PositionXXXXXX in the current directory.
             The default is None.
-        nbframes : int or None, optional
-            Number of frames to save in movie. If None, all frames are saved.
+        frames : Optional[range]
+            Range of frames to save. If None, all frames will be saved.
             The default is None.
         save_format : tuple of str, optional
             Formats to save the data to. Options are "pickle', 'legacy' (ie
@@ -609,7 +619,7 @@ class Position:
 
         if "movie" in save_format:
             self._msg("Saving results movie\n" + str(filename.with_suffix(".mp4")))
-            movie = self.results_movie(nbframes=nbframes)
+            movie = self.results_movie(frames)
             utils.vidwrite(movie, filename.with_suffix(".mp4"), verbose=False)
 
     @staticmethod
@@ -630,13 +640,6 @@ class Position:
         """
         with open(filename, "rb") as file:
             position = pickle.load(file)
-
-        # Retrocompatibility with old format
-        for roi in position.rois:
-            if isinstance(roi.lineage.cells, list):
-                roi.lineage.cells = {
-                    cellid: cell for cellid, cell in enumerate(roi.lineage.cells)
-                }
 
         return position
 
@@ -672,10 +675,10 @@ class Position:
         moviedimensions = [
             self.reader.y,
             self.reader.x,
-            self.reader.channels,
-            self.reader.timepoints,
+            len(self.reader.channels),
+            len(self.reader.frames),
         ]
-        xpfile = self.reader.filename
+        xpfile = self.reader.path
 
         # If No ROIs detected for position:
         if len(self.rois) == 0:
@@ -724,9 +727,9 @@ class Position:
 
             # Not resized stack: (ie U-Net seg target size)
             label_stack = []
-            for f, cellnbs in enumerate(r.lineage.cellnumbers):
+            for frame, cellnbs in r.lineage.cellnumbers.items():
                 label_stack += [
-                    utils.label_seg(r.seg_stack[f], [c + 1 for c in cellnbs])
+                    utils.label_seg(r.get_seg(frame), [c + 1 for c in cellnbs])
                 ]
             res["labelsstack"] = np.array(label_stack, dtype=np.uint16)
 
@@ -779,32 +782,28 @@ class Position:
         # Finally, save to disk:
         savemat(res_file, data)
 
-    def results_movie(self, nbframes: Optional[int] = None) -> Any:
+    def results_movie(self, frames: Optional[range]) -> Any:
         """
         Generate movie illustrating segmentation and tracking.
-
-        Parameters
-        ----------
-        nbframes : int or None, optional
-            Number of frames to put in the movie. If None, all frames are run.
-            The default is None.
 
         Returns
         -------
         movie : list of 3D numpy arrays
             List of compiled movie frames
-
+        frames : Optional[range]
+            Range of frames to use for the movie.  If None, all of them will be used.
+            The default is None.
         """
-        if nbframes is None:
-            nbframes = self.reader.timepoints
         # Re-read trans frames:
         trans_frames = self.reader.getframes(
             position=self.position_nb,
-            channels=0,
-            nbframes=nbframes,
+            channels=self.reader.channels[0],
+            frames=frames,
             squeeze_dimensions=False,
             rotate=self.rotate,
         )
+        if frames is None:
+            frames = self.reader.frames
         trans_frames = trans_frames[:, 0]
 
         if self.config.drift_correction:
@@ -812,7 +811,7 @@ class Position:
         movie = []
 
         # Run through frames, compile movie:
-        for iframe, frame in enumerate(trans_frames):
+        for iframe, frame in zip(frames, trans_frames):
             # RGB-ify:
             frame = np.repeat(frame[:, :, np.newaxis], 3, axis=-1)
 
@@ -830,7 +829,7 @@ class Position:
             for r, roi in enumerate(self.rois):
                 # Get chamber-specific variables:
                 colors = utils.getrandomcolors(list(roi.lineage.cells.keys()), seed=r)
-                fr = roi.label_stack[iframe]
+                fr = roi.get_labels(iframe)
                 assert fr is not None  # FIXME: why is it not None?
                 cells, contours = utils.getcellsinframe(fr, return_contours=True)
 
@@ -900,7 +899,9 @@ class Position:
 class ROI:
     """ROI processor object."""
 
-    def __init__(self, roi_nb: int, box: CroppingBox, config: Config) -> None:
+    def __init__(
+        self, roi_nb: int, first_frame: int, box: CroppingBox, config: Config
+    ) -> None:
         """
         Initialize ROI.
 
@@ -908,6 +909,8 @@ class ROI:
         ----------
         roi_nb : int
             ROI index.
+        first_frame : int
+            Index of the first frame (in general 0 or 1).
         box : CroppingBox
             CroppingBox for ROI.
         config : Config
@@ -922,6 +925,8 @@ class ROI:
         "The ROI index number"
         self.box = box
         "ROI crop box"
+        self.first_frame = first_frame
+        "Index of the first frame"
         self.img_stack: List[utils.Image] = []
         "Input images stack"
         self.seg_stack: List[utils.SegmentationMask] = []
@@ -954,6 +959,9 @@ class ROI:
             print("ROIs differ by box")
             print(self.box)
             print(other.box)
+        eq_first_frame = self.first_frame == other.__dict__.get("first_frame", 0)
+        if not eq_first_frame:
+            print("ROIs differ by first_frame")
         eq_img_stack = np.allclose(self.img_stack, other.img_stack, atol=2e-4)
         if not eq_img_stack:
             print("ROIs differ by img_stack")
@@ -978,11 +986,60 @@ class ROI:
             eq_lineage,
             eq_roi_nb,
             eq_box,
+            eq_first_frame,
             eq_img_stack,
             eq_seg_stack,
             eq_label_stack,
         ]
         return all(eqs)
+
+    def get_img(self, frame: int) -> utils.Image:
+        """
+        Return the ROI image at a given frame.
+
+        Parameters
+        ----------
+        frame : int
+            Frame index.
+
+        Returns
+        -------
+        image : utils.Image
+            Image of the ROI.
+        """
+        return self.img_stack[frame - self.first_frame]
+
+    def get_seg(self, frame: int) -> utils.SegmentationMask:
+        """
+        Return the ROI segmentation mask at a given frame.
+
+        Parameters
+        ----------
+        frame : int
+            Frame index.
+
+        Returns
+        -------
+        seg : utils.SegmentationMask
+            Segmentation mask of the ROI.
+        """
+        return self.seg_stack[frame - self.first_frame]
+
+    def get_labels(self, frame: int) -> utils.Labels:
+        """
+        Return the ROI labels at a given frame.
+
+        Parameters
+        ----------
+        frame : int
+            Frame index.
+
+        Returns
+        -------
+        labels : utils.Labels
+            Labels frame.
+        """
+        return self.label_stack[frame - self.first_frame]
 
     def get_segmentation_inputs(
         self, img: utils.Image
@@ -1029,7 +1086,7 @@ class ROI:
     def process_segmentation_outputs(
         self,
         logits: npt.NDArray[np.float32],
-        frame: Optional[int] = None,
+        frame: int,
         windows: Optional[Tuple[List, List]] = None,
     ) -> None:
         """
@@ -1040,9 +1097,8 @@ class ROI:
         logits : 4D array
             Segmentation output array. Dimensions are
             (windows, *self.config.target_size_seg, 1).
-        frame : int or None, optional
-            Frame index. If None, this is considered the latest frame's output.
-            The default is None.
+        frame : int
+            Frame index.
         windows : tuple of 2 lists
             y and x coordinates of crop windows if any, or None.
 
@@ -1066,11 +1122,8 @@ class ROI:
         seg = utils.opencv_areafilt(seg, min_area=self.config.min_cell_area)
 
         # Append to segmentation results stack:
-        if frame is None or frame == len(self.seg_stack):
-            self.seg_stack.append(seg)
-        else:
-            assert frame < len(self.seg_stack)
-            self.seg_stack[frame] = seg
+        assert len(self.seg_stack) == frame - self.first_frame
+        self.seg_stack.append(seg)
 
     def get_tracking_inputs(
         self, frame: int
@@ -1098,14 +1151,14 @@ class ROI:
 
         """
         # Check if segmentation data is ready:
-        if len(self.seg_stack) <= frame:
+        if len(self.seg_stack) <= frame - self.first_frame:
             raise RuntimeError(f"Segmentation incomplete - frame {frame}")
 
         # Get cell contours from previous frame
-        if frame == 0 or len(self.lineage.cellnumbers) < frame:
+        if frame == 0 or frame - 1 not in self.lineage.cellnumbers:
             prev_cell_contours = []
         else:
-            prev_cell_contours = utils.find_contours(self.seg_stack[frame - 1])
+            prev_cell_contours = utils.find_contours(self.get_seg(frame - 1))
 
         # Sort them along Y
         prev_cell_contours.sort(key=lambda elem: np.max(elem[:, 0, 1]))
@@ -1121,8 +1174,8 @@ class ROI:
         for c, cell in enumerate(prev_cell_contours):
             draw_offset: Optional[Tuple[float, float]]
             if self.config.crop_windows:
-                curr_img = self.img_stack[frame]
-                prev_img = self.img_stack[frame - 1]
+                curr_img = self.get_img(frame)
+                prev_img = self.get_img(frame - 1)
                 # Cell-centered crop boxes:
                 shape = cast(Tuple[int, int], curr_img.shape)  # for mypy
                 cb, fb = utils.gettrackingboxes(
@@ -1131,10 +1184,10 @@ class ROI:
                 draw_offset = (-cb.xtl + fb.xtl, -cb.ytl + fb.ytl)
             else:
                 curr_img = cv2.resize(
-                    self.img_stack[frame], dsize=self.config.target_size_seg[::-1]
+                    self.get_img(frame), dsize=self.config.target_size_seg[::-1]
                 )
                 prev_img = cv2.resize(
-                    self.img_stack[frame - 1], dsize=self.config.target_size_seg[::-1]
+                    self.get_img(frame - 1), dsize=self.config.target_size_seg[::-1]
                 )
                 cb = CroppingBox.full(curr_img)
                 fb = CroppingBox.full(curr_img)
@@ -1158,7 +1211,7 @@ class ROI:
             fb.patch(x[c, :, :, 2], cb.crop(prev_img))
 
             # Segmentation of all current cells
-            fb.patch(x[c, :, :, 3], cb.crop(self.seg_stack[frame]))
+            fb.patch(x[c, :, :, 3], cb.crop(self.get_seg(frame)))
 
         # Return tracking inputs and crop and fill boxes:
         return x, boxes
@@ -1194,7 +1247,7 @@ class ROI:
         """
         # Get scores and attributions:
         # Label frame but numbered 1, 2, 3, 4, etc. (temporary labels)
-        labels = utils.label_seg(self.seg_stack[frame])
+        labels = utils.label_seg(self.get_seg(frame))
         scores = utils.getTrackingScores(
             labels, y[:, :, :, 0], boxes=boxes if self.config.crop_windows else None
         )
@@ -1202,7 +1255,7 @@ class ROI:
         attributions = utils.getAttributions(scores)
 
         # Get poles:
-        poles = utils.getpoles(self.seg_stack[frame], labels, scaling=self.scaling)
+        poles = utils.getpoles(self.get_seg(frame), labels, scaling=self.scaling)
 
         # Resize labels if not using crop windows:
         if not self.config.crop_windows:
@@ -1242,11 +1295,11 @@ class ROI:
                 self.lineage.update(None, frame, attrib=[n], features=features)
 
         # Recompile label frame with new labels
-        if len(self.lineage.cellnumbers) <= frame:
+        if frame not in self.lineage.cellnumbers:
             cell_nbs = []
         else:
             cell_nbs = [c + 1 for c in self.lineage.cellnumbers[frame]]
-        labels = utils.label_seg(self.seg_stack[frame], cell_nbs)
+        labels = utils.label_seg(self.get_seg(frame), cell_nbs)
 
         if not self.config.crop_windows:
             resize = (
@@ -1255,5 +1308,5 @@ class ROI:
             )
             labels = cv2.resize(labels, resize, interpolation=cv2.INTER_NEAREST)
 
-        assert len(self.label_stack) == frame
+        assert len(self.label_stack) == frame - self.first_frame
         self.label_stack.append(labels)
