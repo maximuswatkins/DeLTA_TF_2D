@@ -46,7 +46,7 @@ data_gen_args = dict(
 ds_train, ds_val = load_training_dataset_seg(
     dataset_path=training_set,
     target_size=config.target_size_seg,
-    crop=config.presets == "2D",
+    crop=config.crop_windows,
     kw_data_aug=data_gen_args,
     validation_split=0.05,
     stack=True,
