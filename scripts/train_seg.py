@@ -11,23 +11,39 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import delta
 from delta.model import unet_seg
 from delta.utilities import tensorboard_callback
+from delta.data import load_training_dataset_seg
+import matplotlib.pyplot as plt
+import pickle 
 
 # Set tensorflow's random seed to make the training reproducible
 # (only on CPU: not reproducible on GPU yet)
 tf.keras.utils.set_random_seed(1)
+num_threads = 4
 
+tf.config.threading.set_inter_op_parallelism_threads(
+    num_threads
+)
+tf.config.threading.set_intra_op_parallelism_threads(
+    num_threads
+)
 # Default config
-config = delta.config.DEFAULT_CONFIG_2D
-# Uncomment if you already have a config file
+config = delta.config.DEFAULT_CONFIG_MOTHERMACHINE
+# Uncomment if you alreadye have a config file
 # config = delta.config.Config.read("/path/to/your/config.yml")
 
+preset = config.presets
+
+if preset == 'mothermachine':
+    preset = 'moma'
+
 # Files:
-training_set = config.training_set_path("segmentation")
-savefile = Path("new_segmentation_model.hdf5")
+training_set = Path('/projectnb/dunlop/ooconnor/object_detection/data') / preset / 'delta' / 'segmentation_set'
+# training_set = config.training_set_path("seg")
+savefile = Path('/projectnb/dunlop/ooconnor/object_detection') / 'delta' / 'model' / 'moma_seg_model.hdf5'
 
 # Training parameters:
-epochs = 600
-steps_per_epoch = 300
+epochs = 50
+steps_per_epoch = None
 patience = 50
 
 # Data generator parameters:
@@ -42,13 +58,22 @@ data_gen_args = dict(
     gaussian_blur=1,
 )
 
-ds_train, ds_val = load_training_dataset_seg(
-    dataset_path=training_set,
+ds_train = load_training_dataset_seg(
+    dataset_path=training_set / 'train',
     target_size=config.target_size_seg,
-    crop=True,
+    crop= config.presets=='2D',
     kw_data_aug=data_gen_args,
-    validation_split=0.05,
     stack=True,
+    mode='training'
+)
+
+ds_val = load_training_dataset_seg(
+    dataset_path=training_set / 'val',
+    target_size=config.target_size_seg,
+    crop=config.presets=='2D',
+    kw_data_aug={},
+    stack=True,
+    mode='evaluation',
 )
 
 # Define model:
@@ -69,3 +94,26 @@ history = model.fit(
     epochs=epochs,
     callbacks=[model_checkpoint, early_stopping, tensorboard_callback()],
 )
+
+
+with open(savefile.parent / 'seg_loss_acc_dict.pkl', 'wb') as f:
+    pickle.dump(history.history, f)
+
+fig, ax = plt.subplots(1,2)
+ax[0].plot([i+1 for i in range(epochs)],history.history['loss'],label='train')
+ax[0].plot([i+1 for i in range(epochs)],history.history['val_loss'],label='val')
+ax[1].plot([i+1 for i in range(epochs)],history.history['unstack_acc'],label='train')
+ax[1].plot([i+1 for i in range(epochs)],history.history['val_unstack_acc'],label='val')
+
+ax[0].set_xlabel('epochs')
+ax[1].set_xlabel('epochs')
+
+ax[0].set_ylabel('Loss')
+ax[1].set_ylabel('Acc')
+ax[1].set_ylim([0,1])
+
+ax[0].legend()
+ax[1].legend()
+fig.tight_layout()
+
+fig.savefig(savefile.parent / 'seg_plot.png')

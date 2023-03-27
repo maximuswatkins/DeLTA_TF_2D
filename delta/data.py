@@ -614,6 +614,7 @@ def load_training_dataset_seg(
     test_split: float = 0,
     seed: int = 1,
     stack: bool = False,
+    mode='training',
 ) -> Union[
     SegmentationDataset,
     Tuple[SegmentationDataset, SegmentationDataset],
@@ -663,7 +664,7 @@ def load_training_dataset_seg(
     train_ds = SegmentationDataset(
         train_imgs,
         target_size,
-        mode="training",
+        mode=mode,
         kw_data_aug=kw_data_aug,
         crop=crop,
         rng=rng,
@@ -1013,7 +1014,7 @@ def make_weights(
         `delta.data.seg_weights_2D` for 2D pads, or custom functions or lambdas.
     """
     training_dataset_path = Path(training_dataset_path)
-    (training_dataset_path / "wei").mkdir()
+    (training_dataset_path / "wei").mkdir(exist_ok=True)
     for seg_path in sorted((training_dataset_path / "seg").iterdir()):
         print(f"Making weights for {seg_path.name}...")
         mask = utils.read_image(seg_path)
@@ -1231,12 +1232,7 @@ def estimateClassweights(gene: Iterator, num_samples: int = 30) -> Tuple[float, 
 
 def trainGenerator_track(
     batch_size: int,
-    img_path: Path,
-    seg_path: Path,
-    previmg_path: Path,
-    segall_path: Path,
-    track_path: Path,
-    weights_path: Optional[Path] = None,
+    datapath: Path,
     augment_params: Dict[str, Any] = {},
     crop_windows: bool = False,
     target_size: Tuple[int, int] = (256, 32),
@@ -1301,7 +1297,7 @@ def trainGenerator_track(
     resize_method = "pad" if crop_windows else "resize"
 
     # Initialize variables and arrays:
-    image_names = utils.listfiles(img_path, {".png", ".tif"})
+    image_names = utils.listfiles(datapath / 'cur_img', {".png", ".tif"})
     X = np.empty((batch_size,) + target_size + (4,), dtype=np.float32)
     Y = np.empty((batch_size,) + target_size + (2,), dtype=np.float32)
 
@@ -1320,47 +1316,44 @@ def trainGenerator_track(
             img: Image = readreshape(
                 filename, target_size=target_size, order=1, method=resize_method
             )
-            seg: SegmentationMask = readreshape(
-                seg_path / filename.name,
-                target_size=target_size,
-                binarize=True,
-                order=0,
-                method=resize_method,
-            )
+
+            inputs = cv2.imread(str(filename.parents[1] / 'prev_gt' / filename.name),cv2.IMREAD_ANYDEPTH)
+            inputs_cellnbs = np.unique(inputs)
+            inputs_cellnb = np.random.choice(inputs_cellnbs,1)
+
+            seg = (inputs == inputs_cellnb) * 1
+            seg = trans.resize(seg, target_size, anti_aliasing=True, order=0)
+            seg = ((seg > 0) * 1).astype(np.uint8)
+
+            outputs = cv2.imread(str(filename.parents[1] / 'cur_gt' / filename.name),cv2.IMREAD_ANYDEPTH)
+            segall = ((outputs > 0) * 1)
+            segall = trans.resize(segall, target_size, anti_aliasing=True, order=0)
+            segall = ((segall > 0) * 1).astype(np.uint8)
+
+            track = ((outputs == inputs_cellnb) *1)
+            track = trans.resize(track, target_size, anti_aliasing=True, order=0)
+            track = ((track > 0) * 1).astype(np.uint8)
+
             previmg: Image = readreshape(
-                previmg_path / filename.name,
+                datapath / 'prev_img' / filename.name,
                 target_size=target_size,
                 order=1,
                 method=resize_method,
             )
-            segall: SegmentationMask = readreshape(
-                segall_path / filename.name,
-                target_size=target_size,
-                binarize=True,
-                order=0,
-                method=resize_method,
-            )
 
-            track: SegmentationMask = readreshape(
-                track_path / filename.name,
-                target_size=target_size,
-                binarize=True,
-                order=0,
-                method=resize_method,
-            )
-            if weights_path is not None:
-                if weights_path == "online":
-                    weights = tracking_weights(track, segall)
-                else:
-                    weights = readreshape(
-                        weights_path / filename.name,
-                        target_size=target_size,
-                        binarize=False,
-                        order=0,
-                        method=resize_method,
-                    )
-            else:
-                weights = np.ones_like(track)
+            # if datapath  is not None:
+            #     if weights_path == "online":
+            #         weights = tracking_weights(track, segall)
+            #     else:
+            #         weights = readreshape(
+            #             weights_path / filename.name,
+            #             target_size=target_size,
+            #             binarize=False,
+            #             order=0,
+            #             method=resize_method,
+            #         )
+            # else:
+            weights = np.ones_like(track)
 
             # Data augmentation:
             [img, seg, previmg, segall, track, weights] = data_augmentation(
