@@ -96,7 +96,7 @@ For each position, the data structure is as follows:
     |
     |---moviedimensions : 1D array of int
     |       Dimensions of the experiment movie stored as [Y, X, Channels,
-    |       timepoints].
+    |       frames].
     |
     |---tiffile : str
     |       Path to the original experiment file. Can be a tif file, nd2, czi, oib
@@ -116,7 +116,7 @@ For each position, the data structure is as follows:
     |       |
     |       |---XYdrift : 2D array of float32
     |               Image drift estimated over time, stored as [Y, X]. Dimensions
-    |               are timepoints -by- 2.
+    |               are frames -by- 2.
     |
     |---res : list of dict
             List of dictionaries containing data relevant to segmentation and
@@ -127,14 +127,14 @@ For each position, the data structure is as follows:
             |       Stack of images containing labelled segmentation masks. Each
             |       single cell is uniquely labelled. Labels use 1-based indexing:
             |       In python, Label L in the stack corresponds to cell #L-1 in the
-            |       lineage list (see below). The dimensions are timepoints -by-
+            |       lineage list (see below). The dimensions are frames -by-
             |       U-Net size y -by- U-Net size x.
             |
             |---labelsstack_resized : 3D array of uint16
             |       Same as labelstack above, except it has been resized from the
             |       256 -by- 32 default dimensions of the U-Nets to the original
             |       dimensions of the chamber bounding box. Dimensions are
-            |       timepoints -by- box_height -by- box_width
+            |       frames -by- box_height -by- box_width
             |
             |---lineage: list of dict
                     Lineage information for all cells detected and tracked in the
@@ -157,7 +157,7 @@ For each position, the data structure is as follows:
                     |       Mean fluorescence value over time.
                     |
                     |---frames : 1D array of float32
-                    |       Frame numbers / timepoints where the cell is present.
+                    |       Frame numbers where the cell is present.
                     |       Frame numbers use 1-based indexing: In python, Frame
                     |       number F here corresponds to frame/timepoint #F-1 in
                     |       labelsstack for example.
@@ -186,12 +186,12 @@ For each position, the data structure is as follows:
                     |---new_pole : 2D array of float32
                     |       Position of the new pole of the cell, over time.
                     |       Note that positions are given as (Y, X) vectors.
-                    |       Dimensions are timepoints -by- 2.
+                    |       Dimensions are frames -by- 2.
                     |
                     |---old_pole : 2D array of float32
                     |       Position of the old pole of the cell, over time.
                     |       Note that positions are given as (Y, X) vectors.
-                    |       Dimensions are timepoints -by- 2.
+                    |       Dimensions are frames -by- 2.
                     |
                     |---perimeter : 1D array of float32
                     |       Perimeter of the cell, in number of pixels.

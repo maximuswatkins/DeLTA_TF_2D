@@ -225,7 +225,6 @@ def test_deskew(filename, angle0):
 # %% Eval create_windows
 
 
-@pytest.mark.order(2)
 @pytest.mark.parametrize(
     "image_size, nb_tiles",
     [
@@ -458,7 +457,6 @@ def evaluate_contours(mask, contours, image_size):
     return not (np.bitwise_xor(mask, new_mask).any())
 
 
-@pytest.mark.order(2)
 @pytest.mark.parametrize("seed", range(10))  # Run it 10 times
 @pytest.mark.parametrize(
     "image_size",
@@ -831,7 +829,7 @@ def test_division_poles(seed):
 def _base_test_color(max_dots, seed=None):
     # Get random mask and RGB frame:
     mask = rand_mask((2048, 2048), max_dots=max_dots, seed=seed)
-    frame = np.repeat(mask[:, :, np.newaxis].astype(np.float64), 3, axis=2)
+    frame = np.repeat(mask[:, :, np.newaxis].astype(np.float32), 3, axis=2)
 
     # Get cells numbers and contours:
     cells, contours = utils.getcellsinframe(utils.label_seg(mask), return_contours=True)
@@ -865,7 +863,6 @@ def _evaluate_color_nb(mask, frame):
     assert colors.shape[0] == len(contours) + np.unique(mask).shape[0]
 
 
-@pytest.mark.order(2)
 @pytest.mark.parametrize("seed", range(5))  # Run it 5 times
 @pytest.mark.parametrize("max_dots", [0, 1, 2, 100])
 def test_color_contours(max_dots, seed):
@@ -873,60 +870,45 @@ def test_color_contours(max_dots, seed):
     _evaluate_color_nb(mask, frame)
 
 
-# %% Test xpreader
+# %% Test XPReader
 
 
-class Test_xpreader:
-    def test_2D_tif_filename_noresfolder(self):
-        # Init reader
-        xpreader = utils.xpreader(Path(__file__).parent / "data/movie_2D_tif")
-
-        # Init pipeline
-        pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
-
-    def test_2D_tif_allargs(self):
-        # Init reader
-        xpreader = utils.xpreader(
-            Path(__file__).parent / "data/movie_2D_tif",
-            use_bioformats=False,
-            prototype="Position%02dChannel%02dFrame%06d.tif",
-            fileorder="pct",
-            filenamesindexing=1,
+class Test_XPReader:
+    def test_movie_2D_tif(self):
+        movie_2D_tif = (
+            Path(__file__).parent
+            / "data/movie_2D_tif/Position{p}Channel{c}Frame{t}.tif"
         )
 
-        # Init pipeline:
-        pipeline.Pipeline(
-            xpreader,
-            DEFAULT_CONFIG_2D,
-            resfolder=Path(__file__).parent / "data/movie_2D_tif/results",
+        # Init reader
+        xpreader = utils.XPReader(movie_2D_tif)
+
+        assert xpreader.positions == [1]
+        assert xpreader.channels == [1]
+        assert xpreader.frames == range(1, 21)
+
+    def test_moma_tif_xpreader(self):
+        movie_mothermachine_tif = (
+            Path(__file__).parent
+            / "data/movie_mothermachine_tif/Position{p}Channel{c}Frames{t}.tif"
         )
 
-    def test_2D_tif_xpreader_filename_noresfolder(self):
-        # Init reader
-        xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
+        xpreader = utils.XPReader(movie_mothermachine_tif)
 
-        # Init pipeline:
-        pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
+        assert xpreader.positions == [1, 2]
+        assert xpreader.channels == [1, 2]
+        assert xpreader.frames == range(1, 11)
 
-    def test_2D_tif_xpreader_filename_and_resfolder(self):
-        # Init reader
-        xpreader = utils.xpreader(Path(__file__).parent / "data" / "movie_2D_tif")
+    def test_moma_2D_nd2(self):
+        movie_2D_nd2 = Path(__file__).parent / "data/movie_nd2/test.nd2"
 
-        # Init pipeline:
-        pipeline.Pipeline(
-            xpreader,
-            DEFAULT_CONFIG_2D,
-            resfolder=Path(__file__).parent / "data" / "movie_2D_tif" / "results",
-        )
+        xpreader = utils.XPReader(movie_2D_nd2)
 
-    def test_moma_tif_xpreader_filename_noresfolder(self):
-        # Init reader
-        xpreader = utils.xpreader(
-            Path(__file__).parent / "data" / "movie_mothermachine_tif"
-        )
+        xpreader.close()
 
-        # Init pipeline:
-        pipeline.Pipeline(xpreader, DEFAULT_CONFIG_2D)
+        assert xpreader.positions == [0]
+        assert xpreader.channels == [0]
+        assert xpreader.frames == range(10)
 
 
 # fmt: off
@@ -1016,7 +998,6 @@ def test_cell_fluo():
         ],
         dtype=bool,
     )
-    box = utils.CroppingBox.full(mask)
-    fluos = utils.cell_fluo(fluo_frames, mask, box)
+    fluos = utils.cell_fluo(fluo_frames, mask)
     expected = (1 + 2 + 3 + 7 + 12 + 13 + 16 + 17) / 8
     np.testing.assert_allclose(fluos, [expected, expected + 100])

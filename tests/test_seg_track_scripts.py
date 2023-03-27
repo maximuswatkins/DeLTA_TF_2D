@@ -14,7 +14,6 @@ from delta.config import _DELTA_DIR, DEFAULT_CONFIG_2D, DEFAULT_CONFIG_MOTHERMAC
 test_folder = Path(__file__).parent
 
 
-@pytest.mark.order(2)
 def test_rois_script():
     script = test_folder.parent / "scripts/segmentation_rois.py"
 
@@ -26,7 +25,6 @@ def test_rois_script():
     _run_script(script, _parameters=parameters)
 
 
-@pytest.mark.order(2)
 @pytest.mark.parametrize(
     "config,inputs_folder",
     [
@@ -42,7 +40,6 @@ def test_segmentation_script(config, inputs_folder):
     _run_script(test_folder.parent / "scripts/segmentation.py", _parameters=parameters)
 
 
-@pytest.mark.order(3)
 @pytest.mark.parametrize(
     "config,inputs_folder",
     [

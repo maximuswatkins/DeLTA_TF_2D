@@ -20,7 +20,6 @@ in the ``delta_dev.yml`` file, you can install it in the same way that the
 Specifically the extra dependencies are:
 
 * ``pytest``
-* ``pytest-order``
 * ``sphinx``
 * ``numpydoc``
 * ``pre-commit``

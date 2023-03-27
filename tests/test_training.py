@@ -12,7 +12,6 @@ from delta.data import load_training_dataset_seg, trainGenerator_track
 from delta.model import unet_rois, unet_seg, unet_track
 
 
-@pytest.mark.order(3)
 def test_train_moma_rois():
     # Load config
     config = DEFAULT_CONFIG_MOTHERMACHINE

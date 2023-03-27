@@ -9,6 +9,7 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 import delta
+from delta.data import load_training_dataset_seg
 from delta.model import unet_seg
 from delta.utilities import tensorboard_callback
 from delta.data import load_training_dataset_seg
@@ -28,18 +29,16 @@ tf.config.threading.set_intra_op_parallelism_threads(
 )
 # Default config
 config = delta.config.DEFAULT_CONFIG_MOTHERMACHINE
-# Uncomment if you alreadye have a config file
-# config = delta.config.Config.read("/path/to/your/config.yml")
 
 preset = config.presets
-
 if preset == 'mothermachine':
     preset = 'moma'
 
 # Files:
 training_set = Path('/projectnb/dunlop/ooconnor/object_detection/data') / preset / 'delta' / 'segmentation_set'
-# training_set = config.training_set_path("seg")
 savefile = Path('/projectnb/dunlop/ooconnor/object_detection') / 'delta' / 'model' / 'moma_seg_model.hdf5'
+
+config.apply_tensorflow_config()
 
 # Training parameters:
 epochs = 50
@@ -61,7 +60,7 @@ data_gen_args = dict(
 ds_train = load_training_dataset_seg(
     dataset_path=training_set / 'train',
     target_size=config.target_size_seg,
-    crop= config.presets=='2D',
+    crop=config.presets=='2D',
     kw_data_aug=data_gen_args,
     stack=True,
     mode='training'

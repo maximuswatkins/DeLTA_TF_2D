@@ -108,8 +108,8 @@ The pipeline module uses 3 main classes of objects
           crop_windows=delta.config.crop_windows
           )
       pos.preprocess(rotation_correction=delta.config.rotation_correction)
-      pos.segment(list(range(reader.timepoints)))
-      pos.track(list(range(reader.timepoints)))
+      pos.segment(list(range(reader.frames)))
+      pos.track(list(range(reader.frames)))
       pos.save('/path/to/file_without_ext',save_format=('pickle','legacy'))
 
   Each position will have one or more `ROI` class object under its `Position.rois`

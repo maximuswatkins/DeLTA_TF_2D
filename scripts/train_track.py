@@ -32,7 +32,7 @@ tf.config.set_soft_device_placement(True)
 config = delta.config.DEFAULT_CONFIG_MOTHERMACHINE
 # Uncomment if you already have a config file
 # config = delta.config.Config.read("/path/to/your/config.yml")
-
+config.apply_tensorflow_config()
 # Files:
 training_set = config.training_set_path("track")
 savefile = Path("new_tracking_model.hdf5")

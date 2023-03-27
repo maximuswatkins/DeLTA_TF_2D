@@ -57,11 +57,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The functions `track_poles` and `division_poles` (from `utilities`), and
   `createcell`, `updatecell` and `update` (from `Lineage`) changed their
   parameters to now take a `CellFeatures` object instead of a couple of poles.
+- The functions `Pipeline.process`, `Position.segment`, `Position.track`,
+  `Position.features`, `Position.save`, `Position.results_movie`, and
+  `xpreader.getframes` now get an integer argument `nbframes` instead of a list
+  `frames`.
+- Renamed `xpreader` into `XPReader`.
+- There are now no more `prototype`, `fileorder`, or `filenamesindexing`
+  parameters to `XPReader`, just one `path` which can be templated with `{p}`,
+  `{c}` and `{t}`.
 ### Fixed
 - Fixed bug in the computation of cell perimeters.
 - Fixed training reproducibility bugs by using seeded random generators.
 - Fixed edge case bugs in 2D image stitching.
 - Fixed edge case bug on pole detection of singular cells.
+- Fixed incorrect numbering of position, channel and frame from input to
+  output.
 ### Removed
 - The function `trainGenerator_seg` was removed.
 - The function `download_assets` was removed, because assets are now downloaded
@@ -74,6 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The method `ROI.extract_features` was removed: features are now extracted
   during tracking.
 - The old commandline behavior was removed, in favor of `python -m delta`.
+- The `use_bioformats` parameter to `XPReader` was removed, now it should guess
+  automatically whether bioformats should be used or not.
 
 ## [2.0.5] - 2022-03-11
 ### Changed

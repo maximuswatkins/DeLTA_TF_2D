@@ -77,21 +77,19 @@ class Config:
     pipeline_track_batch: int
     """If running into OOM issues during segmentation with the pipeline, try
     lowering this value.  You can also increase it to improve speed."""
+    number_of_cores: int
+    """This will limit the number of cores TensorFlow can use. Default value
+    of this will have TensorFlow determine the number of cores."""
 
     @staticmethod
-    def read(path: Union[str, Path], presets: Optional[str] = None):
+    def read(path: Union[str, Path]):
         """
         Read a configuration file.
 
         Parameters
         ----------
         path : Union[str, Path]
-            Path to specific configuration file. Keywords "local" and "global"
-            can also be used. See online documentation for more information.
-        presets : Optional[str], optional
-            Name of presets to load config for when using "local" or "global"
-            configuration. Values can be "2D", "mothermachine", or a custom
-            name if you created one. The default is None.
+            Path to specific configuration file.
 
         Returns
         -------
@@ -99,17 +97,6 @@ class Config:
             Loaded config object.
 
         """
-        if path in ["local", "global"]:
-            if presets is None:
-                raise ValueError(
-                    "If reading from local or global config files, "
-                    "presets are required ('2D' or 'mothermachine' or custom)."
-                )
-            if path == "local":
-                path = Path.home() / f".delta/config_{presets}.json"
-            else:
-                path = _DELTA_DIR / f"global_config/config_{presets}.json"
-
         try:
             return Config(**read_json(Path(path)))
         except TypeError as err:
@@ -127,20 +114,10 @@ class Config:
         Parameters
         ----------
         config_level : Union[str, Path]
-            Path to specific configuration file. Keywords "local" and "global"
-            can also be used. See online documentation for more information.
+            Path to specific configuration file.
 
         """
-        if config_level == "local":
-            config_dir = Path.home() / ".delta"
-        elif config_level == "global":
-            config_dir = _DELTA_DIR / "global_config"
-        else:
-            config_dir = Path(config_level)
-
-        config_dir.mkdir(exist_ok=True)
-
-        write_json(self, config_dir / f"config_{self.presets}.json")
+        write_json(self, Path(config_level))
 
     def training_set_path(self, model: MODEL) -> Path:
         """
@@ -218,6 +195,8 @@ class Config:
         These are currently the ``TF_CPP_MIN_LOG_LEVEL`` environment variable,
         and the ``memory_growth_limit`` parameter.
 
+        TensorFlow will also determine the number of cores if not set in the config
+
         Returns
         -------
         None
@@ -245,6 +224,10 @@ class Config:
             except RuntimeError as err:
                 # Virtual devices must be set before GPUs have been initialized
                 warnings.warn(f"{err}")
+
+        # TensorFlow will determine the max number of cores if not set in the config
+        tf.config.threading.set_inter_op_parallelism_threads(self.number_of_cores)
+        tf.config.threading.set_intra_op_parallelism_threads(self.number_of_cores)
 
 
 ###
@@ -276,6 +259,7 @@ DEFAULT_CONFIG_2D = Config(
     memory_growth_limit=None,
     pipeline_seg_batch=64,
     pipeline_track_batch=64,
+    number_of_cores=None,
 )
 
 DEFAULT_CONFIG_MOTHERMACHINE = Config(
@@ -302,6 +286,7 @@ DEFAULT_CONFIG_MOTHERMACHINE = Config(
     memory_growth_limit=None,
     pipeline_seg_batch=64,
     pipeline_track_batch=64,
+    number_of_cores=None,
 )
 
 
