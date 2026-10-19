@@ -257,8 +257,8 @@ DEFAULT_CONFIG_2D = Config(
     save_format=("pickle", "legacy", "movie"),
     tensorflow_log_level=2,
     memory_growth_limit=None,
-    pipeline_seg_batch=64,
-    pipeline_track_batch=64,
+    pipeline_seg_batch=128, #was 64
+    pipeline_track_batch=128, #was 64
     number_of_cores=None,
 )
 

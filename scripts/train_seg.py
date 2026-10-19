@@ -4,46 +4,68 @@ Train the cell segmentation U-Net.
 @author: jblugagne
 """
 from pathlib import Path
-
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-
+tf.config.optimizer.set_jit(False)
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, Callback
+import re
 import delta
-from delta.data import load_training_dataset_seg
-from delta.model import unet_seg
-from delta.utilities import tensorboard_callback
-from delta.data import load_training_dataset_seg
-import matplotlib.pyplot as plt
-import pickle 
+from delta.data_lazy import load_training_dataset_seg
+from delta.model import unet_seg, pixelwise_weighted_binary_crossentropy_seg, unstack_acc, EpochTimeLogger, PlotLearning, get_last_epoch, CustomEarlyStopping
+from delta.utilities import get_total_time
+
+import os
+
+os.environ["TF_XLA_FLAGS"] = "--tf_xla_auto_jit=0"
+os.environ["XLA_FLAGS"] = "--xla_gpu_strict_conv_algorithm_picker=false"
 
 # Set tensorflow's random seed to make the training reproducible
 # (only on CPU: not reproducible on GPU yet)
 tf.keras.utils.set_random_seed(1)
-num_threads = 4
 
-tf.config.threading.set_inter_op_parallelism_threads(
-    num_threads
-)
-tf.config.threading.set_intra_op_parallelism_threads(
-    num_threads
-)
-# Default config
-config = delta.config.DEFAULT_CONFIG_MOTHERMACHINE
+dataset = 'My2D'
 
-preset = config.presets
-if preset == 'mothermachine':
-    preset = 'moma'
+if dataset == 'moma':
+    config = delta.config.DEFAULT_CONFIG_MOTHERMACHINE
+    epochs = 12
+    config.target_size_seg = (256,32)
+    config.target_size_track = (256,32)
+    weights_fcn = delta.data.seg_weights
+elif dataset == 'DynamicNuclearNet-tracking-v1_0':
+    config = delta.config.DEFAULT_CONFIG_2D
+    epochs = 24
+    config.target_size_seg = (256,256)
+    config.target_size_track = (256,256)
+elif dataset == 'My2D':
+    config = delta.config.DEFAULT_CONFIG_2D
+    epochs = 20
+    config.target_size_seg = (256,256)
+    config.target_size_track = (256,256)
+    weights_fcn = delta.data.seg_weights_2D
+else:
+    raise NotImplementedError
+
+config.number_of_cores = 4
+config.apply_tensorflow_config()
 
 # Files:
-training_set = Path('/projectnb/dunlop/ooconnor/object_detection/data') / preset / 'delta' / 'segmentation_set'
-savefile = Path('/projectnb/dunlop/ooconnor/object_detection') / 'delta' / 'model' / 'moma_seg_model.hdf5'
+training_set = Path('/home/max/MaxWork/DeLTA_TF_New/') / 'data' / dataset / 'CTC'
+savefile = Path('/home/max/MaxWork/DeLTA_TF_New/') / 'models' / dataset / 'seg' / 'my2d_seg_model.keras'
+
+RESUME_TRAINING = False
+
+savefile.parents[1].mkdir(exist_ok=True)
+savefile.parent.mkdir(exist_ok=True)
+log_file = savefile.parent / 'training_time.txt'  # Define the log file path for epoch times
 
 config.apply_tensorflow_config()
 
+for folder in ['train','val']:
+    if not (training_set / 'delta_weights' / folder / 'wei_seg').exists():
+        delta.data.make_weights(training_set / folder,weights_fcn, classweights = (1,1))
+
 # Training parameters:
-epochs = 50
 steps_per_epoch = None
-patience = 50
+patience = 5
 
 # Data generator parameters:
 data_gen_args = dict(
@@ -75,44 +97,35 @@ ds_val = load_training_dataset_seg(
     mode='evaluation',
 )
 
-# Define model:
-model = unet_seg(input_size=config.target_size_seg + (1,))
+if RESUME_TRAINING and savefile.exists():
+    model = tf.keras.models.load_model(savefile, custom_objects={'pixelwise_weighted_binary_crossentropy_seg': pixelwise_weighted_binary_crossentropy_seg, 'unstack_acc': unstack_acc})
+    last_epoch = get_last_epoch(log_file)
+    if last_epoch is None:
+       last_epoch = 0
+else:
+    # Define model:
+    model = unet_seg(input_size=config.target_size_seg + (1,))
+    last_epoch = 0
+
 model.summary()
 
 # Callbacks:
-model_checkpoint = ModelCheckpoint(
-    savefile, monitor="loss", verbose=2, save_best_only=True
-)
-early_stopping = EarlyStopping(monitor="loss", mode="min", verbose=2, patience=patience)
+training_history_file = savefile.parent / 'training_history.pkl'
+custom_early_stopping = CustomEarlyStopping(patience=patience, training_history_file=training_history_file)
+model_checkpoint = ModelCheckpoint(savefile, monitor="val_loss", verbose=2, save_best_only=True)
+epoch_time_logger = EpochTimeLogger(log_file)  # Create instance of the custom callback
+plot_learning = PlotLearning(savefile.parent)
 
 # Train:
-history = model.fit(
+model.fit(
     ds_train,
     validation_data=ds_val,
     steps_per_epoch=steps_per_epoch,
-    epochs=epochs,
-    callbacks=[model_checkpoint, early_stopping, tensorboard_callback()],
+    epochs=epochs-last_epoch,
+    callbacks=[model_checkpoint, epoch_time_logger, plot_learning], #, custom_early_stopping
 )
 
+# Display and save total time training took
+total_time = get_total_time(savefile.parent)
+print('Training time {}'.format(total_time))
 
-with open(savefile.parent / 'seg_loss_acc_dict.pkl', 'wb') as f:
-    pickle.dump(history.history, f)
-
-fig, ax = plt.subplots(1,2)
-ax[0].plot([i+1 for i in range(epochs)],history.history['loss'],label='train')
-ax[0].plot([i+1 for i in range(epochs)],history.history['val_loss'],label='val')
-ax[1].plot([i+1 for i in range(epochs)],history.history['unstack_acc'],label='train')
-ax[1].plot([i+1 for i in range(epochs)],history.history['val_unstack_acc'],label='val')
-
-ax[0].set_xlabel('epochs')
-ax[1].set_xlabel('epochs')
-
-ax[0].set_ylabel('Loss')
-ax[1].set_ylabel('Acc')
-ax[1].set_ylim([0,1])
-
-ax[0].legend()
-ax[1].legend()
-fig.tight_layout()
-
-fig.savefig(savefile.parent / 'seg_plot.png')

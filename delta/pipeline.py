@@ -20,9 +20,21 @@ from delta import utilities as utils
 from delta.config import Config
 from delta.data import binarizerange, postprocess
 from delta.utilities import CroppingBox
+from collections import defaultdict
 
 MODEL = Literal["rois", "seg", "track"]
 
+from time import perf_counter
+import tensorflow as tf
+import csv
+
+def sync_tf(): # for syncing GPU during inference time measurements
+    try:
+        tf.test.experimental.sync_devices()
+    except RuntimeError:
+        # If something runs in graph mode, this will complain.
+        # In your benchmark path you want eager execution anyway.
+        pass
 
 class Pipeline:
     """Main Pipeline class to process all positions."""
@@ -32,6 +44,7 @@ class Pipeline:
         xpreader: utils.XPReader,
         config: Config,
         resfolder: Optional[Union[str, Path]] = None,
+        gtfolder: Optional[Union[str, Path]] = None,
         reload: bool = False,
     ) -> None:
         """
@@ -63,6 +76,8 @@ class Pipeline:
         "Configuration parameters object"
         self.resfolder: Path
         "Folder to save results to"
+        self.gtfolder: Path
+        "Folder containing ground truth for evaluation"
 
         if resfolder is None:
             xpfile = self.reader.path
@@ -73,6 +88,7 @@ class Pipeline:
                 resfolder = xpfile.with_name(xpfile.stem + "_delta_results")
 
         self.resfolder = Path(resfolder)
+        self.gtfolder = Path(gtfolder) if gtfolder is not None else None
 
         self.resfolder.mkdir(exist_ok=True)
 
@@ -141,10 +157,20 @@ class Pipeline:
             position.preprocess(all_frames, frames=frames)
 
             # Segment all ROIs
+            sync_tf()
+            seg_start = perf_counter()
             position.segment(frames=frames)
+            sync_tf()
+            self.seg_time = perf_counter() - seg_start
 
             # Track cells in all ROIs
+            sync_tf()
+            track_start = perf_counter()
             position.track(frames=frames)
+            sync_tf()
+            self.track_time = perf_counter() - track_start
+
+            self.total_time = self.seg_time + self.track_time
 
             # Extract features in all ROIs
             position.features(frames=frames)
@@ -157,8 +183,83 @@ class Pipeline:
                 save_format=self.config.save_format,
             )
 
+            self._write_frame_metrics_csv(position, iposition, frames)
+
             if clear:
                 position.clear()
+
+    def _write_frame_metrics_csv(self, position, iposition, frames):
+        import re
+
+        seq_csv = self.resfolder / f"{iposition:02d}_frame_metrics.csv"
+        write_header = (not seq_csv.exists()) or seq_csv.stat().st_size == 0
+
+        def gt_cells_for_frame(frame: int) -> int:
+            if self.gtfolder is None:
+                return -1
+
+            for prefix in ("man_seg", "man_track"):
+                gt_file = self.gtfolder / f"{prefix}{frame:03d}.tif"
+                if gt_file.exists():
+                    gt_img = cv2.imread(str(gt_file), cv2.IMREAD_UNCHANGED)
+                    if gt_img is None:
+                        continue
+                    labels = np.unique(np.squeeze(gt_img))
+                    return int(np.count_nonzero(labels > 0))
+
+            return -1
+
+        with seq_csv.open("w", newline="") as f:
+            writer = csv.writer(f)
+
+            if write_header:
+                writer.writerow(
+                    [
+                        "sequence",
+                        "frame",
+                        "seconds",
+                        "fps",
+                        "gt_cells",
+                        "detected_cells",
+                        "seg_time_s",
+                        "track_time_s",
+                    ]
+                )
+
+            # Only write integer frame keys. Anything else is legacy/old-data noise.
+            for frame in sorted(position.frame_metrics):
+                if not isinstance(frame, int):
+                    continue
+
+                metrics = position.frame_metrics[frame]
+
+                seg_time = metrics.get("seg_time", 0.0) or 0.0
+                track_time = metrics.get("track_time", 0.0) or 0.0
+
+                seconds = seg_time + track_time
+                
+                if seconds <= 0:
+                    continue
+
+                fps = 1.0 / seconds
+                frame_label = f"t{frame:03d}"
+                gt_cells = gt_cells_for_frame(frame)
+                detected_cells = (
+                    metrics["detected_cells"] if metrics["detected_cells"] is not None else ""
+                )
+
+                writer.writerow(
+                    [
+                        f"{iposition:02d}",
+                        frame_label,
+                        f"{seconds:.6f}",
+                        f"{fps:.6f}",
+                        gt_cells,
+                        detected_cells,
+                        f"{seg_time:.6f}",
+                        f"{track_time:.6f}",
+                    ]
+                )
 
 
 class Position:
@@ -200,6 +301,15 @@ class Position:
         "Configuration parameters object"
         self.verbose: int = 1
         "Console output verbosity"
+        self.frame_metrics = defaultdict(
+            lambda: {
+                "seg_time": 0.0,
+                "track_time": 0.0,
+                "gt_cells": None,
+                "detected_cells": None,
+            }
+        )
+        "Dict for storing segmentation and tracking times for each frame"
 
     def __eq__(self, other) -> bool:
         """Equality function for Position."""
@@ -394,9 +504,14 @@ class Position:
 
         segmentation_model = self.config.model("seg")
 
+        for roi in self.rois:
+            roi.position = self
+
         for iroi, roi in enumerate(self.rois, start=1):
             self._msg(f"Segmentation - ROI {iroi}/{len(self.rois)}")
             roi.segment(frames, segmentation_model)
+            
+        
 
     def track(self, frames: range) -> None:
         """
@@ -415,6 +530,10 @@ class Position:
         self._msg(f"Starting tracking ({len(frames)} frames)")
 
         tracking_model = self.config.model("track")
+
+        for roi in self.rois:
+            roi.position = self
+
         for iroi, roi in enumerate(self.rois, start=1):
             self._msg(f"Tracking - ROI {iroi}/{len(self.rois)}")
             roi.track(frames, tracking_model)
@@ -503,7 +622,13 @@ class Position:
             if reader is None:
                 raise ValueError("If saving as movie, xpreader cannot be None.")
             movie = self.results_movie(frames, reader)
-            utils.vidwrite(movie, filename.with_suffix(".mp4"), verbose=False)
+            utils.vidwrite(movie, (filename.parent / 'movie' / filename.with_suffix(".mp4").name), verbose=False)
+
+        if "CTC" in save_format:
+            self._msg("Saving ctc results\n" + str(filename.with_suffix(".txt")))
+            if reader is None:
+                raise ValueError("If saving results in ctc format, xpreader cannot be None.")
+            self.save_results_ctc(frames, filename)
 
     @staticmethod
     def load(filename: Union[str, Path]):
@@ -661,6 +786,84 @@ class Position:
 
         return data
 
+    def save_results_ctc(self,frames,filename):
+                
+        ctc_folder = filename.parent / 'CTC' / f'{self.position_nb:02d}'
+        ctc_folder.mkdir(exist_ok=True)
+
+        assert len(self.rois) == 1
+
+        roi = self.rois[0]
+        labels_stack = roi.label_stack
+        lineage = roi.lineage
+        ctc_data = None
+
+        for fidx, label_stack in zip(frames,labels_stack):
+            cellnbs = np.unique(label_stack)
+            cellnbs = cellnbs[cellnbs > 0] - 1
+
+            mask = np.copy(label_stack)
+
+            if ctc_data is None:
+                if len(cellnbs) > 0:
+                    ctc_data = []
+                    for cell in cellnbs:
+                        ctc_data.append(np.array([cell+1,fidx,fidx,0]))
+                    ctc_data = np.stack(ctc_data)
+                    
+                ctc_cells = cellnbs + 1
+                prevcellnbs = np.copy(cellnbs)
+
+            else:
+                max_cellnb = ctc_data.shape[0]
+
+                ctc_cells_new = np.ones_like(cellnbs) * -1
+                mask_copy = np.copy(mask)
+                daughters = []
+                for c,prevcellnb in enumerate(prevcellnbs):
+                    if prevcellnb in cellnbs:
+                        ctc_cell = ctc_cells[c]
+                        prevfidx_ind = lineage.cells[prevcellnb]['frames'].index(fidx-1)
+                        fidx_ind = prevfidx_ind + 1
+
+                        if fidx_ind < len(lineage.cells[prevcellnb]['frames']) and lineage.cells[prevcellnb]['daughters'][fidx_ind] is not None:
+                            dau = lineage.cells[prevcellnb]['daughters'][fidx_ind]
+                            assert dau in cellnbs
+                            daughters.append(dau)
+                            max_cellnb += 1
+                            new_cell_1 = np.array([max_cellnb,fidx,fidx,ctc_cell])[None]
+                            ctc_cells_new[cellnbs == dau] = max_cellnb 
+                            mask[mask_copy == dau+1] = max_cellnb
+                            max_cellnb += 1
+                            new_cell_2 = np.array([max_cellnb,fidx,fidx,ctc_cell])[None]
+                            ctc_data = np.concatenate((ctc_data,new_cell_1,new_cell_2),axis=0)
+                            ctc_cells_new[cellnbs == prevcellnb] = max_cellnb
+                            mask[mask_copy == prevcellnb+1] = max_cellnb
+                                
+                        else:
+                            ctc_data[ctc_cell-1,2] = fidx
+                            ctc_cells_new[cellnbs == prevcellnb] = ctc_cell
+                            mask[mask_copy == prevcellnb+1] = ctc_cell
+                
+                for c,cellnb in enumerate(cellnbs):
+                    if cellnb not in prevcellnbs and cellnb not in daughters:
+                        max_cellnb += 1
+                        new_cell = np.array([max_cellnb,fidx,fidx,0])[None]
+                        ctc_data = np.concatenate((ctc_data,new_cell),axis=0)
+
+                        ctc_cells_new[cellnbs == cellnb] = max_cellnb     
+                        mask[mask_copy == cellnb+1] = max_cellnb
+
+                assert -1 not in ctc_cells_new
+
+                ctc_cells = np.copy(ctc_cells_new)
+                prevcellnbs = np.copy(cellnbs)
+
+            cv2.imwrite(str(ctc_folder / f'mask{fidx:03d}.tif'),mask)
+
+        np.savetxt(ctc_folder / 'res_track.txt',ctc_data,fmt='%d')
+
+
     def results_movie(self, frames: Optional[range], reader: utils.XPReader) -> Any:
         """
         Generate movie illustrating segmentation and tracking.
@@ -684,6 +887,7 @@ class Position:
         if frames is None:
             frames = reader.frames
         trans_frames = trans_frames[:, 0]
+        trans_frames = trans_frames * (1 / trans_frames.max())
 
         if self.config.drift_correction:
             trans_frames, _ = utils.driftcorr(trans_frames, drift=self.drift_values)
@@ -954,45 +1158,47 @@ class ROI:
         return self.label_stack[frame - self.first_frame]
 
     def segment(self, frames: range, model: Optional[tf.keras.Model] = None) -> None:
-        """
-        Segment `img_stack` and store the results in `seg_stack`.
-
-        Parameters
-        ----------
-        frames : range
-            Frames to run.
-        model : Optional[tf.keras.Model]
-            Segmentation model to use.  This is to avoid having to reload it
-            for every ROI.  If None, will use `self.config.model("seg")`.
-            The default is None.
-
-        Returns
-        -------
-        None.
-
-        """
-        model = model or self.config.model("seg")
-
         # Run through frames and compile segmentation inputs
         imgs = []
         windowss = []
+        frame_keys = []
+        n_windows_per_frame = []
+
         for frame in frames:
             inputs, windows = self.get_segmentation_inputs(frame)
-            windows_per_frame = len(inputs)
             imgs.append(inputs)
             windowss.append(windows)
+            n_windows_per_frame.append(len(inputs))
+
+            # Use a stable per-frame key here
+            frame_keys.append(f"t{frame:03d}" if isinstance(frame, int) else str(frame))
+
         inputs = np.concatenate(imgs)
 
         # Run segmentation model
+        sync_tf()
+        t0 = perf_counter()
         logits = model.predict(inputs, batch_size=self.config.pipeline_seg_batch)
+        sync_tf()
+        elapsed = perf_counter() - t0
 
-        # Dispatch segmentation output to ROI
-        for iframe, (frame, windows) in enumerate(zip(frames, windowss)):
+        # Split the batch output back per frame 
+        offset = 0
+        total_windows = sum(n_windows_per_frame)
+
+        for frame_key, frame, windows, nwin in zip(frame_keys, frames, windowss, n_windows_per_frame):
+            frame_logits = logits[offset : offset + nwin]
+            offset += nwin
+
             self.process_segmentation_outputs(
-                logits[iframe * windows_per_frame : (iframe + 1) * windows_per_frame],
+                frame_logits,
                 frame=frame,
                 windows=windows,
             )
+
+            # Store per-frame segmentation time.
+            # This splits the batch time proportionally by number of windows.
+            self.position.frame_metrics[frame]["seg_time"] += elapsed * (nwin / total_windows)
 
     def get_segmentation_inputs(
         self, frame: int
@@ -1070,54 +1276,50 @@ class ROI:
         # Area filtering:
         seg = utils.opencv_areafilt(seg, min_area=self.config.min_cell_area)
 
+        n_components, _ = cv2.connectedComponents(seg.astype(np.uint8))
+        detected_cells = int(max(0, n_components - 1))
+
+        self.position.frame_metrics[frame]["detected_cells"] = detected_cells
+
         # Append to segmentation results stack:
         assert len(self.seg_stack) == frame - self.first_frame
         self.seg_stack.append(seg)
 
     def track(self, frames: range, model: Optional[tf.keras.Model] = None) -> None:
-        """
-        Track cells in the ROI.
-
-        Parameters
-        ----------
-        frames : range
-            Frames to track.
-        model : Optional[tf.keras.Model]
-            Tracking model to use. This is to avoid having to reload the model
-            for every ROI. If None, will use `self.config.model("track")`.
-            The default is None.
-
-        Returns
-        -------
-        None.
-
-        """
-        model = model or self.config.model("track")
-
-        # Run through frames and compile inputs and references
+        # compile inputs and remember per-frame counts
         inpts = []
         references = []
+        n_cells_per_frame = []
+
         for frame in frames:
             inputs, boxes = self.get_tracking_inputs(frame=frame)
             inpts.append(inputs)
             references.append((len(inputs), boxes))
-        inputs = np.concatenate(inpts)
+            n_cells_per_frame.append(len(inputs))
 
-        # Predict
+        inputs = np.concatenate(inpts) if inpts else np.empty((0, *self.config.target_size_track, 1))
+
+        sync_tf()
+        t0 = perf_counter()
         if inputs.shape[0] > 0:
             logits = model.predict(inputs, batch_size=self.config.pipeline_track_batch)
         else:
             logits = np.empty(shape=(0, *self.config.target_size_track, 1))
+        sync_tf()
+        elapsed = perf_counter() - t0
 
-        # Dispatch tracking outputs
+        total_cells = sum(n_cells_per_frame) or 1
+
         i = 0
-        for frame, (nbcells, boxes) in enumerate(references, start=frames.start):
+        for frame, (nbcells, boxes) in zip(frames, references):
             self.process_tracking_outputs(
                 logits[i : i + nbcells],
                 frame=frame,
                 boxes=boxes,
             )
             i += nbcells
+
+            self.position.frame_metrics[frame]["track_time"] += elapsed * (nbcells / total_cells)
 
     def get_tracking_inputs(
         self, frame: int

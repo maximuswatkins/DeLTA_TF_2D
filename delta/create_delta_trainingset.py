@@ -5,12 +5,12 @@ import numpy as np
 
 from delta import data
 
-datapath = Path('/projectnb/dunlop/ooconnor/object_detection/data/moma')
+datapath = Path('/projectnb/dunlop/ooconnor/MOT/data/moma')
 delta_datapath = datapath / 'delta'
 delta_datapath.mkdir(exist_ok=True)
 (delta_datapath / 'segmentation_set').mkdir(exist_ok=True)
 
-for train_folder in ['train','val']:
+for train_folder in ['train','va']:
 
     (delta_datapath / 'segmentation_set' / train_folder).mkdir(exist_ok=True)
 

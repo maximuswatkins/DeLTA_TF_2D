@@ -4,6 +4,12 @@ Model and loss/metrics functions definitions.
 @author: jblugagne
 """
 from typing import Dict, List, Optional, Tuple
+import matplotlib.pyplot as plt
+import datetime
+import time
+import re 
+import numpy as np
+from pathlib import Path
 
 import tensorflow as tf
 from tensorflow import keras
@@ -19,6 +25,7 @@ from tensorflow.keras.layers import (
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.python.ops import math_ops
+from tensorflow.keras.callbacks import Callback
 
 # %% Losses/metrics
 
@@ -285,7 +292,6 @@ def unet(
 
 # Use the following model for segmentation:
 def unet_seg(
-    pretrained_weights: Optional[str] = None,
     input_size: Tuple[int, int, int] = (256, 32, 1),
     levels: int = 5,
     filters: Optional[List[int]] = None,
@@ -327,17 +333,15 @@ def unet_seg(
         optimizer=Adam(learning_rate=1e-4),
         loss=pixelwise_weighted_binary_crossentropy_seg,
         metrics=[unstack_acc],
+        jit_compile=False,
+        run_eagerly=True,
     )
-
-    if pretrained_weights:
-        model.load_weights(pretrained_weights)
 
     return model
 
 
 # Use the following model for tracking and lineage reconstruction:
 def unet_track(
-    pretrained_weights: Optional[str] = None,
     input_size: Tuple[int, int, int] = (256, 32, 4),
     levels: int = 5,
     filters: Optional[List[int]] = None,
@@ -379,10 +383,9 @@ def unet_track(
         optimizer=Adam(learning_rate=1e-5),
         loss=pixelwise_weighted_binary_crossentropy_track,
         metrics=[unstack_acc],
+        jit_compile=False,
+        run_eagerly=True,
     )
-
-    if pretrained_weights:
-        model.load_weights(pretrained_weights)
 
     return model
 
@@ -429,3 +432,147 @@ def unet_rois(
     )
 
     return model
+
+
+import matplotlib.pyplot as plt
+import pickle
+import os
+
+class PlotLearning(Callback):
+    def __init__(self, savepath, history_file='training_history.pkl'):
+        super().__init__()
+        self.history_file = savepath / history_file
+        self.savepath = savepath
+
+        # Load existing history if it exists
+        if os.path.exists(self.history_file):
+            with open(self.history_file, 'rb') as f:
+                self.history = pickle.load(f)
+        else:
+            self.history = {'loss': [], 'acc': [], 'val_loss': [], 'val_acc': []}
+
+    def on_epoch_end(self, epoch, logs=None):
+        # Append new epoch data
+        self.history['loss'].append(logs.get('loss'))
+        self.history['acc'].append(logs.get('unstack_acc'))
+        self.history['val_loss'].append(logs.get('val_loss'))
+        self.history['val_acc'].append(logs.get('val_unstack_acc'))
+
+        # Save history to file
+        with open(self.history_file, 'wb') as f:
+            pickle.dump(self.history, f)
+
+        epochs = range(1, len(self.history['loss']) + 1)
+
+        # Generate and save plots
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+        ax1.plot(epochs,self.history['acc'], label='Train Acc')
+        ax1.plot(epochs,self.history['val_acc'], label='Val Acc')
+        ax1.set_title('Model Accuracy')
+        ax1.set_xlabel('Epoch')
+        ax1.set_ylabel('Accuracy')
+        ax1.legend(loc='upper left')
+        
+        ax2.plot(epochs,self.history['loss'], label='Train Loss')
+        ax2.plot(epochs,self.history['val_loss'], label='Val Loss')
+        ax2.set_title('Model Loss')
+        ax2.set_xlabel('Epoch')
+        ax2.set_ylabel('Loss')
+        ax2.legend(loc='upper left')
+
+        # Save figure to the directory
+        fig.savefig(os.path.join(self.savepath, f'Loss.png'))
+        plt.close(fig)
+
+    def on_train_end(self, logs=None):
+        print("Training complete. Plots saved to directory:", self.savepath)
+
+
+# Custom Callback to log epoch duration
+class EpochTimeLogger(Callback):
+    def __init__(self, file_path):
+        super().__init__()
+        self.file_path = file_path
+
+    def on_epoch_begin(self, epoch, logs=None):
+        self.epoch_start_time = time.time()
+
+    def on_epoch_end(self, epoch, logs=None):
+        total_epoch_time = time.time() - self.epoch_start_time
+        duration_str = str(datetime.timedelta(seconds=int(total_epoch_time)))
+
+        if not os.path.exists(self.file_path):
+            with open(self.file_path, 'w') as f:
+                f.write(f'Epoch 1: {duration_str}\n')
+        else:
+            with open(self.file_path, 'r') as f:
+                text = f.read()
+                epochs = re.findall(r'Epoch (\d+):', text)
+
+                last_epoch = int(epochs[-1])
+
+            with open(self.file_path, 'a') as f:
+                f.write(f'Epoch {last_epoch+1}: {duration_str}\n')
+
+def get_last_epoch(filename):
+    try:
+        with open(filename, "r") as file:
+            lines = file.readlines()
+            if not lines:
+                print("File is empty")
+                return 0
+
+            last_epoch = 0
+            for line in lines:
+                match = re.search(r"^Epoch (\d+):\s+([\d:]+)", line.strip())
+                if match:
+                    last_epoch = int(match.group(1))
+
+            return last_epoch
+
+    except FileNotFoundError:
+        raise NotImplementedError    
+
+class CustomEarlyStopping(Callback):
+    def __init__(self, patience, training_history_file):
+        super(CustomEarlyStopping, self).__init__()
+        self.patience = patience
+        self.training_history_file = training_history_file
+        self.best_weights = None
+
+    def on_train_begin(self, logs=None):
+        self.best_weights = self.model.get_weights()
+
+    def on_epoch_begin(self, epoch, logs=None):
+
+        # Load validation loss history at beginning of each epoch (another callback saves the loss info)
+        if Path(self.training_history_file).exists():
+            with open(self.training_history_file, 'rb') as f:
+                loss_history = pickle.load(f)
+            self.val_loss_history = loss_history['val_loss']
+            self.best = np.min(self.val_loss_history)
+            self.wait = len(self.val_loss_history) - (np.argmin(np.array(self.val_loss_history)) + 1)
+            self.stopped_epoch = len(self.val_loss_history)
+        else:
+            self.stopped_epoch = 0
+            self.wait = 0
+            self.best = np.Inf
+
+    def on_epoch_end(self, epoch, logs=None):
+        current = logs.get("val_loss")
+        # another callback already saves the loss data
+
+        if np.less(current, self.best):
+            self.best = current
+            self.wait = 0
+            self.best_weights = self.model.get_weights()
+        else:
+            self.wait += 1
+            if self.wait >= self.patience:
+                self.stopped_epoch = epoch
+                self.model.stop_training = True
+                self.model.set_weights(self.best_weights)
+
+    def on_train_end(self, logs=None):
+        if self.stopped_epoch > 0:
+            print(f"\nEpoch {self.stopped_epoch + 1}: early stopping")

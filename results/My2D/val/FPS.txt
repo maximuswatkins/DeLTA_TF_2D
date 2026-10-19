@@ -1,0 +1,1 @@
+Frames per second (FPS): 1.463578

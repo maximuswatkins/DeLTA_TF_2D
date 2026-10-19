@@ -26,11 +26,16 @@ from typing import (
     Union,
     overload,
 )
-
-import bioformats
+try:
+    import bioformats
+except ModuleNotFoundError:
+    bioformats = None
 import cv2
 import ffmpeg
-import javabridge
+try:
+    import javabridge
+except ModuleNotFoundError:
+    javabridge = None
 import numpy as np
 import numpy.random as npr
 import numpy.typing as npt
@@ -144,9 +149,9 @@ class CroppingBox:
             )
         if (
             self.ybr <= 0
-            or image.shape[1] <= self.ytl
+            or image.shape[0] <= self.ytl
             or self.xbr <= 0
-            or image.shape[0] <= self.xtl
+            or image.shape[1] <= self.xtl
         ):
             raise ValueError("`box` must fall at least partially inside the image.")
         image[
@@ -1663,6 +1668,7 @@ class XPReader:
         self,
         path: Union[Path, str],
         channelnames: Optional[Tuple[str]] = None,
+        pos = None
     ) -> None:
         """
         Initialize experiment reader.
@@ -1765,9 +1771,11 @@ class XPReader:
             # associate them with the full path
             self.imagepaths = {}
             for imgpath in self.filehandle.glob(spath.format(p="*", c="*", t="*")):
+                if pos is not None and imgpath.parent.name != pos:
+                    continue 
                 match = regexp.fullmatch(str(imgpath))
                 if not match:
-                    continue
+                    continue                  
                 self.imagepaths[parse(match, fileorder)] = imgpath
 
             # Explore imagepaths to determine ranges of positions, channels and frames
@@ -1922,9 +1930,10 @@ class XPReader:
         if frames is None:
             frames = self.frames
 
+        image = read_image(self.get_imgpath(position, channels[0], frames[0]))
         # Allocate memory:
         output = np.empty(
-            [len(frames), len(channels), self.y, self.x], dtype=np.float32
+            [len(frames), len(channels), image.shape[0], image.shape[1]], dtype=np.float32
         )
 
         # Load images:
@@ -2230,7 +2239,7 @@ def cell_fluo(
 # %% Misc
 
 
-def read_image(filename: Path) -> np.ndarray:
+def read_image(filename: Path,gt=False) -> np.ndarray:
     """
     Return the image as a numpy array of np.float32 rescaled between 0 and 1.
 
@@ -2246,10 +2255,16 @@ def read_image(filename: Path) -> np.ndarray:
     img = cv2.imread(str(filename), cv2.IMREAD_ANYDEPTH)
     if img is None:
         raise ValueError(f"File not found or format not understood: {filename}.")
-    for depth, dtype in [(8, np.uint8), (16, np.uint16), (32, np.uint32)]:
-        if img.dtype == dtype:
-            return img.astype(np.float32) / (2**depth - 1)
-    raise ValueError(f"Image depth not understood: {img.dtype}.")
+    if not gt:
+        for depth, dtype in [(8, np.uint8), (16, np.uint16), (32, np.uint32)]:
+            if img.dtype == dtype:
+                if dtype == np.uint8:
+                    return img.astype(np.float32) / (2**depth - 1)
+                else:
+                    return img.astype(np.float32) / np.max(img)
+        raise ValueError(f"Image depth not understood: {img.dtype}.")
+    else:
+        return img
 
 
 def listfiles(directory: Path, suffixes: Iterable[str]) -> List[Path]:
@@ -2292,3 +2307,22 @@ def tensorboard_callback() -> TensorBoard:
     log_dir = f"logs/fit/{date}_{branch}"
     callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
     return callback
+
+def get_total_time(output_dir):
+
+    total_time = datetime.timedelta()
+
+    if not (output_dir / "training_time.txt").exists():
+        return str(total_time)
+
+    with open(str(output_dir / "training_time.txt"), 'r') as file:
+        for line in file:
+            if line.strip():  # Check if line is not empty
+                _, time_str = line.split(': ')
+                hours, minutes, seconds = map(int, time_str.split(':'))
+                total_time += datetime.timedelta(hours=hours, minutes=minutes, seconds=seconds)
+
+    with open(str(output_dir / "training_time.txt"), "a") as f:
+        f.write(f"Total time: {total_time}\n")
+
+    return str(total_time)

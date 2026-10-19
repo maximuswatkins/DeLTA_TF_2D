@@ -47,6 +47,40 @@ MODE = Literal["training", "evaluation"]
 
 # %% UTILITIES:
 
+def detect_touching_cells(labels):
+    """
+    Detect pixels where cells are touching.
+
+    Parameters
+    ----------
+    labels : Labels
+        Labelled cells image where cells are possibly touching.
+
+    Returns
+    -------
+    touching : npt.NDArray[bool]
+        Pixels where cells are touching.
+
+    """
+    mask = labels > 0
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+
+    # This dilation covers lower labels with higher labels
+    dilated = cv2.dilate(labels, kernel)
+    touching = (dilated > labels) & mask
+
+    # Now we want to cover higher labels with lower labels
+    # So we start inverting them (and keeping the background 0)
+    inv_labels = np.zeros_like(labels)
+    np.invert(labels, where=mask, out=inv_labels)
+
+    # And we repeat the same operation
+    inv_dilated = cv2.dilate(inv_labels, kernel)
+    inv_touching = (inv_dilated > inv_labels) & mask
+
+    return np.asarray(touching | inv_touching, dtype=bool)
+
+
 
 def binarizerange(array: Image, threshold: Optional[float]) -> Image:
     """
@@ -719,22 +753,45 @@ def _load_images_seg(
         The same number of datasets as requested splits.  Each dataset is a
         tuple of (original image, segmentation mask, sample weights).
     """
-    with_weights = (dataset_path / "wei").is_dir()
+    with_weights = (dataset_path.parent / 'delta_weights' / dataset_path.name / 'wei_seg').is_dir()
 
     counter: Counter[Tuple[np.float32, ...]] = Counter()
     images = []
     masks = []
     if with_weights:
         weights = []
-    for img_path in sorted((dataset_path / "img").iterdir()):
-        if img_path.name == "Sample000245.png":
+
+    regex = re.compile(r'^\d{2}')
+    ctc_folder_paths = [ctc_folder_path for ctc_folder_path in dataset_path.iterdir() if ctc_folder_path.is_dir() and regex.match(ctc_folder_path.name)]
+
+    img_paths = []
+
+    for ctc_folder_path in ctc_folder_paths:
+        img_paths.extend((ctc_folder_path.glob('*.tif')))
+
+    img_paths = sorted(img_paths)
+
+    for img_path in img_paths:
+        if img_path.suffix not in  ['.png','.tif']:
             continue
         image = utils.read_image(img_path)
         counter[tuple(image.flatten())] += 1
         if counter[tuple(image.flatten())] > 1:
             continue
         images.append(image)
-        mask = utils.read_image(dataset_path / "seg" / img_path.name)
+
+        seg_fn = 'man_seg' + re.findall('\d+',img_path.stem)[0] + img_path.suffix 
+
+        if (img_path.parents[1] / (img_path.parent.name + '_GT') / 'SEG' / seg_fn).exists():
+            gt = utils.read_image(img_path.parents[1] / (img_path.parent.name + '_GT') / 'SEG' / seg_fn,gt=True)
+        else:
+            seg_fn = 'man_track' + re.findall('\d+',img_path.stem)[0] + img_path.suffix 
+            gt = utils.read_image(img_path.parents[1] / (img_path.parent.name + '_GT') / 'SEG' / seg_fn,gt=True)
+        
+        border = detect_touching_cells(gt)
+        gt[border > 0] = 0
+
+        mask = ((gt > 0)*1).astype(np.uint8)
         if mask.shape != image.shape:
             raise RuntimeError(
                 "Check the dataset. Image and mask don't have the same "
@@ -742,7 +799,7 @@ def _load_images_seg(
             )
         masks.append(mask.astype(np.uint8))
         if with_weights:
-            weight = utils.read_image(dataset_path / "wei" / img_path.name)
+            weight = utils.read_image(dataset_path.parent / 'delta_weights' / dataset_path.name / "wei_seg" / (img_path.parent.name + '_GT') / seg_fn)
             if weight.shape != image.shape:
                 raise RuntimeError(
                     "Check the dataset. Image and weights don't have the same "
@@ -992,6 +1049,7 @@ def seg_weights(
 def make_weights(
     training_dataset_path: Union[str, Path],
     weights_function: Callable[[SegmentationMask], npt.NDArray[np.float32]],
+    classweights = (1,1)
 ) -> None:
     """
     Create and populate the directory `training_dataset_path/wei` with the image weights for training.
@@ -1013,15 +1071,30 @@ def make_weights(
         Possible values are `delta.data.seg_weights` for mothermachine images,
         `delta.data.seg_weights_2D` for 2D pads, or custom functions or lambdas.
     """
-    training_dataset_path = Path(training_dataset_path)
-    (training_dataset_path / "wei").mkdir(exist_ok=True)
-    for seg_path in sorted((training_dataset_path / "seg").iterdir()):
-        print(f"Making weights for {seg_path.name}...")
-        mask = utils.read_image(seg_path)
-        weights = weights_function(mask)
-        norm_weights = weights / weights.max() if weights.max() > 0 else weights
-        int_weights = utils.to_integer_values(norm_weights, np.uint8)
-        cv2.imwrite(str(training_dataset_path / "wei" / seg_path.name), int_weights)
+    wei_path = Path(training_dataset_path.parent / "delta_weights" / training_dataset_path.name / 'wei_seg')
+    wei_path.parents[1].mkdir(exist_ok=True)
+    wei_path.parents[0].mkdir(exist_ok=True)
+    wei_path.mkdir(exist_ok=True)
+
+    regex = re.compile(r'^\d{2}_GT$')
+    ctc_folder_paths = [ctc_folder_path for ctc_folder_path in training_dataset_path.iterdir() if ctc_folder_path.is_dir() and regex.match(ctc_folder_path.name)]
+
+    for ctc_folder_path in ctc_folder_paths:
+        num = ctc_folder_path.name
+        (wei_path / num).mkdir()
+
+        seg_filepaths = sorted((ctc_folder_path / 'SEG').iterdir())
+
+        for seg_filepath in seg_filepaths:
+            print(f"Making weights for {seg_filepath.name}...")
+            gt = utils.read_image(seg_filepath,gt=True)
+            border = detect_touching_cells(gt)
+            gt[border > 0] = 0
+            mask = ((gt > 0) * 1).astype(np.uint8)
+            weights = weights_function(mask,classweights)
+            norm_weights = weights / weights.max() if weights.max() > 0 else weights
+            int_weights = utils.to_integer_values(norm_weights, np.uint8)
+            cv2.imwrite(str(wei_path / num / seg_filepath.name), int_weights)
 
 
 def kernel(n: int) -> SegmentationMask:
@@ -1160,7 +1233,7 @@ def seg_weights_2D(
 
     # Use the distance from the skeletons to create a gradient towards the skeleton
     border_gra = border * (classweights[1]) / (border_dist + 1) ** 2
-    mask_gra = mask / (mask_dist + 1) ** 2
+    mask_gra = mask * (classweights[0]) / (mask_dist + 1) ** 2
 
     # Set up weights array
     weightmap = np.zeros((mask.shape), dtype=np.float32)
@@ -1175,7 +1248,7 @@ def seg_weights_2D(
 
     # Keep the background zero and set the erode values in the seg/border to a minimum of 1
     bkgd = np.ones(mask.shape) - mask - border
-    weightmap[((weightmap == 0) * (bkgd < 1))] = 1 / 255
+    weightmap[weightmap == 0] = 1 / 255
 
     return weightmap
 
@@ -1296,8 +1369,18 @@ def trainGenerator_track(
     """
     resize_method = "pad" if crop_windows else "resize"
 
+    regex = re.compile(r'^\d{2}$')
+    ctc_folder_paths = [ctc_folder_path for ctc_folder_path in datapath.iterdir() if ctc_folder_path.is_dir() and regex.match(ctc_folder_path.name)]
+
+    image_names = []
+    txt_files = {}
+
+    for ctc_folder_path in ctc_folder_paths:
+        image_names.extend((ctc_folder_path.glob('*.tif')))
+        man_track_filepath = ctc_folder_path.parent / (ctc_folder_path.stem + '_GT') / 'TRA' / 'man_track.txt'
+        txt_files[ctc_folder_path.name] = np.loadtxt(man_track_filepath,dtype=np.uint16)
+
     # Initialize variables and arrays:
-    image_names = utils.listfiles(datapath / 'cur_img', {".png", ".tif"})
     X = np.empty((batch_size,) + target_size + (4,), dtype=np.float32)
     Y = np.empty((batch_size,) + target_size + (2,), dtype=np.float32)
 
@@ -1310,62 +1393,99 @@ def trainGenerator_track(
 
         for b in range(batch_size):
             # Pick random image file name
-            filename = rng.choice(image_names)
+
+            # while True:
+            filepath = rng.choice(image_names)
+
+            framenb = re.findall('\d+',filepath.stem)[0]
+            exp_nb = filepath.parts[-2]
+            char_ind = filepath.stem.index(framenb)
+            exp = filepath.name[:char_ind]
+            img_filename = filepath.name
+            gt_filename = 'man_track' + filepath.name[char_ind:]
+            img_prevfilename = f'{exp}{int(framenb)-1:0{len(framenb)}d}' + filepath.suffix
+            gt_prevfilename = f'man_track{int(framenb)-1:0{len(framenb)}d}' + filepath.suffix
+
+            if not (filepath.parent / img_prevfilename).exists():
+                img_filename = exp + f'{int(framenb)+1:0{len(framenb)}d}' + filepath.suffix
+                gt_filename = f'man_track{int(framenb)+1:0{len(framenb)}d}' + filepath.suffix
+                img_prevfilename = exp + f'{int(framenb):0{len(framenb)}d}' + filepath.suffix
+                gt_prevfilename = f'man_track{int(framenb):0{len(framenb)}d}' + filepath.suffix
+
+                if not (filepath.parent / img_prevfilename).exists():
+                    print('blah')
+                    raise NameError
+
+            man_track = txt_files[exp_nb]
 
             # Read images:
-            img: Image = readreshape(
-                filename, target_size=target_size, order=1, method=resize_method
-            )
+            img: Image = readreshape(datapath / exp_nb / img_filename, target_size=target_size, order=1, method=resize_method)
+            previmg: Image = readreshape(datapath / exp_nb / img_prevfilename,target_size=target_size,order=1,method=resize_method)
 
-            inputs = cv2.imread(str(filename.parents[1] / 'prev_gt' / filename.name),cv2.IMREAD_ANYDEPTH)
+            inputs = cv2.imread(str(datapath / (exp_nb + '_GT') / 'TRA' / gt_prevfilename),cv2.IMREAD_ANYDEPTH)
+            border = detect_touching_cells(inputs)
+            inputs[border > 0] = 0
+            inputs = inputs.astype(np.float32)
             inputs_cellnbs = np.unique(inputs)
-            inputs_cellnb = np.random.choice(inputs_cellnbs,1)
+            inputs_cellnbs = inputs_cellnbs[inputs_cellnbs > 0]
 
-            seg = (inputs == inputs_cellnb) * 1
-            seg = trans.resize(seg, target_size, anti_aliasing=True, order=0)
-            seg = ((seg > 0) * 1).astype(np.uint8)
+            if len(inputs_cellnbs) == 0: 
+            #     raise NotImplementedError
+                seg = np.zeros_like((inputs))
+                segall = np.zeros_like((inputs))
+                track = np.zeros_like((inputs))
+                weights = np.ones_like(track)
+            
+            else:
+                inputs_cellnb = int(np.random.choice(inputs_cellnbs,1)[0])
 
-            outputs = cv2.imread(str(filename.parents[1] / 'cur_gt' / filename.name),cv2.IMREAD_ANYDEPTH)
-            segall = ((outputs > 0) * 1)
-            segall = trans.resize(segall, target_size, anti_aliasing=True, order=0)
-            segall = ((segall > 0) * 1).astype(np.uint8)
+                seg = (inputs == inputs_cellnb) * 1
 
-            track = ((outputs == inputs_cellnb) *1)
-            track = trans.resize(track, target_size, anti_aliasing=True, order=0)
-            track = ((track > 0) * 1).astype(np.uint8)
+                if not crop_windows:
+                    seg = trans.resize(seg, target_size, anti_aliasing=True, order=0)
+                    seg = ((seg > 0.5) * 1).astype(np.float32)
 
-            previmg: Image = readreshape(
-                datapath / 'prev_img' / filename.name,
-                target_size=target_size,
-                order=1,
-                method=resize_method,
-            )
+                outputs = cv2.imread(str(datapath / (exp_nb + '_GT') / 'TRA' / gt_filename),cv2.IMREAD_ANYDEPTH)
+                border = detect_touching_cells(outputs)
+                outputs[border > 0] = 0
+                outputs = outputs.astype(np.float32)
+                segall = ((outputs > 0) * 1)
 
-            # if datapath  is not None:
-            #     if weights_path == "online":
-            #         weights = tracking_weights(track, segall)
-            #     else:
-            #         weights = readreshape(
-            #             weights_path / filename.name,
-            #             target_size=target_size,
-            #             binarize=False,
-            #             order=0,
-            #             method=resize_method,
-            #         )
-            # else:
-            weights = np.ones_like(track)
+                if not crop_windows:
+                    segall = trans.resize(segall, target_size, anti_aliasing=True, order=0)
+                    segall = ((segall > 0.5) * 1).astype(np.float32)
 
-            # Data augmentation:
-            [img, seg, previmg, segall, track, weights] = data_augmentation(
-                [img, seg, previmg, segall, track, weights],
-                augment_params,
-                order=[1, 0, 1, 0, 0, 0],
-                rng=rng,
-            )
+                track = ((outputs == inputs_cellnb) *1)
+            
+                if man_track[man_track[:,0] == inputs_cellnb,2] == int(framenb) - 1:
+                    if inputs_cellnb in man_track[:,-1]:
+                        daughters = man_track[man_track[:,-1] == inputs_cellnb,0]
+                        
+                        for dau in daughters:
+                            # if man_track[man_track[:,0] == dau,1] != int(framenb):
+                            #     print(inputs_cellnb,daughters,dau,framenb)
+                            #     print(man_track[man_track[:,0] == inputs_cellnb:dau+3])
+                            #     assert man_track[man_track[0] == dau,1] == int(framenb)
+                            if dau != inputs_cellnb:
+                                track[outputs == dau] = 1  
+    
+                if not crop_windows:
+                    track = trans.resize(track, target_size, anti_aliasing=True, order=0)
+                    track = ((track > 0.5) * 1).astype(np.float32)
+
+                weights = np.ones_like(track)
+
+                # Data augmentation:
+                [img, seg, previmg, segall, track, weights] = data_augmentation(
+                    [img, seg, previmg, segall, track, weights],
+                    augment_params,
+                    order=[1, 0, 1, 0, 0, 0],
+                    rng=rng,
+                )
 
             if crop_windows:
                 shape = cast(Tuple[int, int], seg.shape)  # for mypy
-                cb, fb = utils.gettrackingboxes(seg, shape, target_size)
+                cb, fb = utils.gettrackingboxes(seg.astype(np.uint8), shape, target_size)
                 shiftY, shiftX = utils.getshiftvalues(shift_cropbox, shape, cb, rng)
             else:
                 cb = utils.CroppingBox.full(seg)
@@ -1526,6 +1646,10 @@ def predictCompilefromseg_track(
             f"{charstrs[2]}"
         )
         fileorder = "pt"
+    elif len(numstrs) == 1 and len(charstrs) == 2:
+        # CTC-style names like t000.tif
+        prototype = f"{charstrs[0]}%0{len(numstrs[0])}d{charstrs[1]}"
+        fileorder = "t"
     else:
         raise ValueError(
             "Filename formatting error. See documentation for image sequence formatting"
@@ -1542,8 +1666,12 @@ def predictCompilefromseg_track(
         elif fileorder == "pt":
             (pos, fra) = list(map(int, re.findall(r"\d+", filename)))
             cha = None
+        elif fileorder == "t":
+            (fra,) = list(map(int, re.findall(r"\d+", filename)))
+            pos = 0
+            cha = None
 
-        if fra > 1:
+        if (fileorder == "t" and fra > 0) or (fileorder != "t" and fra > 1):
             prevframename = getfnfromprototype(
                 prototype, fileorder, position=pos, chamber=cha, frame=fra - 1
             )
@@ -1711,3 +1839,4 @@ def saveResult_track(
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             io.imsave(filename, mother * 255)
+

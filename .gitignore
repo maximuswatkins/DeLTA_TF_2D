@@ -149,3 +149,16 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# Local data, models and outputs (My2D models are distributed as release assets)
+/data/
+/models/
+/results/*
+!/results/My2D/
+pipeline_summary.csv
+time.txt
+get-pip.py
+*.backup
+delta/data_old.py
+scripts/training_history.pkl
+.DS_Store
